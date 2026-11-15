@@ -9,6 +9,10 @@ Status: PLAN, owner decisions taken 2026-11-15. Nothing has run. Every host chan
 2. Phase 2 (M5 Max, M4 Max): NOT run. M3 Ultra Macs only. No change to M5/M4.
 3. Spark 3 and Spark 4: left alone.
 4. Phase 5 (Flash-Next MoE): YES. Mac 2 only: Mac 3 has 72 GiB free disk, the model is 100.2 GiB.
+5. (Later, same day) Do NOT repeat the same test on both Macs. Earlier runs already showed Mac 2 and Mac 3
+   give nearly the same Mac-alone speed, so a copy adds nothing. New split, run at the same time:
+   - Mac 3 + Spark 2: phase 1 (Qwen 27B: GPU / +ANE / +Spark / +both), then phases 3 and 4.
+   - Mac 2 + Spark 1: phase 5 (Flash-Next MoE: GPU / +Spark).
 
 ## Goal
 
@@ -53,13 +57,13 @@ Prompt sizes: 8K, 32K, 64K, 128K. Output: 128 greedy tokens. Cold cache (0 cache
 | Phase | Machines | Settings | Cells x 3 runs | Est. hours |
 |---|---|---|---|---|
 | 0. Setup + smoke | Mac 2, Mac 3, Spark 1, Spark 2 | harness smoke run, Spark 2 on fix image, link speed test | - | 1.5 |
-| 1. Main | Mac 2, Mac 3 | GPU / +ANE / +Spark / +ANE+Spark | 2 x 4 x 4 = 32 cells, 96 runs | 4.8 |
+| 1. Main | Mac 3 + Spark 2 | GPU / +ANE / +Spark / +ANE+Spark | 4 x 4 = 16 cells, 48 runs | 2.4 |
 | ~~2. Other Macs~~ | ~~M5 Max, M4 Max 1~~ | skipped (owner) | - | 0 |
 | 3. KV cache | Mac 3 | Native / Affine4 / Affine8 at 32K and 128K, measured memory | 6 cells, 18 runs | 1.7 |
 | 4. Quality | Mac 3 | GPU vs ANE vs Affine4 vs Affine8 vs Spark: passkey 32K/64K/128K, GSM8K 200, MMLU 500 | 5 settings | 2.5 |
 | 5. MoE | Mac 2 + Spark 1 | Flash-Next-oQ4e-mtp, GPU / +Spark, 32K and 64K (download 100.2 GiB first) | 4 cells, 12 runs | 3.0 |
 | Margin | | Spark cool-down to 45 C, retries (+30%) | | 3.6 |
-| **Total** | | | **126 timed runs** | **about 17 h** |
+| **Total** | | | **78 timed runs** | **about 9 h on Mac 3; phase 5 runs on Mac 2 at the same time** |
 
 Estimates use measured speeds for M3 Ultra. Phase 5 speeds are from the docs row (1388 -> 3574 tok/s at 32K on the reference Mac).
 
