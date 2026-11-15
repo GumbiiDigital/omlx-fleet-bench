@@ -1,0 +1,14 @@
+{
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "runs_per_cell": 1,
+  "note": "Phase 0 smoke: one GPU and one ANE run at 8K, Spark off.",
+  "base_settings": {
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false
+  },
+  "variants": [
+    {"name": "gpu", "helper": "off", "ane": "off", "settings": {}},
+    {"name": "ane", "helper": "off", "ane": "on", "settings": {}}
+  ],
+  "prompt_sizes": [8192]
+}

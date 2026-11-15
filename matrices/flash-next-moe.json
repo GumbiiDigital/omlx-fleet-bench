@@ -1,0 +1,27 @@
+{
+  "model": "Qwen3.8-Flash-Next-oQ4e-mtp",
+  "runs_per_cell": 3,
+  "base_settings": {
+    "qwen35_ane_prefill_enabled": false,
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "spark",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    }
+  ],
+  "prompt_sizes": [32768, 65536]
+}

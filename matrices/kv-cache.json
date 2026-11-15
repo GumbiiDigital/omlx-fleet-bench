@@ -1,0 +1,44 @@
+{
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "runs_per_cell": 3,
+  "base_settings": {
+    "prefill_helper_node_id": "",
+    "prefill_helper_layers": null,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "native",
+      "helper": "off",
+      "ane": "off",
+      "settings": {
+        "turboquant_kv_enabled": false
+      }
+    },
+    {
+      "name": "affine4",
+      "helper": "off",
+      "ane": "off",
+      "settings": {
+        "turboquant_kv_enabled": true,
+        "turboquant_kv_scheme": "affine4",
+        "turboquant_kv_bits": 4
+      }
+    },
+    {
+      "name": "affine8",
+      "helper": "off",
+      "ane": "off",
+      "settings": {
+        "turboquant_kv_enabled": true,
+        "turboquant_kv_scheme": "affine8",
+        "turboquant_kv_bits": 8
+      }
+    }
+  ],
+  "prompt_sizes": [
+    32768,
+    131072
+  ],
+  "note": "ANE off to match docs/affine4.md 32K table and the 2026-11-14 Mac 3 run."
+}
