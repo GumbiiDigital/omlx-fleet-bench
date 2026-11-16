@@ -6,6 +6,7 @@ replayed without a server.
 
 import io
 import json
+import socket
 import unittest
 from email.message import Message
 from typing import Any, Dict, Sequence, Union
@@ -39,6 +40,13 @@ class _Fail:
         self.body = body
 
 
+class _Raise:
+    """One scripted connection-level exception (timeout, reset)."""
+
+    def __init__(self, exc: BaseException) -> None:
+        self.exc = exc
+
+
 def _reply(text: str = "pong") -> Dict[str, Any]:
     return {
         "choices": [{"message": {"content": text}, "finish_reason": "stop"}],
@@ -49,7 +57,7 @@ def _reply(text: str = "pong") -> Dict[str, Any]:
 class _ScriptedOpener:
     """Fake urlopen: plays queued outcomes, repeats the last one, counts calls."""
 
-    def __init__(self, outcomes: Sequence[Union[Dict[str, Any], _Fail]]) -> None:
+    def __init__(self, outcomes: Sequence[Union[Dict[str, Any], _Fail, _Raise]]) -> None:
         self._outcomes = list(outcomes)
         self.calls = 0
 
@@ -57,6 +65,8 @@ class _ScriptedOpener:
         index = min(self.calls, len(self._outcomes) - 1)
         self.calls += 1
         outcome = self._outcomes[index]
+        if isinstance(outcome, _Raise):
+            raise outcome.exc
         if isinstance(outcome, _Fail):
             raise HTTPError(
                 req.full_url,
@@ -95,6 +105,37 @@ class ChatRetryTest(unittest.TestCase):
         )
         self.assertEqual(client.retry_delay_s(409, 0), 7.0)
         self.assertEqual(client.retry_delay_s(500, 0), 1.0)
+
+
+class ConnectionErrorRetryTest(unittest.TestCase):
+    """Mac 3 runs Python 3.9: socket.timeout is not TimeoutError, and a reset is a bare OSError."""
+
+    def test_socket_timeout_is_retried(self) -> None:
+        opener = _ScriptedOpener([_Raise(socket.timeout("timed out")), _reply("#### 18")])
+        out = _client(opener).chat(MODEL, PROBE_MESSAGES)
+        self.assertEqual(out["content"], "#### 18")
+        self.assertEqual(opener.calls, 2)
+
+    def test_connection_reset_is_retried(self) -> None:
+        opener = _ScriptedOpener(
+            [_Raise(ConnectionResetError(54, "Connection reset by peer")), _reply("pong")]
+        )
+        out = _client(opener).chat(MODEL, PROBE_MESSAGES)
+        self.assertEqual(out["content"], "pong")
+        self.assertEqual(opener.calls, 2)
+
+    def test_probe_keeps_waiting_through_connection_errors(self) -> None:
+        opener = _ScriptedOpener(
+            [
+                _Raise(socket.timeout("timed out")),
+                _Raise(ConnectionResetError(54, "Connection reset by peer")),
+                _Fail(409, "busy; unload pending"),
+                _reply("pong"),
+            ]
+        )
+        out = _client(opener).wait_until_ready(MODEL, timeout_s=5.0, interval_s=0.001)
+        self.assertEqual(out["content"], "pong")
+        self.assertEqual(opener.calls, 4)
 
 
 class ChatErrorMessageTest(unittest.TestCase):

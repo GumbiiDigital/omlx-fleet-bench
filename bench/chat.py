@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
@@ -116,7 +116,7 @@ class ChatClient:
                     time.sleep(delay)
                     continue
                 raise ChatError(message) from exc
-            except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 last_error = exc
                 if attempt < attempts:
                     delay = self.retry_delay_s(0, attempt)

@@ -7,7 +7,6 @@ import logging
 import time
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
-from urllib.error import HTTPError, URLError
 from http.cookiejar import CookieJar
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
@@ -80,7 +79,7 @@ class OMLXClient:
         url = f"{self.base_url}{path}"
         try:
             return _json_request(self._opener, method, url, body)
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except (OSError, json.JSONDecodeError) as exc:
             logger.warning("Request failed (%s), re-login: %s", path, exc)
             self.login()
             return _json_request(self._opener, method, url, body)
@@ -144,7 +143,7 @@ class OMLXClient:
         while True:
             try:
                 data = self._request_with_relogin("GET", path)
-            except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError):
                 logger.warning("Poll error for %s, re-login", bench_id)
                 self.login()
                 data = self._request_with_relogin("GET", path)
@@ -176,7 +175,7 @@ class OMLXClient:
                     etype = event.get("type") or event.get("event")
                     if etype in TERMINAL_STREAM_TYPES:
                         return event
-        except (HTTPError, URLError, TimeoutError):
+        except OSError:
             logger.warning("Stream error for %s, re-login and retry", bench_id)
             self.login()
             return self.read_stream_terminal_event(bench_id)
@@ -196,7 +195,7 @@ class OMLXClient:
             try:
                 self.put_model_settings(model, snapshot)
                 logger.info("Restored %d settings for %s", len(snapshot), model)
-            except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 logger.error("Failed to restore settings for %s: %s", model, exc)
 
     def apply_settings(self, model: str, desired: Dict[str, Any], fields: List[str]) -> None:
