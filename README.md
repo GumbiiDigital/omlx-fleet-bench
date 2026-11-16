@@ -56,6 +56,36 @@ GPU only, ANE off, helper off. Same model, 32K and 128K, 3 runs per cell, 0.07% 
 - KV cache size in GB is **not** measured by this harness. The peak memory figure above is MLX active
   memory for the run window, not the KV cache alone. No KV size is claimed anywhere in this repo.
 
+## Answer quality (phase 4)
+
+Does a setting change what the model answers? `bench/quality.py` asks the same questions under each
+setting and `bench/quality_report.py` gives accuracy per setting and task.
+
+- Tasks: GSM8K (200 questions from the test split), MMLU (500 questions, 25 from each of 20 subjects),
+  and passkey retrieval at 32K, 64K and 128K (a 7-digit number planted halfway into a long prompt).
+- Data: `data/gsm8k-200.jsonl`, `data/mmlu-500.jsonl`, rebuilt with `scripts/fetch_quality_data.py`.
+  Both are subsets of public MIT-licensed sets; the sampling error is about 3 to 4 points (see `data/README.md`).
+- Settings: GPU only, + ANE prefill, Affine4 KV, Affine8 KV, + Spark helper. 3,530 requests.
+- Nothing is uploaded: the chat path has no leaderboard upload.
+
+Status: built and smoke-tested on GPU (2 GSM8K, 2 MMLU, 2 passkey at 32K: all correct, settings put back
+unchanged). **The full 5-setting run has not been executed yet**, so this repo has no accuracy table for it.
+
+```bash
+python3 bench/quality.py --matrix matrices/quality.json \
+  --base-url http://127.0.0.1:8004 \
+  --settings "$HOME/.omlx/settings.json" \
+  --helper-node YOUR_HELPER_NODE_ID \
+  --machine your-label \
+  --out results/your-label/quality-2026-11-16.jsonl
+
+python3 bench/quality_report.py results/your-label/quality-2026-11-16.jsonl --out report/quality.md
+```
+
+`--limit N` runs the first N samples of each task, `--only-variants` and `--only-tasks` narrow the
+matrix, and `--dry-run` prints the plan. Measured on the hardware below, one setting takes about 85
+minutes, so the whole matrix is roughly 7 hours.
+
 ## How to run
 
 ```bash

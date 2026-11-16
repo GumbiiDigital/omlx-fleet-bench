@@ -20,9 +20,15 @@ variants so heat and time drift hit every side.
 |---|---|---|---|
 | 1 | `matrices/m3-ultra-spark.json`: GPU / + ANE / + helper / + ANE + helper at 4 sizes | 16 | 48 |
 | 3 | `matrices/kv-cache.json`: native / Affine4 / Affine8 KV at 32K and 128K | 6 | 18 |
+| 4 | `matrices/quality.json`: GSM8K 200, MMLU 500, passkey 32K/64K/128K under 5 settings | 15 groups | 3,530 |
 | 5 | `matrices/flash-next-moe.json`: MoE model, GPU / + helper (not run in this repo yet) | 4 | 12 |
 
-Phase 2 (other Mac models) and phase 4 (answer quality: passkey, GSM8K, MMLU) are **not built here**.
+Phase 2 (other Mac models) is not built here.
+
+Phase 4 uses chat requests, not the benchmark endpoint, so it has no leaderboard upload at all. One
+request is one row. A row carries the question id, the setting, the model reply, the reasoning length,
+token usage, the score, and the expected and extracted answer. Passkey rows also carry the target
+prompt size, so the report can show the real prompt size against it (99.7% on the calibration run).
 
 ## What a row records
 
@@ -63,6 +69,17 @@ The harness snapshots the model settings it touches (up to 7 fields), applies on
 PUT, and restores the snapshot in a `finally` block. Proof after a phase: `settings` file byte-identical,
 or the model settings file identical, to a copy taken before the phase.
 
+## Answer-quality rules
+
+- A row is scored, not filtered. Wrong answers stay in the file, because accuracy is the measurement.
+- A reply with no text (`content` empty, only reasoning, usually because `max_tokens` ran out) is scored
+  wrong and tagged `no_answer_text`. Token budgets are set generous (2,048 for GSM8K, 1,024 for MMLU,
+  256 for a passkey number) so this stays rare.
+- GSM8K is scored on the final number only, after `####`. MMLU is scored on the letter. Passkey is scored
+  on the 7-digit number appearing in the reply, ignoring commas.
+- Settings are applied once per setting block and restored at the end, the same way the benchmark runner
+  does it.
+
 ## Limits
 
 - KV cache size in GB is not measured. Peak MLX active memory is reported instead.
@@ -70,3 +87,7 @@ or the model settings file identical, to a copy taken before the phase.
 - `report.py` merges every JSONL under the folder it is given. Report one phase by giving it a folder
   that holds only that phase's file.
 - Decode tokens/s varies with the MTP (multi-token prediction) path and is not studied here.
+- The quality subsets are small: about 3 points of sampling error for GSM8K 200, about 4 for MMLU 500
+  (see `data/README.md`). Compare settings inside one run, not against published full-test scores.
+- Passkey prompt length is calibrated to about 1.11 tokens per word of the filler text, measured against
+  the server's own token count.
