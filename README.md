@@ -115,4 +115,4 @@ Python 3.9 or newer, standard library only.
 
 ## License
 
-MIT, see `LICENSE`.
+Apache License 2.0, see `LICENSE`.
