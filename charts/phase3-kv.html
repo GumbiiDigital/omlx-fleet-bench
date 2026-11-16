@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,'SF Pro Text',Helvetica,Arial,sans-serif;padding:22px 26px;width:1400px}
+h1{font-size:21px;font-weight:650}
+.sub1{color:#8b949e;font-size:12.5px;margin:5px 0 16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px 14px 14px}
+.panel h2{font-size:14px;font-weight:600;color:#c9d1d9;margin-bottom:10px}
+.row{display:grid;grid-template-columns:120px 1fr 128px;align-items:center;gap:10px;margin:7px 0}
+.lbl{font-size:12.5px;font-weight:600}
+.track{background:#21262d;border-radius:4px;height:20px;overflow:hidden}
+.bar{height:20px;border-radius:4px}
+.val{font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15}
+.sub{display:block;color:#8b949e;font-size:10.5px}
+.legend{margin-top:14px;color:#8b949e;font-size:11.5px;line-height:1.5}
+</style></head><body>
+<h1>Phase 3 — Mac 3 Media (M3 Ultra, 60-core): KV cache schemes, time to first token</h1>
+<div class="sub1">Qwen3.8-27B-oQ4e-mtp · GPU only, ANE off, Spark helper off · private runs (upload skipped) · cold cache · 128 output tokens · mean of 3 runs · lower is better</div>
+<div class="grid"><section class="panel"><h2>32K prompt (32,768 tokens)</h2><div class="row"><div class="lbl" style="color:#8b949e">Native KV</div>
+<div class="track"><div class="bar" style="width:100.0%;background:#8b949e"></div></div>
+<div class="val">109.9 s<span class="sub">298 tok/s · peak 21.5 GB</span></div></div><div class="row"><div class="lbl" style="color:#3fb950">Affine4 KV</div>
+<div class="track"><div class="bar" style="width:99.3%;background:#3fb950"></div></div>
+<div class="val">109.0 s<span class="sub">300 tok/s · peak 19.6 GB</span></div></div><div class="row"><div class="lbl" style="color:#d29922">Affine8 KV</div>
+<div class="track"><div class="bar" style="width:99.2%;background:#d29922"></div></div>
+<div class="val">109.0 s<span class="sub">301 tok/s · peak 20.1 GB</span></div></div></section><section class="panel"><h2>128K prompt (131,072 tokens)</h2><div class="row"><div class="lbl" style="color:#8b949e">Native KV</div>
+<div class="track"><div class="bar" style="width:100.0%;background:#8b949e"></div></div>
+<div class="val">638.2 s<span class="sub">205 tok/s · peak 29.1 GB</span></div></div><div class="row"><div class="lbl" style="color:#3fb950">Affine4 KV</div>
+<div class="track"><div class="bar" style="width:97.3%;background:#3fb950"></div></div>
+<div class="val">621.0 s<span class="sub">211 tok/s · peak 21.9 GB</span></div></div><div class="row"><div class="lbl" style="color:#d29922">Affine8 KV</div>
+<div class="track"><div class="bar" style="width:97.4%;background:#d29922"></div></div>
+<div class="val">621.4 s<span class="sub">211 tok/s · peak 23.9 GB</span></div></div></section></div>
+<div class="legend">peak = highest MLX active memory for the run window. KV cache size itself is not measured by the harness, so no KV GB figure is claimed here.
+Affine4 and Affine8 compress 16 of 64 cache layers (server log: "affine4: converted 16/64 cache layers to 4.0-bit").</div>
+</body></html>

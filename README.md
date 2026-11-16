@@ -1,68 +1,103 @@
 # omlx-fleet-bench
 
-Harness for repeatable **private** oMLX throughput benchmarks across Mac + Spark settings.
-Raw rows live under `results/<machine>/`; this repo is meant to be shared so others can add their own machines.
+Repeatable, private throughput benchmarks for oMLX: how long do you wait for the first token, on your Mac,
+and what does each add-on buy you? Fixed matrices, 3 runs per cell, raw rows in the repo.
 
-## Private runs only
+Every run is private: the harness always sends `align_prompt_to_ane: true`, so the prompt is ANE-aligned
+and each run ends with `upload_skipped`. Nothing here is uploaded to the public omlx.ai leaderboard, and
+the harness refuses to start a run with that flag off.
 
-Every benchmark start sets `align_prompt_to_ane: true`. That keeps prompts ANE-aligned so runs end with
-`upload_skipped` and never hit the public leaderboard. Do not disable this flag in matrix files.
+## Results
+
+Apple M3 Ultra, 60-core GPU, 256 GB, macOS 27.2.1, oMLX 0.8.0rc1, model `Jundot/Qwen3.8-27B-oQ4e-mtp`
+(4-bit MLX, 16 GB on disk). Helper: NVIDIA GB10 (DGX Spark, 128 GB) over a 10 GbE link, CUDA helper 0.1.4
+with a local fix for long-prompt memory (the same runs failed at 128K on the stock helper).
+Prompts: 8K, 32K, 64K, 128K tokens, `code_python` profile, 128 output tokens, cold cache.
+Each cell is the mean of 3 runs; spread is under 1% except where noted.
+
+Prefill speed and time to first token (lower is better):
+
+| Setup | 8K | 32K | 64K | 128K |
+|---|---:|---:|---:|---:|
+| GPU only | 335 tok/s · 24.5 s | 298 tok/s · 109.8 s | 259 tok/s · 252.8 s | 205 tok/s · 638.1 s |
+| + ANE prefill | 435 tok/s · 18.8 s | 376 tok/s · 87.2 s | 316 tok/s · 207.5 s | 239 tok/s · 548.3 s |
+| + Spark helper | 955 tok/s · 8.6 s | 933 tok/s · 35.1 s | 852 tok/s · 76.9 s | 691 tok/s · 189.8 s |
+| + ANE + Spark | 1052 tok/s · 7.8 s | 1106 tok/s · 29.6 s | 987 tok/s · 66.4 s | 789 tok/s · 166.1 s |
+
+![Time to first token per setup](charts/phase1-ttft.png)
+
+Reading the numbers:
+
+- The Spark helper cuts the wait 2.8x (8K) to 3.4x (128K). Time to first token at 128K falls 638 s to 190 s.
+- ANE prefill alone gives 1.2x to 1.3x. It is cheap to turn on, and it stacks with the helper.
+- ANE + Spark is fastest everywhere: 3.1x to 3.8x.
+- At 128K the helper ran the whole prompt with no drop and no restart (peak 27.6 GB of MLX active memory).
+- Noise: the 8K and 32K helper cells came out at 7.5% and 4.3% spread. Helper throughput rises about 5%
+  (8K) and 15% (32K) when the helper runs back to back instead of behind several minutes of Mac-only work.
+  Those two cells were re-measured once (rows 49-54 in the raw file) and the warm numbers are 1004 and
+  1094 tok/s. Treat the first-pass helper numbers as a cold lower bound.
+
+## KV cache schemes
+
+GPU only, ANE off, helper off. Same model, 32K and 128K, 3 runs per cell, 0.07% maximum spread.
+
+| Scheme | 32K: prefill · TTFT · peak memory | 128K: prefill · TTFT · peak memory |
+|---|---|---|
+| Native | 298.3 tok/s · 109.9 s · 21.5 GB | 205.4 tok/s · 638.2 s · 29.1 GB |
+| Affine4 | 300.5 tok/s · 109.0 s · 19.6 GB | 211.1 tok/s · 621.0 s · 21.9 GB |
+| Affine8 | 300.6 tok/s · 109.0 s · 20.1 GB | 210.9 tok/s · 621.4 s · 23.9 GB |
+
+![KV cache schemes](charts/phase3-kv.png)
+
+- Speed barely moves: +0.7% prefill at 32K, +2.8% at 128K.
+- Memory is the point: peak MLX active memory falls 29.1 GB to 21.9 GB at 128K (-24.6%).
+- Affine4 is better than Affine8 at both sizes on memory, and equal on speed.
+- Affine4 and Affine8 compress 16 of 64 cache layers (server log: `affine4: converted 16/64 cache layers to 4.0-bit`).
+- KV cache size in GB is **not** measured by this harness. The peak memory figure above is MLX active
+  memory for the run window, not the KV cache alone. No KV size is claimed anywhere in this repo.
+
+## How to run
+
+```bash
+python3 bench/run.py \
+  --matrix matrices/m3-ultra-spark.json \
+  --base-url http://127.0.0.1:8004 \
+  --settings "$HOME/.omlx/settings.json" \
+  --server-log "$HOME/.omlx/logs/server.log" \
+  --helper-node YOUR_HELPER_NODE_ID \
+  --machine your-label \
+  --out results/your-label/2026-11-15.jsonl
+```
+
+Add `--dry-run` to print the planned order without touching the server. Filter cells with
+`--only-cells gpu:32768,ane:32768`. The harness reads the API key from `settings.json` (`auth.api_key`),
+keeps a session cookie, and never prints the key. It snapshots the model settings it touches and puts them
+back in a `finally` block; proof that it worked is a byte-identical `settings.json` afterwards.
+
+Report:
+
+```bash
+python3 bench/report.py results --report-dir report
+# report/summary.md plus report/charts/*.svg
+# exit 0 only when every cell has its planned valid runs and no cell is noisy (>3% spread)
+```
+
+Note: `report.py` groups by machine, model, variant and size, so it merges every JSONL under the results
+folder it is given. To report one phase, give it a folder that holds only that phase's file.
 
 ## Layout
 
-- `bench/client.py` — admin API login, settings restore, bench start/poll/stream
-- `bench/matrix.py` — JSON matrices → ordered run list (A/B across variants)
-- `bench/run.py` — executes cells, appends JSONL per run
-- `bench/collect.py` — parse `server.log` benchmark lines
-- `bench/report.py` — markdown tables + SVG TTFT charts
-- `matrices/*.json` — experiment definitions
-
-## Dry run (no API calls)
-
-```bash
-cd omlx-fleet-bench
-python3 bench/run.py \
-  --matrix matrices/m3-ultra-spark.json \
-  --helper-node YOUR_SPARK_NODE_ID \
-  --dry-run \
-  --base-url http://127.0.0.1:8004 \
-  --settings /path/to/omlx/settings.json \
-  --server-log /path/to/server.log \
-  --machine mac-2-ops \
-  --out results/mac-2-ops/2026-11-15.jsonl
-```
-
-## Real run (on the Mac next to oMLX)
-
-Use the Mac-local paths for `settings.json` and `server.log`. The harness reads the API key from
-`settings.json` (`auth.api_key`) and never prints it.
-
-```bash
-python3 bench/run.py \
-  --matrix matrices/m3-ultra-spark.json \
-  --helper-node YOUR_SPARK_NODE_ID \
-  --base-url http://127.0.0.1:8004 \
-  --settings "$HOME/Library/Application Support/omlx/settings.json" \
-  --server-log /path/to/server.log \
-  --machine mac-2-ops \
-  --out results/mac-2-ops/2026-11-15.jsonl
-```
-
-Filter cells with `--only-cells gpu:32768,ane:32768`.
-
-## Report
-
-```bash
-python3 bench/report.py results/
-# writes report/summary.md and report/charts/*.svg
-# exit 0 when every cell has enough valid runs and none are noisy (>3% spread)
-```
-
-## Adding your machine
-
-1. Run the harness with `--machine your-label` and `--out results/your-label/DATE.jsonl`.
-2. Commit the JSONL under `results/your-label/` (or open a PR with just your rows).
-3. Regenerate the report locally before publishing.
+- `bench/client.py` — admin API login, settings snapshot/restore, bench start, poll, event stream
+- `bench/matrix.py` — matrix JSON to ordered run list
+- `bench/run.py` — runs the cells, appends one JSONL row per run
+- `bench/collect.py` — parses `[benchmark-pp-result]` lines from `server.log`
+- `bench/validity.py` — decides whether a row counts (flags, cached tokens, status, ANE tiles)
+- `bench/report.py` — summary table and SVG charts
+- `matrices/` — the matrices used here (`m3-ultra-spark.json`, `kv-cache.json`, plus `smoke.json`)
+- `results/<machine>/` — raw rows, one JSONL per phase
+- `report-phase1/`, `report-phase3/` — generated summaries and SVG charts for the runs above
+- `charts/` — the PNG charts in this README
+- `docs/method.md` — test matrix, method rules, validity rules, known limits
 
 ## Tests
 
@@ -70,4 +105,14 @@ python3 bench/report.py results/
 python3 -m unittest discover -s tests -v
 ```
 
-Python 3.9+, standard library only.
+Python 3.9 or newer, standard library only.
+
+## Adding your machine
+
+1. Run a matrix with `--machine your-label` and `--out results/your-label/DATE.jsonl`.
+2. Keep the JSONL, and say which matrix, model, oMLX version and hardware you used.
+3. Open a pull request with your rows.
+
+## License
+
+MIT, see `LICENSE`.

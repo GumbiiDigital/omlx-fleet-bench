@@ -1,0 +1,53 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,'SF Pro Text',Helvetica,Arial,sans-serif;padding:22px 26px;width:1400px}
+h1{font-size:21px;font-weight:650;letter-spacing:.2px}
+.sub1{color:#8b949e;font-size:12.5px;margin:5px 0 16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px 14px 14px}
+.panel h2{font-size:14px;font-weight:600;color:#c9d1d9;margin-bottom:10px}
+.row{display:grid;grid-template-columns:132px 1fr 122px;align-items:center;gap:10px;margin:7px 0}
+.lbl{font-size:12.5px;font-weight:600}
+.track{background:#21262d;border-radius:4px;height:20px;overflow:hidden}
+.bar{height:20px;border-radius:4px}
+.val{font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15}
+.sub{display:block;color:#8b949e;font-size:10.5px}
+.legend{margin-top:14px;color:#8b949e;font-size:11.5px}
+</style></head><body>
+<h1>Phase 1 — Mac 3 Media (M3 Ultra, 60-core) with Spark 2: time to first token</h1>
+<div class="sub1">Qwen3.8-27B-oQ4e-mtp · private runs (upload skipped) · cold cache · 128 output tokens · mean of 3 runs per setup · lower is better · 10 GbE fabric</div>
+<div class="grid"><section class="panel"><h2>8K prompt (8,192 tokens)</h2><div class="row"><div class="lbl" style="color:#8b949e">GPU only</div>
+<div class="track"><div class="bar" style="width:100.0%;background:#8b949e"></div></div>
+<div class="val">24.5 s<span class="sub">335 tok/s · baseline</span></div></div><div class="row"><div class="lbl" style="color:#58a6ff">ANE prefill</div>
+<div class="track"><div class="bar" style="width:77.0%;background:#58a6ff"></div></div>
+<div class="val">18.8 s<span class="sub">435 tok/s · 1.3× faster</span></div></div><div class="row"><div class="lbl" style="color:#3fb950">Spark 2</div>
+<div class="track"><div class="bar" style="width:35.1%;background:#3fb950"></div></div>
+<div class="val">8.59 s<span class="sub">955 tok/s · 2.8× faster</span></div></div><div class="row"><div class="lbl" style="color:#d29922">ANE + Spark 2</div>
+<div class="track"><div class="bar" style="width:31.8%;background:#d29922"></div></div>
+<div class="val">7.79 s<span class="sub">1052 tok/s · 3.1× faster</span></div></div></section><section class="panel"><h2>32K prompt (32,768 tokens)</h2><div class="row"><div class="lbl" style="color:#8b949e">GPU only</div>
+<div class="track"><div class="bar" style="width:100.0%;background:#8b949e"></div></div>
+<div class="val">110 s<span class="sub">298 tok/s · baseline</span></div></div><div class="row"><div class="lbl" style="color:#58a6ff">ANE prefill</div>
+<div class="track"><div class="bar" style="width:79.3%;background:#58a6ff"></div></div>
+<div class="val">87.2 s<span class="sub">376 tok/s · 1.3× faster</span></div></div><div class="row"><div class="lbl" style="color:#3fb950">Spark 2</div>
+<div class="track"><div class="bar" style="width:32.0%;background:#3fb950"></div></div>
+<div class="val">35.1 s<span class="sub">933 tok/s · 3.1× faster</span></div></div><div class="row"><div class="lbl" style="color:#d29922">ANE + Spark 2</div>
+<div class="track"><div class="bar" style="width:27.0%;background:#d29922"></div></div>
+<div class="val">29.6 s<span class="sub">1106 tok/s · 3.7× faster</span></div></div></section><section class="panel"><h2>64K prompt (65,536 tokens)</h2><div class="row"><div class="lbl" style="color:#8b949e">GPU only</div>
+<div class="track"><div class="bar" style="width:100.0%;background:#8b949e"></div></div>
+<div class="val">253 s<span class="sub">259 tok/s · baseline</span></div></div><div class="row"><div class="lbl" style="color:#58a6ff">ANE prefill</div>
+<div class="track"><div class="bar" style="width:82.1%;background:#58a6ff"></div></div>
+<div class="val">208 s<span class="sub">316 tok/s · 1.2× faster</span></div></div><div class="row"><div class="lbl" style="color:#3fb950">Spark 2</div>
+<div class="track"><div class="bar" style="width:30.4%;background:#3fb950"></div></div>
+<div class="val">76.9 s<span class="sub">852 tok/s · 3.3× faster</span></div></div><div class="row"><div class="lbl" style="color:#d29922">ANE + Spark 2</div>
+<div class="track"><div class="bar" style="width:26.3%;background:#d29922"></div></div>
+<div class="val">66.4 s<span class="sub">987 tok/s · 3.8× faster</span></div></div></section><section class="panel"><h2>128K prompt (131,072 tokens)</h2><div class="row"><div class="lbl" style="color:#8b949e">GPU only</div>
+<div class="track"><div class="bar" style="width:100.0%;background:#8b949e"></div></div>
+<div class="val">638 s<span class="sub">205 tok/s · baseline</span></div></div><div class="row"><div class="lbl" style="color:#58a6ff">ANE prefill</div>
+<div class="track"><div class="bar" style="width:85.9%;background:#58a6ff"></div></div>
+<div class="val">548 s<span class="sub">239 tok/s · 1.2× faster</span></div></div><div class="row"><div class="lbl" style="color:#3fb950">Spark 2</div>
+<div class="track"><div class="bar" style="width:29.7%;background:#3fb950"></div></div>
+<div class="val">190 s<span class="sub">691 tok/s · 3.4× faster</span></div></div><div class="row"><div class="lbl" style="color:#d29922">ANE + Spark 2</div>
+<div class="track"><div class="bar" style="width:26.0%;background:#d29922"></div></div>
+<div class="val">166 s<span class="sub">789 tok/s · 3.8× faster</span></div></div></section></div>
+<div class="legend">tok/s = prefill throughput. "× faster" compares time to first token against GPU only at the same prompt size. Spark runs at 8K and 32K were measured cool (warm rerun: 1004 and 1094 tok/s).</div>
+</body></html>

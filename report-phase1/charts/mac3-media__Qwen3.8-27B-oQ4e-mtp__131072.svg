@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="650" height="200">
+<text x="20" y="16" font-family="monospace" font-size="12">mac3-media | Qwen3.8-27B-oQ4e-mtp | 131072 tok — TTFT (s), lower is better</text>
+<text x="20" y="56" font-family="monospace" font-size="12" text-anchor="start">ane           </text>
+<rect x="140" y="36" width="343" height="28" fill="#4a90d9"/>
+<text x="489" y="56" font-family="monospace" font-size="11">548.35s</text>
+<text x="20" y="96" font-family="monospace" font-size="12" text-anchor="start">ane_spark     </text>
+<rect x="140" y="76" width="104" height="28" fill="#4a90d9"/>
+<text x="250" y="96" font-family="monospace" font-size="11">166.09s</text>
+<text x="20" y="136" font-family="monospace" font-size="12" text-anchor="start">gpu           </text>
+<rect x="140" y="116" width="400" height="28" fill="#4a90d9"/>
+<text x="546" y="136" font-family="monospace" font-size="11">638.12s</text>
+<text x="20" y="176" font-family="monospace" font-size="12" text-anchor="start">spark         </text>
+<rect x="140" y="156" width="118" height="28" fill="#4a90d9"/>
+<text x="264" y="176" font-family="monospace" font-size="11">189.78s</text>
+</svg>
