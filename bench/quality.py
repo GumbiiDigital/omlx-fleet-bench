@@ -23,7 +23,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
@@ -46,6 +46,43 @@ from bench.qa import (  # noqa: E402
 logger = logging.getLogger("bench.quality")
 
 PROGRESS_EVERY = 25
+DEFAULT_MAX_CONSECUTIVE_FAILURES = 5
+DEFAULT_READY_TIMEOUT_S = 600.0
+
+
+class ConsecutiveFailureGuard:
+    """Stop a run after N identical errors in a row.
+
+    oMLX can refuse every request the same way (409 "busy; unload pending") while the
+    server still answers HTTP, so a run needs a limit on repeated identical failures
+    instead of writing thousands of error rows. A different error, or a success,
+    restarts the count.
+    """
+
+    def __init__(self, limit: int = DEFAULT_MAX_CONSECUTIVE_FAILURES) -> None:
+        if limit < 1:
+            raise ValueError("max consecutive failures must be 1 or more")
+        self.limit = limit
+        self._last_error: Optional[str] = None
+        self._count = 0
+
+    @property
+    def count(self) -> int:
+        """How many identical failures have happened in a row."""
+        return self._count
+
+    def record_success(self) -> None:
+        self._last_error = None
+        self._count = 0
+
+    def record_failure(self, error: str) -> bool:
+        """Count one failure; return True when the run must stop."""
+        if error == self._last_error:
+            self._count += 1
+        else:
+            self._last_error = error
+            self._count = 1
+        return self._count >= self.limit
 
 
 @dataclass
@@ -208,6 +245,96 @@ def append_row(path: Path, row: Dict[str, Any]) -> None:
         fh.write(json.dumps(row, sort_keys=True) + "\n")
 
 
+@dataclass
+class RunContext:
+    """Fixed facts that every row of one run shares."""
+
+    machine: str
+    matrix_path: str
+    model: str
+    fields: List[str]
+    out_path: Path
+    total_units: int
+
+
+def build_row(
+    context: RunContext,
+    variant: QualityVariant,
+    unit: QualityUnit,
+    desired: Dict[str, Any],
+    original: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Row skeleton for one request, before the reply is known."""
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "machine": context.machine,
+        "matrix": context.matrix_path,
+        "model": context.model,
+        "variant": variant.name,
+        "helper_on": variant.helper_on,
+        "ane_on": variant.ane_on,
+        "task": unit.task,
+        "sample_id": unit.sample_id,
+        "target_tokens": unit.target_tokens,
+        "prompt_chars": unit.prompt_chars,
+        "approximate_prompt_tokens": (
+            approximate_tokens(unit.messages[-1]["content"]) if unit.target_tokens else None
+        ),
+        "desired_settings": {k: desired.get(k) for k in context.fields},
+        "settings_before": original,
+        "expected": unit.expected,
+    }
+
+
+def send_block(
+    chat: ChatClient,
+    context: RunContext,
+    variant: QualityVariant,
+    units: Sequence[QualityUnit],
+    desired: Dict[str, Any],
+    original: Dict[str, Any],
+    guard: ConsecutiveFailureGuard,
+    sent_before: int,
+) -> Tuple[int, bool]:
+    """Send one variant's units. Return (rows written, stopped early)."""
+    sent = 0
+    for unit in units:
+        if unit.variant.name != variant.name:
+            continue
+        row = build_row(context, variant, unit, desired, original)
+        try:
+            reply = chat.chat(context.model, unit.messages, max_tokens=unit.max_tokens)
+        except ChatError as exc:
+            logger.exception("Request failed for %s", unit.sample_id)
+            row.update({"status": "error", "error": str(exc), "correct": False})
+            append_row(context.out_path, row)
+            sent += 1
+            if guard.record_failure(str(exc)):
+                return sent, True
+            continue
+        guard.record_success()
+        score = score_unit(unit, reply["content"])
+        row.update(
+            {
+                "status": "completed",
+                "finish_reason": reply["finish_reason"],
+                "content": reply["content"],
+                "reasoning_chars": len(reply["reasoning"]),
+                "usage": reply["usage"],
+                "server_timing": reply["server_timing"],
+                "latency_s": reply["latency_s"],
+                **score,
+            }
+        )
+        if not reply["content"].strip():
+            row["note"] = "no_answer_text"
+        append_row(context.out_path, row)
+        sent += 1
+        if (sent_before + sent) % PROGRESS_EVERY == 0:
+            logger.info("Sent %d/%d requests", sent_before + sent, context.total_units)
+    return sent, False
+
+
 def run(args: argparse.Namespace) -> int:
     matrix = load_quality_matrix(args.matrix)
     base_settings = dict(matrix.get("base_settings") or {})
@@ -234,66 +361,45 @@ def run(args: argparse.Namespace) -> int:
             print(f"  {key}: {counts[key]}")
         return 0
 
+    guard = ConsecutiveFailureGuard(args.max_consecutive_failures)
     api_key = load_api_key(args.settings)
     admin = OMLXClient(args.base_url, api_key)
     admin.login()
     chat = ChatClient(args.base_url, api_key, timeout_s=args.timeout)
     fields = settings_fields_touched([], base_settings)
     out_path = Path(args.out)
+    context = RunContext(
+        machine=args.machine,
+        matrix_path=str(Path(args.matrix)),
+        model=matrix["model"],
+        fields=fields,
+        out_path=out_path,
+        total_units=len(units),
+    )
     sent = 0
 
     with admin.preserved_settings(matrix["model"], fields) as original:
         for variant in variants:
             desired = variant.merge_settings(base_settings, args.helper_node or "")
             admin.apply_settings(matrix["model"], desired, fields)
-            for unit in units:
-                if unit.variant.name != variant.name:
-                    continue
-                row: Dict[str, Any] = {
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "machine": args.machine,
-                    "matrix": str(Path(args.matrix)),
-                    "model": matrix["model"],
-                    "variant": variant.name,
-                    "helper_on": variant.helper_on,
-                    "ane_on": variant.ane_on,
-                    "task": unit.task,
-                    "sample_id": unit.sample_id,
-                    "target_tokens": unit.target_tokens,
-                    "prompt_chars": unit.prompt_chars,
-                    "approximate_prompt_tokens": (
-                        approximate_tokens(unit.messages[-1]["content"]) if unit.target_tokens else None
-                    ),
-                    "desired_settings": {k: desired.get(k) for k in fields},
-                    "settings_before": original,
-                    "expected": unit.expected,
-                }
-                try:
-                    reply = chat.chat(
-                        matrix["model"], unit.messages, max_tokens=unit.max_tokens
-                    )
-                    score = score_unit(unit, reply["content"])
-                    row.update(
-                        {
-                            "status": "completed",
-                            "finish_reason": reply["finish_reason"],
-                            "content": reply["content"],
-                            "reasoning_chars": len(reply["reasoning"]),
-                            "usage": reply["usage"],
-                            "server_timing": reply["server_timing"],
-                            "latency_s": reply["latency_s"],
-                            **score,
-                        }
-                    )
-                    if not reply["content"].strip():
-                        row["note"] = "no_answer_text"
-                except ChatError as exc:
-                    logger.exception("Request failed for %s", unit.sample_id)
-                    row.update({"status": "error", "error": str(exc), "correct": False})
-                append_row(out_path, row)
-                sent += 1
-                if sent % PROGRESS_EVERY == 0:
-                    logger.info("Sent %d/%d requests", sent, len(units))
+            try:
+                chat.wait_until_ready(matrix["model"], timeout_s=args.ready_timeout)
+            except ChatError as exc:
+                logger.error("Model not ready for variant %s: %s", variant.name, exc)
+                logger.error("Run stopped after %d rows; settings are restored", sent)
+                return 1
+            block_sent, stopped = send_block(
+                chat, context, variant, units, desired, original, guard, sent
+            )
+            sent += block_sent
+            if stopped:
+                logger.error(
+                    "Stopped after %d identical failures in a row (variant %s); wrote %d rows",
+                    guard.count,
+                    variant.name,
+                    sent,
+                )
+                return 1
     logger.info("Wrote %d rows to %s", sent, out_path)
     return 0
 
@@ -310,6 +416,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--only-variants", default=None, help="comma separated variant names")
     parser.add_argument("--only-tasks", default=None, help="comma separated task names")
     parser.add_argument("--limit", type=int, default=None, help="first N samples per task")
+    parser.add_argument(
+        "--max-consecutive-failures",
+        type=int,
+        default=DEFAULT_MAX_CONSECUTIVE_FAILURES,
+        help="stop the run after this many identical errors in a row",
+    )
+    parser.add_argument(
+        "--ready-timeout",
+        type=float,
+        default=DEFAULT_READY_TIMEOUT_S,
+        help="seconds to wait for the model to answer after a settings change",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)

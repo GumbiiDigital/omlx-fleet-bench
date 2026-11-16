@@ -1,13 +1,17 @@
 import json
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+from unittest.mock import patch
 
 from bench import quality
-from bench.chat import _normalize
+from bench.chat import ChatError, _normalize
 
 REPO = Path(__file__).resolve().parents[1]
 MATRIX = str(REPO / "matrices" / "quality.json")
+BUSY_ERROR = "HTTP 409 from chat endpoint: {\"detail\":\"busy; unload pending\"}"
 
 
 class MatrixTest(unittest.TestCase):
@@ -122,6 +126,181 @@ class SummaryTest(unittest.TestCase):
 
     def test_empty_rows(self):
         self.assertIn("Rows: 0", quality_report_summary([]))
+
+
+class ConsecutiveFailureGuardTest(unittest.TestCase):
+    def test_stops_at_limit_of_identical_errors(self) -> None:
+        guard = quality.ConsecutiveFailureGuard(3)
+        self.assertFalse(guard.record_failure(BUSY_ERROR))
+        self.assertFalse(guard.record_failure(BUSY_ERROR))
+        self.assertEqual(guard.count, 2)
+        self.assertTrue(guard.record_failure(BUSY_ERROR))
+
+    def test_different_error_restarts_the_count(self) -> None:
+        guard = quality.ConsecutiveFailureGuard(2)
+        self.assertFalse(guard.record_failure(BUSY_ERROR))
+        self.assertFalse(guard.record_failure("HTTP 500 from chat endpoint: boom"))
+        self.assertEqual(guard.count, 1)
+
+    def test_success_clears_the_count(self) -> None:
+        guard = quality.ConsecutiveFailureGuard(2)
+        guard.record_failure(BUSY_ERROR)
+        guard.record_success()
+        self.assertEqual(guard.count, 0)
+        self.assertFalse(guard.record_failure(BUSY_ERROR))
+
+    def test_limit_below_one_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            quality.ConsecutiveFailureGuard(0)
+
+
+class _FakeAdmin:
+    """Records settings writes and whether the restore block ran."""
+
+    def __init__(self) -> None:
+        self.applied: List[Dict[str, Any]] = []
+        self.restored = False
+
+    def login(self) -> None:
+        return None
+
+    @contextmanager
+    def preserved_settings(self, model: str, fields: List[str]) -> Any:
+        try:
+            yield {field: None for field in fields}
+        finally:
+            self.restored = True
+
+    def apply_settings(self, model: str, desired: Dict[str, Any], fields: List[str]) -> None:
+        self.applied.append({field: desired.get(field) for field in fields})
+
+
+class _FakeChat:
+    """Stands in for ChatClient; logs the order of probe and chat calls."""
+
+    def __init__(
+        self,
+        *,
+        error: str = "",
+        ready_error: str = "",
+        errors: Optional[List[str]] = None,
+        content: str = "#### 18",
+    ) -> None:
+        self.error = error
+        self.ready_error = ready_error
+        self.errors = list(errors or [])
+        self.content = content
+        self.events: List[Any] = []
+
+    def wait_until_ready(
+        self, model: str, *, timeout_s: float = 600.0, interval_s: float = 5.0
+    ) -> Dict[str, Any]:
+        self.events.append(("wait", model, timeout_s))
+        if self.ready_error:
+            raise ChatError(self.ready_error)
+        return {"content": "pong"}
+
+    def chat(
+        self,
+        model: str,
+        messages: List[Dict[str, str]],
+        *,
+        max_tokens: int = 512,
+        temperature: float = 0.0,
+    ) -> Dict[str, Any]:
+        self.events.append(("chat", model))
+        if self.errors:
+            raise ChatError(self.errors.pop(0))
+        if self.error:
+            raise ChatError(self.error)
+        return {
+            "content": self.content,
+            "reasoning": "",
+            "finish_reason": "stop",
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "cached_tokens": None},
+            "server_timing": {},
+            "latency_s": 0.1,
+        }
+
+
+class RunnerTest(unittest.TestCase):
+    """Drives quality.run() with fake admin and chat clients."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.dir = Path(self._tmp.name)
+        self.out = self.dir / "out.jsonl"
+        settings = self.dir / "settings.json"
+        settings.write_text(json.dumps({"auth": {"api_key": "test-key"}}), encoding="utf-8")
+        self.settings = str(settings)
+
+    def _run(
+        self,
+        admin: _FakeAdmin,
+        chat: _FakeChat,
+        *extra: str,
+        limit: int = 1,
+    ) -> int:
+        argv = [
+            "--matrix", MATRIX,
+            "--base-url", "http://example:8004",
+            "--settings", self.settings,
+            "--out", str(self.out),
+            "--machine", "test",
+            "--only-variants", "gpu,ane",
+            "--only-tasks", "gsm8k",
+            "--limit", str(limit),
+            *extra,
+        ]
+        with patch("bench.quality.OMLXClient", lambda *a, **kw: admin), patch(
+            "bench.quality.ChatClient", lambda *a, **kw: chat
+        ):
+            return quality.main(argv)
+
+    def _rows(self) -> List[Dict[str, Any]]:
+        return quality.read_jsonl(self.out) if self.out.exists() else []
+
+    def test_waits_for_model_before_each_block(self) -> None:
+        admin, chat = _FakeAdmin(), _FakeChat()
+        self.assertEqual(self._run(admin, chat), 0)
+        self.assertEqual(
+            chat.events,
+            [("wait", "Qwen3.8-27B-oQ4e-mtp", 600.0), ("chat", "Qwen3.8-27B-oQ4e-mtp"),
+             ("wait", "Qwen3.8-27B-oQ4e-mtp", 600.0), ("chat", "Qwen3.8-27B-oQ4e-mtp")],
+        )
+        self.assertEqual([row["status"] for row in self._rows()], ["completed", "completed"])
+        self.assertEqual([row["variant"] for row in self._rows()], ["gpu", "ane"])
+
+    def test_ready_timeout_stops_before_any_row(self) -> None:
+        admin = _FakeAdmin()
+        chat = _FakeChat(ready_error="model 'Qwen3.8-27B-oQ4e-mtp' did not answer a probe within 600s")
+        self.assertNotEqual(self._run(admin, chat), 0)
+        self.assertEqual(self._rows(), [])
+        self.assertTrue(admin.restored)
+
+    def test_identical_failures_stop_the_run_and_restore_settings(self) -> None:
+        admin, chat = _FakeAdmin(), _FakeChat(error=BUSY_ERROR)
+        self.assertNotEqual(self._run(admin, chat, "--max-consecutive-failures", "1"), 0)
+        rows = self._rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["status"], "error")
+        self.assertIn("409", rows[0]["error"])
+        self.assertEqual([event[0] for event in chat.events], ["wait", "chat"])
+        self.assertTrue(admin.restored)
+
+    def test_default_limit_is_five_identical_failures(self) -> None:
+        admin, chat = _FakeAdmin(), _FakeChat(error=BUSY_ERROR)
+        self.assertNotEqual(self._run(admin, chat, limit=5), 0)
+        self.assertEqual(len(self._rows()), 5)
+        self.assertTrue(admin.restored)
+
+    def test_different_errors_do_not_stop_the_run(self) -> None:
+        admin = _FakeAdmin()
+        chat = _FakeChat(errors=[BUSY_ERROR, "HTTP 500 from chat endpoint: boom"])
+        self.assertEqual(self._run(admin, chat, "--max-consecutive-failures", "2"), 0)
+        self.assertEqual([row["status"] for row in self._rows()], ["error", "error"])
+        self.assertTrue(admin.restored)
 
 
 def quality_report_summary(rows):
