@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bench.report import group_rows, memory_panels, report_all, summary_markdown, ttft_panels
+from bench.report import group_rows, memory_panels, report_all, summary_markdown, ttft_lines, ttft_panels
 
 
 def _row(
@@ -122,6 +122,45 @@ class TestPanels(unittest.TestCase):
                 charts,
                 ["m1__Qwen3.8-27B-oQ4e-mtp-ttft-dark.svg", "m1__Qwen3.8-27B-oQ4e-mtp-ttft-light.svg"],
             )
+
+
+class TestTtftLines(unittest.TestCase):
+    def _cells(self):
+        rows = []
+        for variant, base in (("gpu", 1.7), ("spark", 1.5)):
+            for size, factor in ((1024, 1.0), (8192, 5.0), (131072, 80.0)):
+                for repeat in range(2):
+                    rows.append(_row("m1", variant, size, repeat, 900.0, base * factor * 1000.0, True))
+        return list(group_rows(rows).values())
+
+    def test_one_line_per_variant_in_the_fixed_order(self) -> None:
+        panel = ttft_lines(self._cells())
+        self.assertEqual([line.label for line in panel.series], ["GPU only", "+ Spark helper"])
+
+    def test_points_carry_the_size_and_the_wait(self) -> None:
+        panel = ttft_lines(self._cells())
+        point = panel.series[0].points[-1]
+        self.assertEqual((point.x, point.x_text, point.y_text), (131072, "128K", "136 s"))
+
+    def test_axes_cover_every_point_with_ticks_inside(self) -> None:
+        panel = ttft_lines(self._cells())
+        self.assertEqual((panel.x_min, panel.x_max), (1024, 131072))
+        self.assertAlmostEqual(panel.y_min, 1.5)
+        self.assertAlmostEqual(panel.y_max, 136.0)
+        ys = [value for value, _ in panel.y_ticks]
+        self.assertEqual(ys, [2.0, 5.0, 10.0, 20.0, 50.0, 100.0])
+        self.assertEqual([label for _, label in panel.x_ticks], ["1K", "8K", "128K"])
+
+    def test_a_cell_without_a_valid_run_is_left_out(self) -> None:
+        rows = [
+            _row("m1", "gpu", 1024, 0, 900.0, 1700.0, True),
+            _row("m1", "gpu", 8192, 0, 900.0, 8700.0, True),
+            _row("m1", "spark", 1024, 0, 900.0, 1500.0, False),
+            _row("m1", "spark", 8192, 0, 900.0, 6000.0, True),
+        ]
+        panel = ttft_lines(list(group_rows(rows).values()))
+        self.assertEqual([line.label for line in panel.series], ["GPU only", "+ Spark helper"])
+        self.assertEqual([p.x for p in panel.series[1].points], [8192])
 
 
 if __name__ == "__main__":

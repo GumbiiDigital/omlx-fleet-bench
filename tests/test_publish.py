@@ -13,14 +13,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MODEL = "test-model"
 
 
-def _speed_row(variant, size, repeat, tps, ttft_ms, peak_gb=20.0, valid=True, machine="box"):
+def _speed_row(variant, size, repeat, tps, ttft_ms, peak_gb=20.0, valid=True, machine="box", runs=3):
     return {
         "machine": machine,
         "model": MODEL,
         "variant": variant,
         "prompt_size": size,
         "repeat_index": repeat,
-        "runs_per_cell": 3,
+        "runs_per_cell": runs,
         "metrics": {"processing_tps": tps, "ttft_ms": ttft_ms, "peak_memory_bytes": peak_gb * 2**30},
         "validity": {"valid": valid},
     }
@@ -58,6 +58,19 @@ class Workspace:
             for variant, tps, ttft in (("gpu", 300.0, 24000.0), ("spark", 900.0, 8000.0))
             for repeat in range(3)
         ]
+        # Seven prompt sizes would be a long fixture; three carry the same shape.
+        sweep = [
+            _speed_row(variant, size, repeat, 300.0, ttft, runs=2)
+            for variant, ttft in (("gpu", 24000.0), ("spark", 8000.0))
+            for size in (1024, 8192, 32768)
+            for repeat in range(2)
+        ]
+        # spark at 32K lost its second run, and a rerun replaced it: the cell only reaches
+        # its planned 2 valid runs when both files are read.
+        for row in sweep:
+            if row["variant"] == "spark" and row["prompt_size"] == 32768 and row["repeat_index"] == 1:
+                row["validity"]["valid"] = False
+        sweep_rerun = [_speed_row("spark", 32768, 1, 300.0, 8000.0, runs=2)]
         kv = [
             _speed_row(variant, 32768, repeat, 300.0, 100000.0, peak_gb=peak)
             for variant, peak in (("native", 20.0), ("affine4", 15.0))
@@ -70,6 +83,8 @@ class Workspace:
                 quality.append(_quality_row(variant, "gsm8k", sample, sample not in wrong))
             quality.append(_quality_row(variant, "passkey", "p0", True))
         _write(self.root / "results/box/speed.jsonl", speed)
+        _write(self.root / "results/box/sweep.jsonl", sweep)
+        _write(self.root / "results/box/sweep-rerun.jsonl", sweep_rerun)
         _write(self.root / "results/box/kv.jsonl", kv)
         _write(self.root / "results/box/quality.jsonl", quality)
         _write(self.root / "results/box/reask.jsonl", [_quality_row("gpu", "gsm8k", "g0", True)])
@@ -80,11 +95,28 @@ class Workspace:
                     "hardware": "Test Mac",
                     "helper": "Test helper",
                     "model": MODEL,
-                    "speed": {"files": ["results/box/speed.jsonl"], "baseline": "gpu", "conditions": "cold"},
-                    "kv_cache": {"files": ["results/box/kv.jsonl"], "baseline": "native", "conditions": "cold"},
+                    "speed": {
+                        "files": ["results/box/speed.jsonl"],
+                        "kind": "speed",
+                        "baseline": "gpu",
+                        "conditions": "cold",
+                    },
+                    "speed_sweep": {
+                        "files": ["results/box/sweep.jsonl", "results/box/sweep-rerun.jsonl"],
+                        "kind": "speed",
+                        "baseline": "gpu",
+                        "conditions": "cold, 2 runs per cell",
+                    },
+                    "kv_cache": {
+                        "files": ["results/box/kv.jsonl"],
+                        "kind": "speed",
+                        "baseline": "native",
+                        "conditions": "cold",
+                    },
                     "quality": {
                         "files": ["results/box/quality.jsonl"],
                         "replace": ["results/box/reask.jsonl"],
+                        "kind": "quality",
                         "baseline": "gpu",
                         "conditions": "same questions",
                     },
@@ -93,7 +125,12 @@ class Workspace:
         }
         self.save_manifest()
         (self.root / "README.md").write_text(
-            "# Title\n\n" + _marker("speed box") + "\ntext\n\n" + _marker("kv-cache box") + _marker("quality box"),
+            "# Title\n\n"
+            + _marker("speed box")
+            + "\ntext\n\n"
+            + _marker("speed-sweep box")
+            + _marker("kv-cache box")
+            + _marker("quality box"),
             encoding="utf-8",
         )
 
@@ -113,7 +150,7 @@ class PublishTest(unittest.TestCase):
 
     def test_blocks_carry_the_numbers_from_the_rows(self):
         _, blocks = publish.build(self.ws.root)
-        self.assertEqual(set(blocks), {"speed box", "kv-cache box", "quality box"})
+        self.assertEqual(set(blocks), {"speed box", "speed-sweep box", "kv-cache box", "quality box"})
         self.assertIn("| GPU only | 24.0 s |", blocks["speed box"])
         self.assertIn("| + Spark helper | 8.0 s · 3.0× |", blocks["speed box"])
         self.assertIn("| + Spark helper | 901 |", blocks["speed box"])
@@ -122,13 +159,21 @@ class PublishTest(unittest.TestCase):
         self.assertIn("| GPU only | 40 · 100.0% | 1 | baseline | 0 |", blocks["quality box"])
         self.assertIn("| Affine4 KV | 39 · 97.5% | 1 | 1 lost, 0 gained (of 40) | 0 |", blocks["quality box"])
 
+    def test_the_sweep_table_has_one_line_per_prompt_size(self):
+        _, blocks = publish.build(self.ws.root)
+        sweep = blocks["speed-sweep box"]
+        for row in ("| 1K | 24.0 s | 8.0 s | 3.0× |", "| 8K | 24.0 s | 8.0 s | 3.0× |", "| 32K | 24.0 s | 8.0 s | 3.0× |"):
+            self.assertIn(row, sweep)
+        self.assertIn("Mean of 2 valid runs per cell.", sweep)
+        self.assertNotIn("Prefill speed", sweep)
+
     def test_outputs_cover_reports_and_both_chart_themes(self):
         outputs, _ = publish.build(self.ws.root)
         self.assertEqual(
             sorted(outputs),
             sorted(
-                [f"charts/box-{name}-{theme}.svg" for name in ("ttft", "kv-memory", "quality") for theme in ("light", "dark")]
-                + [f"reports/box/{name}.md" for name in ("speed", "kv-cache", "quality")]
+                [f"charts/box-{name}-{theme}.svg" for name in ("ttft", "ttft-sweep", "kv-memory", "quality") for theme in ("light", "dark")]
+                + [f"reports/box/{name}.md" for name in ("speed", "speed-sweep", "kv-cache", "quality")]
             ),
         )
 
@@ -169,11 +214,32 @@ class PublishTest(unittest.TestCase):
         _write(self.ws.root / "results/box/speed.jsonl", rows)
         self.assertEqual(self.ws.run(), 2)
 
+    def test_a_sweep_cell_reads_its_runs_across_both_files(self):
+        # sweep.jsonl alone gives spark at 32K one valid run of two.
+        outputs, _ = publish.build(self.ws.root)
+        report_text = outputs["reports/box/speed-sweep.md"]
+        self.assertIn("| box | test-model | spark | 32768 | 2/2 |", report_text)
+
+        self.ws.manifest["machines"][0]["speed_sweep"]["files"] = ["results/box/sweep.jsonl"]
+        self.ws.save_manifest()
+        self.assertEqual(self.ws.run(), 2)
+
+    def test_a_sweep_kind_that_does_not_match_its_builder_is_an_error(self):
+        self.ws.manifest["machines"][0]["speed_sweep"]["kind"] = "quality"
+        self.ws.save_manifest()
+        self.assertEqual(self.ws.run(), 2)
+
+    def test_a_sweep_without_a_second_setup_is_an_error(self):
+        rows = report.load_rows([self.ws.root / "results/box/sweep.jsonl"])
+        _write(self.ws.root / "results/box/sweep.jsonl", [r for r in rows if r["variant"] == "gpu"])
+        _write(self.ws.root / "results/box/sweep-rerun.jsonl", [])
+        self.assertEqual(self.ws.run(), 2)
+
     def test_a_study_that_was_not_run_is_left_out(self):
         del self.ws.manifest["machines"][0]["kv_cache"]
         self.ws.save_manifest()
         _, blocks = publish.build(self.ws.root)
-        self.assertEqual(set(blocks), {"speed box", "quality box"})
+        self.assertEqual(set(blocks), {"speed box", "speed-sweep box", "quality box"})
 
 
 class SpliceTest(unittest.TestCase):

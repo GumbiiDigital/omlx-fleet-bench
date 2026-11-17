@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="470" viewBox="0 0 840 470" role="img" aria-label="Time to first token by prompt size Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE Cold cache, 128 output tokens, mean of 2 runs per cell. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Time to first token by prompt size Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE Cold cache, 128 output tokens, mean of 2 runs per cell. Lower is better.</title>
+<rect x="0.5" y="0.5" width="839" height="469" fill="#fcfcfb" rx="8" stroke="#e1e0d9" stroke-width="1"/>
+<text x="24" y="40" font-size="16" fill="#0b0b0b" font-weight="600">Time to first token by prompt size</text>
+<text x="24" y="57" font-size="12" fill="#52514e">Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE</text>
+<text x="24" y="74" font-size="12" fill="#52514e">Cold cache, 128 output tokens, mean of 2 runs per cell. Lower is better.</text>
+<line x1="24" y1="96" x2="38" y2="96" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<text x="44" y="100" font-size="11" fill="#52514e">GPU only</text>
+<line x1="117.28" y1="96" x2="131.28" y2="96" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<text x="137.28" y="100" font-size="11" fill="#52514e">+ Spark helper</text>
+<line x1="66.8" y1="396.16" x2="792" y2="396.16" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58.8" y="400.16" font-size="11" fill="#898781" text-anchor="end">2 s</text>
+<line x1="66.8" y1="335" x2="792" y2="335" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58.8" y="339" font-size="11" fill="#898781" text-anchor="end">5 s</text>
+<line x1="66.8" y1="288.73" x2="792" y2="288.73" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58.8" y="292.73" font-size="11" fill="#898781" text-anchor="end">10 s</text>
+<line x1="66.8" y1="242.47" x2="792" y2="242.47" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58.8" y="246.47" font-size="11" fill="#898781" text-anchor="end">20 s</text>
+<line x1="66.8" y1="181.3" x2="792" y2="181.3" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58.8" y="185.3" font-size="11" fill="#898781" text-anchor="end">50 s</text>
+<line x1="66.8" y1="135.04" x2="792" y2="135.04" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58.8" y="139.04" font-size="11" fill="#898781" text-anchor="end">100 s</text>
+<line x1="66.8" y1="114" x2="66.8" y2="414" stroke="#e1e0d9" stroke-width="1"/>
+<text x="66.8" y="428" font-size="11" fill="#898781" text-anchor="middle">1K</text>
+<line x1="274" y1="114" x2="274" y2="414" stroke="#e1e0d9" stroke-width="1"/>
+<text x="274" y="428" font-size="11" fill="#898781" text-anchor="middle">4K</text>
+<line x1="377.6" y1="114" x2="377.6" y2="414" stroke="#e1e0d9" stroke-width="1"/>
+<text x="377.6" y="428" font-size="11" fill="#898781" text-anchor="middle">8K</text>
+<line x1="481.2" y1="114" x2="481.2" y2="414" stroke="#e1e0d9" stroke-width="1"/>
+<text x="481.2" y="428" font-size="11" fill="#898781" text-anchor="middle">16K</text>
+<line x1="584.8" y1="114" x2="584.8" y2="414" stroke="#e1e0d9" stroke-width="1"/>
+<text x="584.8" y="428" font-size="11" fill="#898781" text-anchor="middle">32K</text>
+<line x1="688.4" y1="114" x2="688.4" y2="414" stroke="#e1e0d9" stroke-width="1"/>
+<text x="688.4" y="428" font-size="11" fill="#898781" text-anchor="middle">64K</text>
+<line x1="792" y1="114" x2="792" y2="414" stroke="#e1e0d9" stroke-width="1"/>
+<text x="792" y="428" font-size="11" fill="#898781" text-anchor="middle">128K</text>
+<line x1="66.8" y1="114" x2="66.8" y2="414" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="66.8" y1="414" x2="792" y2="414" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="66.8" y1="408.6" x2="274" y2="324.55" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="274" y1="324.55" x2="377.6" y2="297.71" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="377.6" y1="297.71" x2="481.2" y2="254.75" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="481.2" y1="254.75" x2="584.8" y2="208.2" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="584.8" y1="208.2" x2="688.4" y2="161" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="688.4" y1="161" x2="792" y2="114" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="66.8" cy="408.6" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · GPU only · 1K: 1.66 s</title></circle>
+<circle cx="274" cy="324.55" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · GPU only · 4K: 5.85 s</title></circle>
+<circle cx="377.6" cy="297.71" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · GPU only · 8K: 8.74 s</title></circle>
+<circle cx="481.2" cy="254.75" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · GPU only · 16K: 16.6 s</title></circle>
+<circle cx="584.8" cy="208.2" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · GPU only · 32K: 33.4 s</title></circle>
+<circle cx="688.4" cy="161" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · GPU only · 64K: 67.8 s</title></circle>
+<circle cx="792" cy="114" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · GPU only · 128K: 137 s</title></circle>
+<line x1="66.8" y1="414" x2="274" y2="347.18" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="274" y1="347.18" x2="377.6" y2="322.92" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="377.6" y1="322.92" x2="481.2" y2="292.5" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="481.2" y1="292.5" x2="584.8" y2="257.9" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="584.8" y1="257.9" x2="688.4" y2="214.32" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="688.4" y1="214.32" x2="792" y2="170.95" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<circle cx="66.8" cy="414" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · + Spark helper · 1K: 1.53 s</title></circle>
+<circle cx="274" cy="347.18" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · + Spark helper · 4K: 4.17 s</title></circle>
+<circle cx="377.6" cy="322.92" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · + Spark helper · 8K: 5.99 s</title></circle>
+<circle cx="481.2" cy="292.5" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · + Spark helper · 16K: 9.45 s</title></circle>
+<circle cx="584.8" cy="257.9" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · + Spark helper · 32K: 15.9 s</title></circle>
+<circle cx="688.4" cy="214.32" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · + Spark helper · 64K: 30.5 s</title></circle>
+<circle cx="792" cy="170.95" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Time to first token by prompt size · + Spark helper · 128K: 58.4 s</title></circle>
+<text x="24" y="448" font-size="11" fill="#898781">Both axes are log scale. One line per setup; hover a point for its value.</text>
+</svg>

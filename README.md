@@ -194,6 +194,47 @@ How to read it:
 - The helper is worth 1.4× at 8K, 2.1× at 32K, and 2.3× at 64K and 128K. On the 27B machine the same
   helper gave 2.8× to 3.4×, because that model is slower on the Mac alone.
 
+### Prompt-size sweep (Flash-Next)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-ttft-sweep-dark.svg">
+  <img alt="Time to first token from 1K to 128K prompt tokens for the Flash-Next machine, Mac alone and with the Spark helper, on log scales" src="charts/m3-ultra-b-ttft-sweep-light.svg">
+</picture>
+
+<!-- BEGIN GENERATED: speed-sweep m3-ultra-b -->
+Time to first token at each prompt size, and how many times shorter the wait is with the helper:
+
+| Prompt | GPU only | + Spark helper | Speed-up |
+|---|---:|---:|---:|
+| 1K | 1.7 s | 1.5 s | 1.1× |
+| 4K | 5.8 s | 4.2 s | 1.4× |
+| 8K | 8.7 s | 6.0 s | 1.5× |
+| 16K | 16.6 s | 9.5 s | 1.8× |
+| 32K | 33.4 s | 15.9 s | 2.1× |
+| 64K | 67.8 s | 30.5 s | 2.2× |
+| 128K | 137.1 s | 58.4 s | 2.3× |
+
+Mean of 2 valid runs per cell.
+<!-- END GENERATED: speed-sweep m3-ultra-b -->
+
+How to read it:
+
+- Seven prompt sizes from 1K to 128K, so the wait can be read as a curve rather than four
+  points. The four sizes the speed table above also has agree with it to within 3.1%: the
+  largest gap is at 8K on the Mac alone. Guard the two against each other with that in mind,
+  not as one series: these rows were measured one day earlier, on 2026-11-15, with a second
+  DGX Spark unit of the same type as the helper, 2 runs per cell.
+- On a log scale a straight line means the wait grows in step with the prompt. From 8K to
+  128K the Mac-alone line is near straight: 8.7 s, 16.6 s, 33.4 s, 67.8 s, 137.1 s, close to
+  a doubling for each doubling of the prompt. The helper line doubles too from 32K up. The
+  helper's share therefore grows with the prompt, 1.1× at 1K, 1.5× at 8K, 2.1× at 32K and
+  2.3× at 128K: the Mac alone keeps its prefill speed as the prompt grows, and the helper's
+  rises.
+- Two rows are kept but marked not valid. One helper run at 128K never engaged the helper
+  (it read as Mac-alone speed), and a first rerun failed when the helper program stopped.
+  Both are in the raw files with their validity flags and are not in any mean. A second
+  rerun gave the missing 128K helper run, so every cell has 2 valid runs.
+
 ### KV cache schemes (Flash-Next)
 
 <picture>
@@ -261,6 +302,8 @@ How to read it:
 - Cold cache and one request at a time. No warm-cache numbers and no concurrency.
 - Three runs per cell. Enough to see a 3× effect, not enough to rank two setups that are 2% apart.
 - Decode speed (tokens per second after the first token) is in the raw rows but not studied.
+- The server refused a 256K prompt on the Flash-Next model with HTTP 400, so there is no
+  256K result: the sweep stops at 128K.
 - The helper ran with a memory fix that is not in a release yet. On the stock helper the same 128K
   run failed.
 
@@ -275,7 +318,7 @@ How to read it:
 | Helper software | oMLX CUDA helper 0.1.4 plus the long-prompt memory fix proposed in [jundot/omlx#5271](https://github.com/jundot/omlx/pull/5271) |
 | Speed prompts | 8K, 32K, 64K, 128K tokens, `code_python` profile, 128 output tokens, cold cache |
 | Dates | Speed and KV cache 2026-11-15, quality 2026-11-16 plus a passkey rerun 2026-11-17 |
-| Second machine | Apple M3 Ultra, 256 GB, same DGX Spark helper, model `Qwen3.8-Flash-Next-oQ4e-mtp`; speed and KV cache 2026-11-16, quality 2026-11-16 plus a passkey rerun 2026-11-17 |
+| Second machine | Apple M3 Ultra, 256 GB, same DGX Spark helper, model `Qwen3.8-Flash-Next-oQ4e-mtp`; speed and KV cache 2026-11-16, speed sweep 2026-11-15, quality 2026-11-16 plus a passkey rerun 2026-11-17 |
 
 The method, the rules that decide whether a row counts, and the known limits are in
 [docs/method.md](docs/method.md).
@@ -366,7 +409,8 @@ with your own `--machine` label, keep the JSONL untouched, and open a pull reque
 | [docs/method.md](docs/method.md) | Method, validity rules, limits |
 
 `matrices/m3-ultra-b-speed.json`, `m3-ultra-b-kv-cache.json` and `m3-ultra-b-quality.json` are the
-three matrices behind the Flash-Next tables. `matrices/flash-next-moe.json` is an earlier matrix for
+three matrices behind the Flash-Next tables. `m3-ultra-b-speed-sweep.json` and `m3-ultra-b-256k.json`
+are behind the prompt-size sweep. `matrices/flash-next-moe.json` is an earlier matrix for
 a mixture-of-experts model; its results are not published here.
 
 ## Credits and scope

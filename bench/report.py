@@ -24,7 +24,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from bench.charts import BarPanel, BarRow, Caption, bar_panels  # noqa: E402
+from bench.charts import BarPanel, BarRow, Caption, LinePanel, LinePoint, LineSeries, bar_panels  # noqa: E402
 from bench.labels import ordered_variants, size_label, variant_label, variant_series  # noqa: E402
 from bench.stats import spread  # noqa: E402
 from bench.svg import THEMES  # noqa: E402
@@ -263,6 +263,53 @@ def memory_panels(cells: Sequence[CellStats], baseline: str) -> List[BarPanel]:
         return f"{change:+.1f}%".replace("-", "−")
 
     return _panels(cells, baseline, lambda c: c.mean_peak_gb, lambda gb: f"{gb:.1f} GB", note)
+
+
+def log_ticks(low: float, high: float) -> List[float]:
+    """1, 2 and 5 times each power of ten, where they fall inside `low` to `high`."""
+    ticks: List[float] = []
+    decade = 1.0
+    while decade <= high:
+        for factor in (1, 2, 5):
+            value = factor * decade
+            if low <= value <= high:
+                ticks.append(float(value))
+        decade *= 10
+    return ticks or [low, high]
+
+
+def ttft_lines(cells: Sequence[CellStats]) -> LinePanel:
+    """Time to first token against prompt size, one line per variant, on log axes.
+
+    A cell with a longer wait sits lower on the chart, so a flat line means the wait grows
+    with the prompt; the two lines apart means the helper took a share of the work. Cells
+    without a valid run are left out, because they have no mean.
+    """
+    cells = sort_cells(cells)
+    sizes = sorted({c.size for c in cells})
+    series = variant_series(c.variant for c in cells)
+    lines = []
+    for variant in ordered_variants(c.variant for c in cells):
+        points = [
+            LinePoint(c.size, c.mean_ttft_s, size_label(c.size), fmt_seconds(c.mean_ttft_s))
+            for c in cells
+            if c.variant == variant and c.mean_ttft_s is not None
+        ]
+        if points:
+            lines.append(LineSeries(variant_label(variant), series[variant], points))
+    if not lines:
+        raise ValueError("no cell has a time to first token")
+    waits = [point.y for line in lines for point in line.points]
+    return LinePanel(
+        title="Time to first token by prompt size",
+        x_min=sizes[0],
+        x_max=sizes[-1],
+        y_min=min(waits),
+        y_max=max(waits),
+        x_ticks=[(size, size_label(size)) for size in sizes],
+        y_ticks=[(tick, f"{tick:g} s") for tick in log_ticks(min(waits), max(waits))],
+        series=lines,
+    )
 
 
 def _safe_name(text: str) -> str:

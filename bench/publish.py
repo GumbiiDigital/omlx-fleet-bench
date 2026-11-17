@@ -16,15 +16,16 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from bench import quality_report, report  # noqa: E402
-from bench.charts import Caption, IntervalPanel, IntervalRow, bar_panels, interval_panels  # noqa: E402
+from bench.charts import Caption, IntervalPanel, IntervalRow, bar_panels, interval_panels, line_panel  # noqa: E402
 from bench.labels import ordered_variants, size_label, variant_label, variant_series  # noqa: E402
 from bench.stats import spread, wilson_interval  # noqa: E402
 from bench.svg import THEMES  # noqa: E402
@@ -273,7 +274,66 @@ def build_quality(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
     return outputs, body
 
 
-BUILDERS = {"speed": build_speed, "kv_cache": build_kv_cache, "quality": build_quality}
+def build_speed_sweep(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
+    """Time to first token at each prompt size, Mac alone against the helper.
+
+    The same cells as the speed study, read one prompt size to a line: what changes as the
+    prompt grows, not what changes between setups at one size.
+    """
+    study, label, baseline = machine["speed_sweep"], machine["label"], machine["speed_sweep"]["baseline"]
+    cells = _cells(_rows(root, study["files"]), label)
+    by = _lookup(cells)
+    sizes = sorted({c.size for c in cells})
+    helper = next((c.variant for c in cells if c.variant != baseline), None)
+    if helper is None:
+        raise PublishError(f"{label}: the sweep needs a second setup to compare with {baseline!r}")
+
+    rows = []
+    for size in sizes:
+        alone, helped = by[(baseline, size)].mean_ttft_s, by[(helper, size)].mean_ttft_s
+        if alone is None or helped is None:
+            raise PublishError(f"{label}: no time to first token at {size_label(size)}")
+        rows.append([size_label(size), f"{alone:.1f} s", f"{helped:.1f} s", f"{alone / helped:.1f}×"])
+    header = ["Prompt", variant_label(baseline), variant_label(helper), "Speed-up"]
+    pairs = sorted({(c.n_valid, c.runs_expected) for c in cells})
+    counts = (
+        f"Mean of {pairs[0][0]} valid runs per cell."
+        if len(pairs) == 1
+        else "Valid runs per cell: " + ", ".join(f"{n} of {planned}" for n, planned in pairs) + "."
+    )
+    lines = [
+        "Time to first token at each prompt size, and how many times shorter the wait is with the helper:",
+        "",
+        _table(header, rows),
+        "",
+        counts,
+    ]
+
+    caption = Caption(
+        title="Time to first token by prompt size",
+        subtitle=[f"{machine['model']} · {machine['hardware']} · helper: {machine['helper']}", study["conditions"]],
+        footnotes=["Both axes are log scale. One line per setup; hover a point for its value."],
+    )
+    panel = report.ttft_lines(cells)
+    outputs = _charts(f"{label}-ttft-sweep", lambda theme: line_panel(caption, panel, theme))
+    outputs[f"reports/{label}/speed-sweep.md"] = report.summary_markdown(cells, "Prompt-size sweep: every cell")
+    return outputs, "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class Study:
+    """A published study: the shape of its rows, and the builder that reads them."""
+
+    kind: str  # "speed" or "quality": what one row of the study measures
+    build: Callable[[Path, Dict[str, Any]], Tuple[Outputs, str]]
+
+
+STUDIES = {
+    "speed": Study("speed", build_speed),
+    "speed_sweep": Study("speed", build_speed_sweep),
+    "kv_cache": Study("speed", build_kv_cache),
+    "quality": Study("quality", build_quality),
+}
 
 
 def build(root: Path) -> Tuple[Outputs, Dict[str, str]]:
@@ -282,12 +342,18 @@ def build(root: Path) -> Tuple[Outputs, Dict[str, str]]:
     outputs: Outputs = {}
     blocks: Dict[str, str] = {}
     for machine in manifest["machines"]:
-        for study, builder in BUILDERS.items():
-            if study not in machine:
+        for name, study in STUDIES.items():
+            if name not in machine:
                 continue
-            files, block = builder(root, machine)
+            entry = machine[name]
+            if entry.get("kind") != study.kind:
+                raise PublishError(
+                    f"{machine['label']} {name}: kind {entry.get('kind')!r} "
+                    f"does not match the builder for {study.kind!r} rows"
+                )
+            files, block = study.build(root, machine)
             outputs.update(files)
-            blocks[f"{study.replace('_', '-')} {machine['label']}"] = block
+            blocks[f"{name.replace('_', '-')} {machine['label']}"] = block
     return outputs, blocks
 
 
