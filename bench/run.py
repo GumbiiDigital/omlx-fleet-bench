@@ -24,6 +24,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from bench.chat import DEFAULT_READY_TIMEOUT_S, ChatClient, ChatError  # noqa: E402
 from bench.client import (  # noqa: E402
     OMLXClient,
     extract_result_metrics,
@@ -35,9 +36,12 @@ from bench.helper import (  # noqa: E402
     HelperStatus,
     HelperWaitPolicy,
     add_wait_arguments,
-    prepare_helper,
+    helper_fields,
+    helper_served,
+    request_clock,
 )
 from bench.matrix import SETTING_FIELDS, load_and_expand, load_matrix, settings_fields_touched  # noqa: E402
+from bench.runflow import begin_request, end_request  # noqa: E402
 from bench.validity import assess_validity  # noqa: E402
 
 logger = logging.getLogger("bench.run")
@@ -87,6 +91,7 @@ def run_matrix(args: argparse.Namespace) -> int:
     api_key = load_api_key(args.settings)
     client = OMLXClient(args.base_url, api_key)
     client.login()
+    chat = ChatClient(args.base_url, api_key, timeout_s=args.ready_timeout)
 
     out_path = Path(args.out)
 
@@ -94,13 +99,15 @@ def run_matrix(args: argparse.Namespace) -> int:
     policy = HelperWaitPolicy.from_args(args)
 
     with client.preserved_settings(matrix["model"], fields) as original:
-        _run_specs(args, client, specs, base_settings, fields, runs_per_cell, out_path, original, policy)
-    return 0
+        return _run_specs(
+            args, client, chat, specs, base_settings, fields, runs_per_cell, out_path, original, policy
+        )
 
 
 def _run_specs(
     args: argparse.Namespace,
     client: OMLXClient,
+    chat: ChatClient,
     specs: List[Any],
     base_settings: Dict[str, Any],
     fields: List[str],
@@ -108,7 +115,7 @@ def _run_specs(
     out_path: Path,
     original: Dict[str, Any],
     policy: HelperWaitPolicy,
-) -> None:
+) -> int:
     """Run each spec; settings are restored once by the caller."""
     for spec in specs:
         desired = spec.merge_settings(base_settings, args.helper_node or "")
@@ -126,18 +133,31 @@ def _run_specs(
             "desired_settings": {k: desired.get(k) for k in fields},
         }
         bench_id: Optional[str] = None
-        helper = HelperStatus.off()
+        helper = HelperStatus.off() if not spec.helper_on else HelperStatus.unknown()
+        request_started_at: Optional[float] = None
+        stop = False
         try:
             row_base["settings_before"] = original
-            client.apply_settings(spec.model, desired, fields)
-            helper = prepare_helper(client, spec.model, policy, helper_on=spec.helper_on)
-            row_base["helper_state"] = helper.state
-            row_base["helper_wait_s"] = helper.waited_s
+            # Settings, then a probe that makes the model load, then the helper wait.
+            helper = begin_request(
+                client,
+                chat,
+                spec.model,
+                desired,
+                fields,
+                policy,
+                helper_on=spec.helper_on,
+                ready_timeout_s=args.ready_timeout,
+            )
+            row_base.update(helper_fields(helper))
             log_offset = _log_size(args.server_log)
+            request_started_at = request_clock()
             bench_id = client.start_benchmark(spec.model, spec.prompt_size)
             row_base["bench_id"] = bench_id
             poll = client.poll_results(bench_id)
             stream_event = client.read_stream_terminal_event(bench_id)
+            proof = end_request(client, spec.model, helper_on=spec.helper_on)
+            row_base.update(helper_fields(helper, proof))
             metrics = extract_result_metrics(poll, spec.prompt_size)
             parsed = read_server_log_since(args.server_log, log_offset).get(bench_id, {})
             end_type = str(stream_event.get("type") or stream_event.get("event") or "")
@@ -149,7 +169,8 @@ def _run_specs(
                 helper_on=spec.helper_on,
                 ane_on=spec.ane_on,
                 log_parsed=parsed,
-                helper_ready=helper.is_ready,
+                helper_ready=helper.ready_for_request,
+                helper_served=helper_served(proof, request_started_at),
             )
             row = {
                 **row_base,
@@ -160,7 +181,7 @@ def _run_specs(
                 "log": parsed,
                 "validity": validity,
             }
-        except Exception as exc:  # noqa: BLE001 — record row then continue
+        except Exception as exc:  # noqa: BLE001 — record row, then continue or stop
             logger.exception("Run failed for %s", spec.cell_key)
             row = {
                 **row_base,
@@ -168,6 +189,7 @@ def _run_specs(
                 "error": str(exc),
                 "validity": {"valid": False},
             }
+            stop = isinstance(exc, ChatError)
 
         append_jsonl(out_path, row)
         logger.info(
@@ -175,6 +197,10 @@ def _run_specs(
             bench_id or "failed",
             row.get("validity", {}).get("valid"),
         )
+        if stop:
+            logger.error("Stopped: the model did not answer a readiness probe")
+            return 1
+    return 0
 
 
 
@@ -187,6 +213,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--helper-node", default="", help="Spark helper node id")
     parser.add_argument("--out", required=True, help="JSONL output path")
     parser.add_argument("--machine", required=True, help="Machine label for results")
+    parser.add_argument(
+        "--ready-timeout",
+        type=float,
+        default=DEFAULT_READY_TIMEOUT_S,
+        metavar="SECONDS",
+        help="seconds to wait for the model to answer a probe after a settings change (default 600)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print plan only")
     parser.add_argument(
         "--only-cells",
