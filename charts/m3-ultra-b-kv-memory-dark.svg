@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="234" viewBox="0 0 840 234" role="img" aria-label="Peak memory by KV cache scheme Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Peak memory by KV cache scheme Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better.</title>
+<rect x="0.5" y="0.5" width="839" height="233" fill="#1a1a19" rx="8" stroke="#2c2c2a" stroke-width="1"/>
+<text x="24" y="40" font-size="16" fill="#f0efec" font-weight="600">Peak memory by KV cache scheme</text>
+<text x="24" y="57" font-size="12" fill="#c3c2b7">Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB</text>
+<text x="24" y="74" font-size="12" fill="#c3c2b7">GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better.</text>
+<text x="24" y="105" font-size="13" fill="#f0efec" font-weight="600">32K prompt</text>
+<text x="24" y="129.5" font-size="12" fill="#c3c2b7">Native KV</text>
+<path d="M105.2,118 H269.19 Q273.19,118 273.19,122 V128 Q273.19,132 269.19,132 H105.2 Z" fill="#3987e5"><title>32K prompt · Native KV: 105.1 GB baseline</title></path>
+<text x="281.19" y="129.5" font-size="12" fill="#f0efec" font-weight="600">105.1 GB</text>
+<text x="348.71" y="129.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="155.5" font-size="12" fill="#c3c2b7">Affine4 KV</text>
+<path d="M105.2,144 H269.2 Q273.2,144 273.2,148 V154 Q273.2,158 269.2,158 H105.2 Z" fill="#d55181"><title>32K prompt · Affine4 KV: 105.1 GB +0.0%</title></path>
+<text x="281.2" y="155.5" font-size="12" fill="#f0efec" font-weight="600">105.1 GB</text>
+<text x="348.72" y="155.5" font-size="11" fill="#898781">+0.0%</text>
+<text x="24" y="181.5" font-size="12" fill="#c3c2b7">Affine8 KV</text>
+<path d="M105.2,170 H269.2 Q273.2,170 273.2,174 V180 Q273.2,184 269.2,184 H105.2 Z" fill="#9085e9"><title>32K prompt · Affine8 KV: 105.1 GB +0.0%</title></path>
+<text x="281.2" y="181.5" font-size="12" fill="#f0efec" font-weight="600">105.1 GB</text>
+<text x="348.72" y="181.5" font-size="11" fill="#898781">+0.0%</text>
+<line x1="105.2" y1="114" x2="105.2" y2="188" stroke="#383835" stroke-width="1"/>
+<text x="436" y="105" font-size="13" fill="#f0efec" font-weight="600">128K prompt</text>
+<text x="436" y="129.5" font-size="12" fill="#c3c2b7">Native KV</text>
+<path d="M517.2,118 H681.2 Q685.2,118 685.2,122 V128 Q685.2,132 681.2,132 H517.2 Z" fill="#3987e5"><title>128K prompt · Native KV: 108.5 GB baseline</title></path>
+<text x="693.2" y="129.5" font-size="12" fill="#f0efec" font-weight="600">108.5 GB</text>
+<text x="760.72" y="129.5" font-size="11" fill="#898781">baseline</text>
+<text x="436" y="155.5" font-size="12" fill="#c3c2b7">Affine4 KV</text>
+<path d="M517.2,144 H681.2 Q685.2,144 685.2,148 V154 Q685.2,158 681.2,158 H517.2 Z" fill="#d55181"><title>128K prompt · Affine4 KV: 108.5 GB −0.0%</title></path>
+<text x="693.2" y="155.5" font-size="12" fill="#f0efec" font-weight="600">108.5 GB</text>
+<text x="760.72" y="155.5" font-size="11" fill="#898781">−0.0%</text>
+<text x="436" y="181.5" font-size="12" fill="#c3c2b7">Affine8 KV</text>
+<path d="M517.2,170 H681.2 Q685.2,170 685.2,174 V180 Q685.2,184 681.2,184 H517.2 Z" fill="#9085e9"><title>128K prompt · Affine8 KV: 108.5 GB −0.0%</title></path>
+<text x="693.2" y="181.5" font-size="12" fill="#f0efec" font-weight="600">108.5 GB</text>
+<text x="760.72" y="181.5" font-size="11" fill="#898781">−0.0%</text>
+<line x1="517.2" y1="114" x2="517.2" y2="188" stroke="#383835" stroke-width="1"/>
+<text x="24" y="218" font-size="11" fill="#898781">Peak MLX active memory during the run, not the size of the KV cache alone. 1 GB = 2³⁰ bytes.</text>
+</svg>

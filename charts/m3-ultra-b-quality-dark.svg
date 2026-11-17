@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="296" viewBox="0 0 840 296" role="img" aria-label="Answer accuracy by setting Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB Same questions under every setting, temperature 0. Higher is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Answer accuracy by setting Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB Same questions under every setting, temperature 0. Higher is better.</title>
+<rect x="0.5" y="0.5" width="839" height="295" fill="#1a1a19" rx="8" stroke="#2c2c2a" stroke-width="1"/>
+<text x="24" y="40" font-size="16" fill="#f0efec" font-weight="600">Answer accuracy by setting</text>
+<text x="24" y="57" font-size="12" fill="#c3c2b7">Qwen3.8-Flash-Next-oQ4e-mtp · Apple M3 Ultra, 256 GB</text>
+<text x="24" y="74" font-size="12" fill="#c3c2b7">Same questions under every setting, temperature 0. Higher is better.</text>
+<text x="24" y="105" font-size="13" fill="#f0efec" font-weight="600">GSM8K · 200 questions</text>
+<line x1="132.08" y1="114" x2="132.08" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="132.08" y="230" font-size="11" fill="#898781" text-anchor="middle">80%</text>
+<line x1="172.98" y1="114" x2="172.98" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="172.98" y="230" font-size="11" fill="#898781" text-anchor="middle">85%</text>
+<line x1="213.88" y1="114" x2="213.88" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="213.88" y="230" font-size="11" fill="#898781" text-anchor="middle">90%</text>
+<line x1="254.78" y1="114" x2="254.78" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="254.78" y="230" font-size="11" fill="#898781" text-anchor="middle">95%</text>
+<line x1="295.68" y1="114" x2="295.68" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="295.68" y="230" font-size="11" fill="#898781" text-anchor="middle">100%</text>
+<text x="24" y="129" font-size="12" fill="#c3c2b7">GPU only</text>
+<line x1="243.41" y1="125" x2="284.37" y2="125" stroke="#3987e5" stroke-width="2" stroke-linecap="round"/>
+<circle cx="271.14" cy="125" r="5" fill="#3987e5" stroke="#1a1a19" stroke-width="2"><title>GSM8K · 200 questions · GPU only: 97.0% 194/200 (interval 93.6 to 98.6%)</title></circle>
+<text x="309.68" y="129" font-size="12" fill="#f0efec" font-weight="600">97.0%</text>
+<text x="354.88" y="129" font-size="11" fill="#898781">194/200</text>
+<text x="24" y="155" font-size="12" fill="#c3c2b7">Affine4 KV</text>
+<line x1="243.41" y1="151" x2="284.37" y2="151" stroke="#d55181" stroke-width="2" stroke-linecap="round"/>
+<circle cx="271.14" cy="151" r="5" fill="#d55181" stroke="#1a1a19" stroke-width="2"><title>GSM8K · 200 questions · Affine4 KV: 97.0% 194/200 (interval 93.6 to 98.6%)</title></circle>
+<text x="309.68" y="155" font-size="12" fill="#f0efec" font-weight="600">97.0%</text>
+<text x="354.88" y="155" font-size="11" fill="#898781">194/200</text>
+<text x="24" y="181" font-size="12" fill="#c3c2b7">Affine8 KV</text>
+<line x1="243.41" y1="177" x2="284.37" y2="177" stroke="#9085e9" stroke-width="2" stroke-linecap="round"/>
+<circle cx="271.14" cy="177" r="5" fill="#9085e9" stroke="#1a1a19" stroke-width="2"><title>GSM8K · 200 questions · Affine8 KV: 97.0% 194/200 (interval 93.6 to 98.6%)</title></circle>
+<text x="309.68" y="181" font-size="12" fill="#f0efec" font-weight="600">97.0%</text>
+<text x="354.88" y="181" font-size="11" fill="#898781">194/200</text>
+<text x="24" y="207" font-size="12" fill="#c3c2b7">+ Spark helper</text>
+<line x1="243.41" y1="203" x2="284.37" y2="203" stroke="#199e70" stroke-width="2" stroke-linecap="round"/>
+<circle cx="271.14" cy="203" r="5" fill="#199e70" stroke="#1a1a19" stroke-width="2"><title>GSM8K · 200 questions · + Spark helper: 97.0% 194/200 (interval 93.6 to 98.6%)</title></circle>
+<text x="309.68" y="207" font-size="12" fill="#f0efec" font-weight="600">97.0%</text>
+<text x="354.88" y="207" font-size="11" fill="#898781">194/200</text>
+<text x="436" y="105" font-size="13" fill="#f0efec" font-weight="600">MMLU · 500 questions</text>
+<line x1="544.08" y1="114" x2="544.08" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="544.08" y="230" font-size="11" fill="#898781" text-anchor="middle">80%</text>
+<line x1="584.98" y1="114" x2="584.98" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="584.98" y="230" font-size="11" fill="#898781" text-anchor="middle">85%</text>
+<line x1="625.88" y1="114" x2="625.88" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="625.88" y="230" font-size="11" fill="#898781" text-anchor="middle">90%</text>
+<line x1="666.78" y1="114" x2="666.78" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="666.78" y="230" font-size="11" fill="#898781" text-anchor="middle">95%</text>
+<line x1="707.68" y1="114" x2="707.68" y2="216" stroke="#2c2c2a" stroke-width="1"/>
+<text x="707.68" y="230" font-size="11" fill="#898781" text-anchor="middle">100%</text>
+<text x="436" y="129" font-size="12" fill="#c3c2b7">GPU only</text>
+<line x1="571.35" y1="125" x2="620.22" y2="125" stroke="#3987e5" stroke-width="2" stroke-linecap="round"/>
+<circle cx="598.07" cy="125" r="5" fill="#3987e5" stroke="#1a1a19" stroke-width="2"><title>MMLU · 500 questions · GPU only: 86.6% 433/500 (interval 83.3 to 89.3%)</title></circle>
+<text x="721.68" y="129" font-size="12" fill="#f0efec" font-weight="600">86.6%</text>
+<text x="766.88" y="129" font-size="11" fill="#898781">433/500</text>
+<text x="436" y="155" font-size="12" fill="#c3c2b7">Affine4 KV</text>
+<line x1="571.35" y1="151" x2="620.22" y2="151" stroke="#d55181" stroke-width="2" stroke-linecap="round"/>
+<circle cx="598.07" cy="151" r="5" fill="#d55181" stroke="#1a1a19" stroke-width="2"><title>MMLU · 500 questions · Affine4 KV: 86.6% 433/500 (interval 83.3 to 89.3%)</title></circle>
+<text x="721.68" y="155" font-size="12" fill="#f0efec" font-weight="600">86.6%</text>
+<text x="766.88" y="155" font-size="11" fill="#898781">433/500</text>
+<text x="436" y="181" font-size="12" fill="#c3c2b7">Affine8 KV</text>
+<line x1="571.35" y1="177" x2="620.22" y2="177" stroke="#9085e9" stroke-width="2" stroke-linecap="round"/>
+<circle cx="598.07" cy="177" r="5" fill="#9085e9" stroke="#1a1a19" stroke-width="2"><title>MMLU · 500 questions · Affine8 KV: 86.6% 433/500 (interval 83.3 to 89.3%)</title></circle>
+<text x="721.68" y="181" font-size="12" fill="#f0efec" font-weight="600">86.6%</text>
+<text x="766.88" y="181" font-size="11" fill="#898781">433/500</text>
+<text x="436" y="207" font-size="12" fill="#c3c2b7">+ Spark helper</text>
+<line x1="571.35" y1="203" x2="620.22" y2="203" stroke="#199e70" stroke-width="2" stroke-linecap="round"/>
+<circle cx="598.07" cy="203" r="5" fill="#199e70" stroke="#1a1a19" stroke-width="2"><title>MMLU · 500 questions · + Spark helper: 86.6% 433/500 (interval 83.3 to 89.3%)</title></circle>
+<text x="721.68" y="207" font-size="12" fill="#f0efec" font-weight="600">86.6%</text>
+<text x="766.88" y="207" font-size="11" fill="#898781">433/500</text>
+<text x="24" y="264" font-size="11" fill="#898781">Dot: share of correct answers. Line: 95% Wilson interval for that share. The axis does not start at zero.</text>
+<text x="24" y="280" font-size="11" fill="#898781">Passkey: 6 of 6 correct under every setting.</text>
+</svg>
