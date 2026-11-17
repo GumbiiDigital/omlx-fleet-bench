@@ -30,6 +30,12 @@ if str(_REPO_ROOT) not in sys.path:
 
 from bench.chat import ChatClient, ChatError  # noqa: E402
 from bench.client import OMLXClient, load_api_key  # noqa: E402
+from bench.helper import (  # noqa: E402
+    HelperStatus,
+    HelperWaitPolicy,
+    add_wait_arguments,
+    prepare_helper,
+)
 from bench.matrix import SETTING_FIELDS, _variant_flags, settings_fields_touched  # noqa: E402
 from bench.qa import (  # noqa: E402
     approximate_tokens,
@@ -309,6 +315,7 @@ def build_row(
     unit: QualityUnit,
     desired: Dict[str, Any],
     original: Dict[str, Any],
+    helper: HelperStatus,
 ) -> Dict[str, Any]:
     """Row skeleton for one request, before the reply is known."""
     return {
@@ -318,6 +325,8 @@ def build_row(
         "model": context.model,
         "variant": variant.name,
         "helper_on": variant.helper_on,
+        "helper_state": helper.state,
+        "helper_wait_s": helper.waited_s,
         "ane_on": variant.ane_on,
         "task": unit.task,
         "sample_id": unit.sample_id,
@@ -335,6 +344,7 @@ def build_row(
 
 def send_block(
     chat: ChatClient,
+    admin: Any,
     context: RunContext,
     variant: QualityVariant,
     units: Sequence[QualityUnit],
@@ -342,13 +352,19 @@ def send_block(
     original: Dict[str, Any],
     guard: ConsecutiveFailureGuard,
     sent_before: int,
+    policy: HelperWaitPolicy,
 ) -> Tuple[int, bool]:
-    """Send one variant's units. Return (rows written, stopped early)."""
+    """Send one variant's units. Return (rows written, stopped early).
+
+    The helper state is read (and waited for) before each request, so every row says what the
+    helper session was doing when its own request started.
+    """
     sent = 0
     for unit in units:
         if unit.variant.name != variant.name:
             continue
-        row = build_row(context, variant, unit, desired, original)
+        helper = prepare_helper(admin, context.model, policy, helper_on=variant.helper_on)
+        row = build_row(context, variant, unit, desired, original, helper)
         try:
             reply = chat.chat(context.model, unit.messages, max_tokens=unit.max_tokens)
         except ChatError as exc:
@@ -426,6 +442,7 @@ def run(args: argparse.Namespace) -> int:
     admin = OMLXClient(args.base_url, api_key)
     admin.login()
     chat = ChatClient(args.base_url, api_key, timeout_s=args.timeout)
+    policy = HelperWaitPolicy.from_args(args)
     fields = settings_fields_touched([], base_settings)
     out_path = Path(args.out)
     context = RunContext(
@@ -449,7 +466,7 @@ def run(args: argparse.Namespace) -> int:
                 logger.error("Run stopped after %d rows; settings are restored", sent)
                 return 1
             block_sent, stopped = send_block(
-                chat, context, variant, units, desired, original, guard, sent
+                chat, admin, context, variant, units, desired, original, guard, sent, policy
             )
             sent += block_sent
             if stopped:
@@ -504,6 +521,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
+    add_wait_arguments(parser)
     args = parser.parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

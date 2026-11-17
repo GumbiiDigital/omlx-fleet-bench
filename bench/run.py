@@ -31,6 +31,12 @@ from bench.client import (  # noqa: E402
     load_api_key,
 )
 from bench.collect import read_server_log_since  # noqa: E402
+from bench.helper import (  # noqa: E402
+    HelperStatus,
+    HelperWaitPolicy,
+    add_wait_arguments,
+    prepare_helper,
+)
 from bench.matrix import SETTING_FIELDS, load_and_expand, load_matrix, settings_fields_touched  # noqa: E402
 from bench.validity import assess_validity  # noqa: E402
 
@@ -85,9 +91,10 @@ def run_matrix(args: argparse.Namespace) -> int:
     out_path = Path(args.out)
 
     runs_per_cell = int(matrix.get("runs_per_cell", 3))
+    policy = HelperWaitPolicy.from_args(args)
 
     with client.preserved_settings(matrix["model"], fields) as original:
-        _run_specs(args, client, specs, base_settings, fields, runs_per_cell, out_path, original)
+        _run_specs(args, client, specs, base_settings, fields, runs_per_cell, out_path, original, policy)
     return 0
 
 
@@ -100,6 +107,7 @@ def _run_specs(
     runs_per_cell: int,
     out_path: Path,
     original: Dict[str, Any],
+    policy: HelperWaitPolicy,
 ) -> None:
     """Run each spec; settings are restored once by the caller."""
     for spec in specs:
@@ -118,9 +126,13 @@ def _run_specs(
             "desired_settings": {k: desired.get(k) for k in fields},
         }
         bench_id: Optional[str] = None
+        helper = HelperStatus.off()
         try:
             row_base["settings_before"] = original
             client.apply_settings(spec.model, desired, fields)
+            helper = prepare_helper(client, spec.model, policy, helper_on=spec.helper_on)
+            row_base["helper_state"] = helper.state
+            row_base["helper_wait_s"] = helper.waited_s
             log_offset = _log_size(args.server_log)
             bench_id = client.start_benchmark(spec.model, spec.prompt_size)
             row_base["bench_id"] = bench_id
@@ -137,6 +149,7 @@ def _run_specs(
                 helper_on=spec.helper_on,
                 ane_on=spec.ane_on,
                 log_parsed=parsed,
+                helper_ready=helper.is_ready,
             )
             row = {
                 **row_base,
@@ -181,6 +194,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Comma-separated variant:size filters",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
+    add_wait_arguments(parser)
     args = parser.parse_args(argv)
 
     logging.basicConfig(

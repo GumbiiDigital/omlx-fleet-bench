@@ -10,7 +10,14 @@ from bench.validity import assess_validity
 FIXTURE = Path(__file__).parent / "fixtures" / "server-log-sample.log"
 
 
-def _check(bench_id: str, *, ane_on: bool, helper_on: bool = False, features=None):
+def _check(
+    bench_id: str,
+    *,
+    ane_on: bool,
+    helper_on: bool = False,
+    features=None,
+    helper_ready=None,
+):
     parsed = read_server_log(str(FIXTURE))[bench_id]
     return assess_validity(
         status="completed",
@@ -19,6 +26,7 @@ def _check(bench_id: str, *, ane_on: bool, helper_on: bool = False, features=Non
         helper_on=helper_on,
         ane_on=ane_on,
         log_parsed=parsed,
+        helper_ready=helper_ready,
     )
 
 
@@ -39,6 +47,32 @@ class TestValidity(unittest.TestCase):
         self.assertFalse(_check("bench-efaaa0ac02ba", ane_on=False, helper_on=True)["valid"])
         ok = _check("bench-efaaa0ac02ba", ane_on=False, helper_on=True, features=["prefill_accelerator"])
         self.assertTrue(ok["valid"])
+
+    def test_helper_ready_at_request_start_is_required_for_a_helper_row(self) -> None:
+        ok = _check(
+            "bench-efaaa0ac02ba", ane_on=False, helper_on=True,
+            features=["prefill_accelerator"], helper_ready=True,
+        )
+        self.assertTrue(ok["helper_ready_at_start"])
+        self.assertTrue(ok["valid"])
+        not_ready = _check(
+            "bench-efaaa0ac02ba", ane_on=False, helper_on=True,
+            features=["prefill_accelerator"], helper_ready=False,
+        )
+        self.assertFalse(not_ready["helper_ready_at_start"])
+        self.assertFalse(not_ready["valid"])
+
+    def test_helper_off_row_is_valid_whatever_the_state(self) -> None:
+        # With the helper off there is no session to wait for, so the rule passes.
+        self.assertTrue(_check("bench-efaaa0ac02ba", ane_on=False, helper_ready=False)["valid"])
+
+    def test_row_without_a_recorded_state_keeps_its_validity(self) -> None:
+        # Old rows have no helper_state field; the rule must not fail them.
+        result = _check(
+            "bench-efaaa0ac02ba", ane_on=False, helper_on=True, features=["prefill_accelerator"]
+        )
+        self.assertTrue(result["helper_ready_at_start"])
+        self.assertTrue(result["valid"])
 
     def test_upload_done_is_invalid(self) -> None:
         parsed = read_server_log(str(FIXTURE))["bench-efaaa0ac02ba"]

@@ -72,6 +72,26 @@ class TestClient(unittest.TestCase):
                     raise RuntimeError("boom")
         self.assertEqual(calls, [{"prefill_helper_node_id": "temp"}, {"prefill_helper_node_id": "orig"}])
 
+    def test_helper_state_read_uses_the_model_endpoint(self) -> None:
+        seen: List[Any] = []
+
+        def fake_json_request(opener: Any, method: str, url: str, body: Dict[str, Any] = None) -> Any:
+            seen.append((method, url))
+            return {"state": "ready", "held": 63}
+
+        opener = MagicMock()
+        with patch("bench.client._json_request", side_effect=fake_json_request):
+            client = OMLXClient("http://example:8004", "sekret", opener_factory=lambda: opener)
+            state = client.get_prefill_helper_state("m1")
+        self.assertEqual(state, {"state": "ready", "held": 63})
+        self.assertEqual(seen[-1], ("GET", "http://example:8004/admin/api/prefill-helper/models/m1"))
+
+    def test_helper_state_read_is_none_for_an_odd_answer(self) -> None:
+        opener = MagicMock()
+        with patch("bench.client._json_request", side_effect=lambda *a, **kw: ["ready"]):
+            client = OMLXClient("http://example:8004", "sekret", opener_factory=lambda: opener)
+            self.assertIsNone(client.get_prefill_helper_state("m1"))
+
     def test_default_opener_keeps_cookies(self) -> None:
         opener = cookie_opener()
         self.assertTrue(any(isinstance(h, HTTPCookieProcessor) for h in opener.handlers))

@@ -286,12 +286,20 @@ class ConsecutiveFailureGuardTest(unittest.TestCase):
 class _FakeAdmin:
     """Records settings writes and whether the restore block ran."""
 
-    def __init__(self) -> None:
+    def __init__(self, helper_states: Optional[List[Any]] = None) -> None:
         self.applied: List[Dict[str, Any]] = []
         self.restored = False
+        self.helper_states = list(helper_states or [{"state": "ready"}])
+        self.helper_reads = 0
 
     def login(self) -> None:
         return None
+
+    def get_prefill_helper_state(self, model: str) -> Any:
+        self.helper_reads += 1
+        if len(self.helper_states) > 1:
+            return self.helper_states.pop(0)
+        return self.helper_states[0]
 
     @contextmanager
     def preserved_settings(self, model: str, fields: List[str]) -> Any:
@@ -370,6 +378,7 @@ class RunnerTest(unittest.TestCase):
         chat: _FakeChat,
         *extra: str,
         limit: int = 1,
+        variants: str = "gpu,ane",
     ) -> int:
         argv = [
             "--matrix", MATRIX,
@@ -377,7 +386,7 @@ class RunnerTest(unittest.TestCase):
             "--settings", self.settings,
             "--out", str(self.out),
             "--machine", "test",
-            "--only-variants", "gpu,ane",
+            "--only-variants", variants,
             "--only-tasks", "gsm8k",
             "--limit", str(limit),
             *extra,
@@ -435,6 +444,31 @@ class RunnerTest(unittest.TestCase):
         admin, chat = _FakeAdmin(), _FakeChat()
         self.assertEqual(self._run(admin, chat, limit=1), 0)
         self.assertEqual([row["max_tokens"] for row in self._rows()], [2048, 2048])
+
+    def test_helper_rows_record_the_state_they_started_with(self) -> None:
+        admin, chat = _FakeAdmin([{"state": "ready"}]), _FakeChat()
+        self.assertEqual(self._run(admin, chat, variants="spark"), 0)
+        rows = self._rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["helper_state"], "ready")
+        self.assertEqual(rows[0]["helper_wait_s"], 0.0)
+        self.assertEqual(admin.helper_reads, 1)
+
+    def test_no_helper_wait_records_a_session_that_was_not_up(self) -> None:
+        admin, chat = _FakeAdmin([{"state": "starting"}]), _FakeChat()
+        self.assertEqual(self._run(admin, chat, "--no-helper-wait", variants="spark"), 0)
+        rows = self._rows()
+        self.assertEqual(rows[0]["helper_state"], "starting")
+        self.assertEqual(rows[0]["helper_wait_s"], 0.0)
+        self.assertEqual(admin.helper_reads, 1)
+
+    def test_a_helper_off_row_carries_no_state(self) -> None:
+        admin, chat = _FakeAdmin(), _FakeChat()
+        self.assertEqual(self._run(admin, chat, variants="gpu"), 0)
+        rows = self._rows()
+        self.assertIsNone(rows[0]["helper_state"])
+        self.assertEqual(rows[0]["helper_wait_s"], 0.0)
+        self.assertEqual(admin.helper_reads, 0)
 
     def test_retry_capped_and_scale_narrow_the_run(self) -> None:
         capped = self.dir / "capped.jsonl"
