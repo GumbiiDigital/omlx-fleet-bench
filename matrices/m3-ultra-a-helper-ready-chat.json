@@ -1,0 +1,104 @@
+{
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "note": "Chat path (/v1/chat/completions) replay of the cold passkey fault. One round = one block with the helper off and one short GSM8K question (first N samples = 1), then one block with the helper on and ONE 32K passkey question. Run a round with --only-variants rN-off --only-tasks gsm8k --limit 1, then --only-variants rN-on --only-tasks passkey --limit 1. The passkey tag carries the round name, so no two rounds send the same prompt (cached tokens 0 in the row proves it). Private: chat path only, no upload.",
+  "base_settings": {
+    "qwen35_ane_prefill_enabled": false,
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "r1-off",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r1-on",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r2-off",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r2-on",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r3-off",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r3-on",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r4-off",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r4-on",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r5-off",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r5-on",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r6-off",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "r6-on",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    }
+  ],
+  "tasks": [
+    {
+      "name": "gsm8k",
+      "data": "data/gsm8k-200.jsonl",
+      "max_tokens": 2048
+    },
+    {
+      "name": "passkey",
+      "sizes": [
+        32768
+      ],
+      "samples_per_size": 1,
+      "max_tokens": 256,
+      "needles": [
+        "4829157"
+      ]
+    }
+  ]
+}
