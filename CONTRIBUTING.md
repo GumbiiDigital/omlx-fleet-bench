@@ -30,6 +30,9 @@ Results from other machines are the most useful thing you can add. Code fixes ar
 - Use the matrices in `matrices/` unchanged when you can. If you change one, commit it under a new
   name.
 - Cold cache, and nothing else using the Mac or the helper during the run.
+- Leave the helper wait on. `--helper-ready-timeout` (seconds, default 120) is how long a run waits
+  for the helper session after a settings change; `--no-helper-wait` sends the request at once and
+  is for replaying an older run only. Each row records `helper_state` and `helper_wait_s`.
 - Report every pass. A second pass that looks better does not replace the first one.
 
 ## Change the code

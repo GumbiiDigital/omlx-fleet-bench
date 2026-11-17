@@ -42,11 +42,23 @@ A speed row is valid only when all of these hold:
 - the server log shows 0 cached tokens, so the cache was cold;
 - the feature flags match the cell: `prefill_accelerator` is present for helper rows and absent for
   the others;
+- the helper session was `ready` when the request started. A row that records no state, as older
+  rows do, is not failed by this rule;
 - for ANE rows, the server log shows that ANE operations ran. The planned tile count alone is not
   accepted, because the server can plan ANE tiles and then not use them.
 
 `bench/validity.py` makes the call and records each check in the row. Rows that fail stay in the
 file. Nothing is deleted.
+
+## The helper wait
+
+A settings change unloads the model and ends the helper session, and the new session takes a while
+to be ready; a request that arrives in between is read on the Mac alone. After a settings change,
+both runners ask `GET /admin/api/prefill-helper/models/<model>` and wait for `state: ready` before
+sending the request (`--helper-ready-timeout`, seconds, default 120). `--no-helper-wait` sends the
+request after one read instead, which is only for replaying an older run. Each row records
+`helper_state`, the state at the start of its own request (`null` when the helper was off), and
+`helper_wait_s`, the seconds spent waiting for it.
 
 ## Noise
 
