@@ -13,6 +13,7 @@ Raw rows, one JSON object per line. One folder per machine, one file per run of 
 | `m3-ultra-a/quality-gpu-2026-11-16.jsonl` | 706 | Answer quality, GPU only |
 | `m3-ultra-a/quality-ane-kv-helper-2026-11-16.jsonl` | 2,824 | Answer quality, the other four settings |
 | `m3-ultra-a/quality-reask-8x-2026-11-16.jsonl` | 304 | The cut-off answers asked again with an 8× token cap |
+| `m3-ultra-a/quality-passkey-cold-2026-11-17.jsonl` | 30 | The passkey prompts asked again with a unique first line, so each one was read cold |
 | `m3-ultra-b/speed-2026-11-16.jsonl` | 24 | Speed matrix, 8 cells × 3 runs (no ANE setup on this model) |
 | `m3-ultra-b/kv-cache-2026-11-16.jsonl` | 18 | KV cache matrix, 6 cells × 3 runs |
 | `m3-ultra-b/quality-2026-11-16.jsonl` | 2,824 | Answer quality, all four settings |
@@ -22,9 +23,10 @@ The first machine's quality run is in two files because the first attempt stoppe
 answered HTTP 409 after a settings change. The harness now waits for the model and retries, and the
 other four settings were run in a second pass.
 
-The second machine's passkey rerun is a `replace` file in `published.json`: its 24 rows take the place
-of the passkey rows with the same setting, task and sample id in `quality-2026-11-16.jsonl`. The first
-pass reused cached filler between prompts; the rerun read 0 cached tokens in every row.
+Both passkey reruns are `replace` files in `published.json`: each file's rows take the place of the
+passkey rows with the same setting, task and sample id in that machine's main quality file. The first
+pass on each machine reused cached filler between prompts; the reruns read 0 cached tokens in every
+row.
 
 ## What was changed for publication
 

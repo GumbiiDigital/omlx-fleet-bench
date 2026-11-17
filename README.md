@@ -140,11 +140,15 @@ Same questions under every setting: 200 from GSM8K, 500 from MMLU (25 from each 
 - **Some answers were cut off.** 304 answers ran out of tokens while the model was still thinking
   (caps 1,024 for MMLU and 2,048 for GSM8K). I asked those again with caps 8 times larger. The ones
   in the last column were still cut off, and they count as wrong.
-- **The passkey prompts were not fully cold.** Inside one setting, a later passkey prompt reused
-  14,336 or 30,720 cached tokens of the shared filler from the prompt before it. The planted number
-  was always in the part that was read fresh, and the cache never crossed from one setting to
-  another. The harness now puts a unique line at the start of every passkey prompt, so a new run
-  reads the whole prompt. These rows were recorded before that change.
+- **The passkey rows come from a cold run.** The first passkey rows were not fully cold: inside one
+  setting, a later passkey prompt reused 14,336 or 30,720 cached tokens of the shared filler from the
+  prompt before it. The planted number was always in the part that was read fresh, and the cache
+  never crossed from one setting to another. The harness now puts a unique line at the start of every
+  passkey prompt, so a new run reads the whole prompt. I ran the 30 passkey prompts again on
+  2026-11-17 with that fixed harness. Every row has 0 cached tokens and all 30 answers are correct.
+  The published passkey numbers come from that run.
+- **The first helper request at 32K was slow.** In that cold passkey run, the first helper request at
+  32K took 109.7 s and the next one 30.9 s.
 
 ## Second machine (Flash-Next)
 
@@ -270,7 +274,7 @@ How to read it:
 | Helper | NVIDIA GB10 (DGX Spark, 128 GB) on a 10 GbE link |
 | Helper software | oMLX CUDA helper 0.1.4 plus the long-prompt memory fix proposed in [jundot/omlx#5271](https://github.com/jundot/omlx/pull/5271) |
 | Speed prompts | 8K, 32K, 64K, 128K tokens, `code_python` profile, 128 output tokens, cold cache |
-| Dates | Speed and KV cache 2026-11-15, quality 2026-11-16 |
+| Dates | Speed and KV cache 2026-11-15, quality 2026-11-16 plus a passkey rerun 2026-11-17 |
 | Second machine | Apple M3 Ultra, 256 GB, same DGX Spark helper, model `Qwen3.8-Flash-Next-oQ4e-mtp`; speed and KV cache 2026-11-16, quality 2026-11-16 plus a passkey rerun 2026-11-17 |
 
 The method, the rules that decide whether a row counts, and the known limits are in

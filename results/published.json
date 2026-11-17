@@ -21,7 +21,10 @@
           "results/m3-ultra-a/quality-gpu-2026-11-16.jsonl",
           "results/m3-ultra-a/quality-ane-kv-helper-2026-11-16.jsonl"
         ],
-        "replace": ["results/m3-ultra-a/quality-reask-8x-2026-11-16.jsonl"],
+        "replace": [
+          "results/m3-ultra-a/quality-reask-8x-2026-11-16.jsonl",
+          "results/m3-ultra-a/quality-passkey-cold-2026-11-17.jsonl"
+        ],
         "baseline": "gpu",
         "conditions": "Same questions under every setting, temperature 0. Higher is better."
       }
