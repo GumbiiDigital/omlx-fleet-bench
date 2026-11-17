@@ -40,14 +40,23 @@ def _words(text: str) -> int:
     return len(text.split())
 
 
+CACHE_TAG_TEMPLATE = "Request tag: {tag}. Ignore this line."
+
+
 def build_passkey_prompt(
     target_tokens: int,
     needle: str,
     *,
     depth: float = 0.5,
     tokens_per_word: float = 1.11,
+    cache_tag: str = "",
 ) -> str:
-    """Build a filler prompt of about `target_tokens` tokens with the needle at `depth`."""
+    """Build a filler prompt of about `target_tokens` tokens with the needle at `depth`.
+
+    A non-empty `cache_tag` adds one line at the very start. Identical prompt text made the
+    server serve later variants from its prompt cache, so the long read was never fresh.
+    The tag changes the leading bytes only; the body, needle and question stay the same.
+    """
     if not 0.0 <= depth <= 1.0:
         raise ValueError("depth must be between 0 and 1")
     target_words = max(_words(FILLER), int(target_tokens / tokens_per_word))
@@ -59,7 +68,10 @@ def build_passkey_prompt(
     insert_at = max(1, min(len(words) - 1, int(len(words) * depth)))
     head = " ".join(words[:insert_at])
     tail = " ".join(words[insert_at:])
-    return f"{head}\n{needle_text}\n{tail}\n\n{PASSKEY_QUESTION}"
+    prompt = f"{head}\n{needle_text}\n{tail}\n\n{PASSKEY_QUESTION}"
+    if not cache_tag:
+        return prompt
+    return f"{CACHE_TAG_TEMPLATE.format(tag=cache_tag)}\n\n{prompt}"
 
 
 def approximate_tokens(text: str, tokens_per_word: float = 1.11) -> int:

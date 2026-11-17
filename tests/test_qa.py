@@ -1,3 +1,4 @@
+import hashlib
 import unittest
 
 from bench import qa
@@ -84,6 +85,38 @@ class PasskeyTest(unittest.TestCase):
         self.assertTrue(qa.score_passkey("The passkey is 4829157.", "4829157")["correct"])
         self.assertTrue(qa.score_passkey("4,829,157", "4829157")["correct"])
         self.assertFalse(qa.score_passkey("7304826", "4829157")["correct"])
+
+
+class PasskeyCacheTagTest(unittest.TestCase):
+    """The tag line is the only difference a cache-busting prompt may carry."""
+
+    # sha256 of build_passkey_prompt(512, "4829157") before the cache_tag argument
+    # existed; an empty tag must still produce exactly these bytes.
+    GOLDEN_SHA256 = "9b26a14a05bbe5e0ed77557f42902ee37498f090ebc16c134dc268312be80e98"
+
+    def test_empty_tag_is_old_output(self):
+        old = qa.build_passkey_prompt(512, "4829157")
+        self.assertEqual(qa.build_passkey_prompt(512, "4829157", cache_tag=""), old)
+        self.assertEqual(hashlib.sha256(old.encode()).hexdigest(), self.GOLDEN_SHA256)
+        self.assertFalse(old.startswith("Request tag: "))
+
+    def test_tag_prepended(self):
+        tagged = qa.build_passkey_prompt(512, "4829157", cache_tag="gpu/passkey-32768-0")
+        self.assertTrue(tagged.startswith("Request tag: "))
+
+    def test_tag_is_one_line_then_blank_line(self):
+        tagged = qa.build_passkey_prompt(512, "4829157", cache_tag="gpu/passkey-32768-0")
+        first_line, rest = tagged.split("\n", 1)
+        self.assertEqual(first_line, "Request tag: gpu/passkey-32768-0. Ignore this line.")
+        self.assertTrue(rest.startswith("\n"))
+        self.assertEqual(
+            rest[1:], qa.build_passkey_prompt(512, "4829157"), "body after the tag must not change"
+        )
+
+    def test_needle_and_question_unchanged(self):
+        tagged = qa.build_passkey_prompt(512, "4829157", cache_tag="x")
+        self.assertIn(qa.NEEDLE_TEMPLATE.format(needle="4829157"), tagged)
+        self.assertTrue(tagged.endswith(qa.PASSKEY_QUESTION))
 
 
 class MmluPromptTest(unittest.TestCase):
