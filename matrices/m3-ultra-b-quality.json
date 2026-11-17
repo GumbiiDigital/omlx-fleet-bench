@@ -1,0 +1,71 @@
+{
+  "model": "Qwen3.8-Flash-Next-oQ4e-mtp",
+  "base_settings": {
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "affine4",
+      "helper": "off",
+      "ane": "off",
+      "settings": {
+        "turboquant_kv_enabled": true,
+        "turboquant_kv_scheme": "affine4",
+        "turboquant_kv_bits": 4
+      }
+    },
+    {
+      "name": "affine8",
+      "helper": "off",
+      "ane": "off",
+      "settings": {
+        "turboquant_kv_enabled": true,
+        "turboquant_kv_scheme": "affine8",
+        "turboquant_kv_bits": 8
+      }
+    },
+    {
+      "name": "spark",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    }
+  ],
+  "tasks": [
+    {
+      "name": "gsm8k",
+      "data": "data/gsm8k-200.jsonl",
+      "max_tokens": 2048
+    },
+    {
+      "name": "mmlu",
+      "data": "data/mmlu-500.jsonl",
+      "max_tokens": 1024
+    },
+    {
+      "name": "passkey",
+      "sizes": [
+        32768,
+        65536,
+        131072
+      ],
+      "samples_per_size": 2,
+      "max_tokens": 256,
+      "needles": [
+        "4829157",
+        "7304826"
+      ]
+    }
+  ],
+  "note": "No ANE setting: ANE prefill is not available for this model on this server build, so I did not run it. 2,824 requests (4 settings x 200 GSM8K + 500 MMLU + 6 passkey)."
+}

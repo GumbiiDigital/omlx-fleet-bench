@@ -12,10 +12,12 @@ helper:
 3. **Answer quality**: whether any of those settings changes what the model answers.
 
 This repository holds the harness, every raw row, and one script that rebuilds every table and chart
-below from those rows. It is one Mac, one helper and one model. It is not a leaderboard, and it is
-not an official oMLX result.
+below from those rows. It is two Macs, each with a DGX Spark helper, and one model on each. It is not
+a leaderboard, and it is not an official oMLX result.
 
 ## Short version
+
+The first four bullets are the 27B machine; the last one is the Flash-Next machine.
 
 - The Spark helper cuts the wait for the first token 2.8× to 3.4×. At 128K tokens the wait falls
   from 638 s to 190 s.
@@ -25,6 +27,9 @@ not an official oMLX result.
 - None of the settings moved accuracy on 700 questions by more than the questions can resolve. Read
   [what the quality test can and cannot tell you](#what-the-quality-test-can-and-cannot-tell-you)
   before you quote that.
+- The Flash-Next model has no ANE prefill. On that machine the helper cuts the wait 1.4× at 8K and
+  2.3× at 128K, KV cache schemes changed nothing measurable, and no setting changed a single answer
+  of 700.
 
 ## Time to first token
 
@@ -135,15 +140,124 @@ Same questions under every setting: 200 from GSM8K, 500 from MMLU (25 from each 
 - **Some answers were cut off.** 304 answers ran out of tokens while the model was still thinking
   (caps 1,024 for MMLU and 2,048 for GSM8K). I asked those again with caps 8 times larger. The ones
   in the last column were still cut off, and they count as wrong.
-- **The passkey prompts were not fully cold.** Inside one setting, a later passkey prompt reused
-  14,336 or 30,720 cached tokens of the shared filler from the prompt before it. The planted number
-  was always in the part that was read fresh, and the cache never crossed from one setting to
-  another. The harness now puts a unique line at the start of every passkey prompt, so a new run
-  reads the whole prompt. These rows were recorded before that change.
+- **The passkey rows come from a cold run.** The first passkey rows were not fully cold: inside one
+  setting, a later passkey prompt reused 14,336 or 30,720 cached tokens of the shared filler from the
+  prompt before it. The planted number was always in the part that was read fresh, and the cache
+  never crossed from one setting to another. The harness now puts a unique line at the start of every
+  passkey prompt, so a new run reads the whole prompt. I ran the 30 passkey prompts again on
+  2026-11-17 with that fixed harness. Every row has 0 cached tokens and all 30 answers are correct.
+  The published passkey numbers come from that run.
+- **The first helper request at 32K was slow.** In that cold passkey run, the first helper request at
+  32K took 109.7 s and the next one 30.9 s.
+
+## Second machine (Flash-Next)
+
+A second Apple M3 Ultra, 256 GB, with the same model of helper (NVIDIA GB10, DGX Spark, 10 GbE),
+ran the same three studies on `Qwen3.8-Flash-Next-oQ4e-mtp`, a mixture-of-experts model, instead of
+the 27B dense model. Two things differ from the first machine.
+
+- **No ANE prefill.** ANE prefill is not available for this model on this server build, so I did not
+  run it: speed has two settings instead of four, and quality has no ANE setting.
+- **The Mac alone is much faster.** The helper still cuts the wait, but by less than it did on the
+  27B.
+
+### Time to first token (Flash-Next)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-ttft-dark.svg">
+  <img alt="Time to first token at 8K, 32K, 64K and 128K prompt tokens, Mac alone and with the Spark helper" src="charts/m3-ultra-b-ttft-light.svg">
+</picture>
+
+<!-- BEGIN GENERATED: speed m3-ultra-b -->
+Time to first token, and how many times shorter the wait is than GPU only:
+
+| Setup | 8K | 32K | 64K | 128K |
+|---|---:|---:|---:|---:|
+| GPU only | 8.5 s | 33.3 s | 68.0 s | 137.2 s |
+| + Spark helper | 6.1 s · 1.4× | 16.1 s · 2.1× | 30.0 s · 2.3× | 58.8 s · 2.3× |
+
+Prefill speed in tokens per second:
+
+| Setup | 8K | 32K | 64K | 128K |
+|---|---:|---:|---:|---:|
+| GPU only | 966 | 983 | 963 | 955 |
+| + Spark helper | 1,353 | 2,030 | 2,185 | 2,230 |
+
+Run-to-run spread of prefill speed is at most 2.9% in every cell except + Spark helper at 32K (4.1%).
+<!-- END GENERATED: speed m3-ultra-b -->
+
+How to read it:
+
+- Two setups, not four: GPU only, and the same Mac with the Spark helper.
+- Each cell is the mean of 3 valid runs with a cold cache (0 cached tokens) and 128 output tokens.
+  All 24 runs completed and every one read its whole prompt.
+- The helper is worth 1.4× at 8K, 2.1× at 32K, and 2.3× at 64K and 128K. On the 27B machine the same
+  helper gave 2.8× to 3.4×, because that model is slower on the Mac alone.
+
+### KV cache schemes (Flash-Next)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-kv-memory-dark.svg">
+  <img alt="Peak memory at 32K and 128K prompt tokens for native, Affine4 and Affine8 KV cache on the Flash-Next machine" src="charts/m3-ultra-b-kv-memory-light.svg">
+</picture>
+
+<!-- BEGIN GENERATED: kv-cache m3-ultra-b -->
+| Scheme | 32K peak memory | 32K time to first token | 128K peak memory | 128K time to first token |
+|---|---:|---:|---:|---:|
+| Native KV | 105.1 GB | 33.5 s | 108.5 GB | 137.7 s |
+| Affine4 KV | 105.1 GB · +0.0% | 33.6 s · +0.4% | 108.5 GB · −0.0% | 137.6 s · −0.1% |
+| Affine8 KV | 105.1 GB · +0.0% | 33.6 s · +0.3% | 108.5 GB · −0.0% | 137.9 s · +0.1% |
+
+Run-to-run spread of prefill speed is at most 1.47% in every cell.
+<!-- END GENERATED: kv-cache m3-ultra-b -->
+
+How to read it:
+
+- GPU only, as in the first machine's table: ANE prefill and the helper are off.
+- Neither scheme moved anything I can measure on this model. Peak memory stayed at 105.1 GB (32K)
+  and 108.5 GB (128K) to the tenth of a gigabyte, and the wait moved by less than half a percent.
+- Nothing converted these rows. `log.kv_lines` is empty in all 18 rows, while the 27B rows record two
+  conversion lines each. The scheme was asked for in `desired_settings` and the server took it. From
+  these rows I cannot tell whether this model does not take the conversion or the server log does not
+  report it. I claim no KV cache size either way.
+
+### Answer quality (Flash-Next)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-quality-dark.svg">
+  <img alt="Accuracy on GSM8K and MMLU for four settings on the Flash-Next machine, each with a 95 percent interval" src="charts/m3-ultra-b-quality-light.svg">
+</picture>
+
+<!-- BEGIN GENERATED: quality m3-ultra-b -->
+| Setting | GSM8K (of 200) | MMLU (of 500) | Passkey (of 6) | Answers changed against GPU only | Still cut off |
+|---|---:|---:|---:|---:|---:|
+| GPU only | 194 · 97.0% | 433 · 86.6% | 6 | baseline | 57 |
+| Affine4 KV | 194 · 97.0% | 433 · 86.6% | 6 | 0 lost, 0 gained (of 700) | 57 |
+| Affine8 KV | 194 · 97.0% | 433 · 86.6% | 6 | 0 lost, 0 gained (of 700) | 57 |
+| + Spark helper | 194 · 97.0% | 433 · 86.6% | 6 | 0 lost, 0 gained (of 700) | 57 |
+<!-- END GENERATED: quality m3-ultra-b -->
+
+Same questions under all four settings: 200 from GSM8K, 500 from MMLU and the same 6 passkey prompts.
+2,824 requests, 0 errors.
+
+How to read it:
+
+- The four settings answered all 700 questions the same way: 0 lost and 0 gained against GPU only.
+  On the 27B machine the add-ons flipped 10 or 11 answers of 700. Nothing moved here at all, so the
+  honest reading is "no setting changed an answer on this run", not a measured safety margin.
+- 57 answers per setting ran out of tokens while the model was still thinking (caps 1,024 for MMLU,
+  2,048 for GSM8K) and count as wrong. I did not re-ask them on this machine, so read the MMLU figure
+  as a floor.
+- The passkey rows are from a second pass, run with a unique first line in every prompt so each one
+  was read cold: 0 cached tokens in all 24 rows. They replace the first-pass rows with the same
+  setting, task and sample id, and both passes scored 6 of 6.
+- The Spark helper row is tested only by the 6 passkey prompts, for the reason given for the first
+  machine: the GSM8K and MMLU prompts are about 150 tokens, too short for a helper to do work on.
 
 ## What these numbers do not show
 
-- One Mac, one helper, one model, one pre-release oMLX build. I do not know how far they transfer.
+- Two Macs, each with one helper, and one model on each, on a pre-release oMLX build. I do not know
+  how far they transfer.
 - Cold cache and one request at a time. No warm-cache numbers and no concurrency.
 - Three runs per cell. Enough to see a 3× effect, not enough to rank two setups that are 2% apart.
 - Decode speed (tokens per second after the first token) is in the raw rows but not studied.
@@ -160,7 +274,8 @@ Same questions under every setting: 200 from GSM8K, 500 from MMLU (25 from each 
 | Helper | NVIDIA GB10 (DGX Spark, 128 GB) on a 10 GbE link |
 | Helper software | oMLX CUDA helper 0.1.4 plus the long-prompt memory fix proposed in [jundot/omlx#5271](https://github.com/jundot/omlx/pull/5271) |
 | Speed prompts | 8K, 32K, 64K, 128K tokens, `code_python` profile, 128 output tokens, cold cache |
-| Dates | Speed and KV cache 2026-11-15, quality 2026-11-16 |
+| Dates | Speed and KV cache 2026-11-15, quality 2026-11-16 plus a passkey rerun 2026-11-17 |
+| Second machine | Apple M3 Ultra, 256 GB, same DGX Spark helper, model `Qwen3.8-Flash-Next-oQ4e-mtp`; speed and KV cache 2026-11-16, quality 2026-11-16 plus a passkey rerun 2026-11-17 |
 
 The method, the rules that decide whether a row counts, and the known limits are in
 [docs/method.md](docs/method.md).
@@ -250,8 +365,9 @@ with your own `--machine` label, keep the JSONL untouched, and open a pull reque
 | [charts/](charts) | Generated charts, light and dark |
 | [docs/method.md](docs/method.md) | Method, validity rules, limits |
 
-`matrices/flash-next-moe.json` is a matrix for a mixture-of-experts model. Its results are not
-published here yet.
+`matrices/m3-ultra-b-speed.json`, `m3-ultra-b-kv-cache.json` and `m3-ultra-b-quality.json` are the
+three matrices behind the Flash-Next tables. `matrices/flash-next-moe.json` is an earlier matrix for
+a mixture-of-experts model; its results are not published here.
 
 ## Credits and scope
 

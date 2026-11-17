@@ -1,0 +1,27 @@
+{
+  "model": "Qwen3.8-Flash-Next-oQ4e-mtp",
+  "note": "No ANE setup: ANE prefill is not available for this model on this server build, so I did not run it. Cold cache, 128 output tokens, 3 runs per cell.",
+  "runs_per_cell": 3,
+  "base_settings": {
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "spark",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    }
+  ],
+  "prompt_sizes": [8192, 32768, 65536, 131072]
+}
