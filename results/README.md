@@ -16,6 +16,9 @@ a file name is the local date the run started; the timestamps inside the rows ar
 | `m3-ultra-a/quality-reask-8x-2026-11-16.jsonl` | 304 | The cut-off answers asked again with an 8× token cap |
 | `m3-ultra-a/quality-passkey-cold-2026-11-17.jsonl` | 30 | The passkey prompts asked again with a unique first line, so each one was read cold |
 | `m3-ultra-b/speed-2026-11-16.jsonl` | 24 | Speed matrix, 8 cells × 3 runs (no ANE setup on this model) |
+| `m3-ultra-b/speed-sweep-2026-11-15.jsonl` | 28 | Prompt-size sweep 1K to 128K, 14 cells × 2 runs; one 128K helper run did not use the helper |
+| `m3-ultra-b/speed-sweep-rerun-2026-11-15.jsonl` | 4 | Two reruns of the 128K helper cell: the first failed, the second holds the valid run that cell was missing |
+| `m3-ultra-b/speed-256k-refused-2026-11-15.jsonl` | 2 | The 256K attempt: both rows are server refusals, kept as proof that size has no result |
 | `m3-ultra-b/kv-cache-2026-11-16.jsonl` | 18 | KV cache matrix, 6 cells × 3 runs |
 | `m3-ultra-b/quality-2026-11-16.jsonl` | 2,824 | Answer quality, all four settings |
 | `m3-ultra-b/quality-passkey-cold-2026-11-17.jsonl` | 24 | The passkey prompts asked again with a unique first line, so each one was read cold |
@@ -42,6 +45,13 @@ For `m3-ultra-b`, the same two, plus the `matrix` path, which points at
 private value, so the matrices themselves are published unchanged apart from their `note` line. The
 rows were edited as text, so the harness's own line formatting is kept.
 
+The prompt-size sweep files (`speed-sweep-*`, `speed-256k-refused-*`) were prepared the same way:
+machine label, helper node id and matrix path only. They were measured on 2026-11-15 with a second
+DGX Spark unit of the same type as the helper, one day before the speed matrix above, so the two
+sets are not one series. The error rows in those files are as the harness wrote them: they carry
+`error` and no metrics or log, so their fields differ from a completed row. No key was added or
+removed, and no measured value was changed.
+
 Earlier commits of this repository hold the rows under their old file names. The two warm re-run
 rows were moved out of the speed file into their own file; no row was edited or dropped.
 
@@ -61,7 +71,7 @@ rows were moved out of the speed file into their own file; no row was edited or 
 | `desired_settings` | Model settings sent for this run |
 | `settings_before` | Model settings found before the matrix started; restored at the end |
 | `bench_id` | Server id of the benchmark run |
-| `status` | `completed` for a good run |
+| `status` | `completed` for a good run; absent on an error row, which carries `error` instead |
 | `end_event_type` | Last event of the run; `upload_skipped` means it stayed private |
 | `feature_keys` | Features the server reported as active, for example `prefill_accelerator` |
 | `metrics.processing_tps` | Prefill speed, prompt tokens per second |
