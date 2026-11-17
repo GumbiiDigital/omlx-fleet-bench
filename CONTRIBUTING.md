@@ -30,9 +30,12 @@ Results from other machines are the most useful thing you can add. Code fixes ar
 - Use the matrices in `matrices/` unchanged when you can. If you change one, commit it under a new
   name.
 - Cold cache, and nothing else using the Mac or the helper during the run.
-- Leave the helper wait on. `--helper-ready-timeout` (seconds, default 120) is how long a run waits
-  for the helper session after a settings change; `--no-helper-wait` sends the request at once and
-  is for replaying an older run only. Each row records `helper_state` and `helper_wait_s`.
+- Leave the helper wait on. `--helper-ready-timeout` (seconds, default 120) limits the wait and
+  `--helper-stable-s` (default 5) says how long `ready` must hold with one session start. Every
+  request is made after a one-token probe of the model, and each row records `helper_state`,
+  `helper_wait_s`, `helper_layers`, `helper_held`, `helper_session_since`, `helper_last_prompt_at`,
+  `helper_last_prompt_tokens` and `helper_last_prompt_seconds`. `--no-helper-wait` is for
+  replaying an older run only.
 - Report every pass. A second pass that looks better does not replace the first one.
 
 ## Change the code
