@@ -1,0 +1,135 @@
+{
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "note": "Helper layer count on the chat path at 32768 prompt tokens: Mac alone (control) and the helper with automatic layers, 32, 49 and 63. 3 passes; one call per block, one request per block, a fresh variant name per run so the passkey tag line differs and cached tokens stay 0. Default helper wait. Private: chat path only, no upload.",
+  "base_settings": {
+    "qwen35_ane_prefill_enabled": false,
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "p1-32k-gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p1-32k-auto",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p1-32k-l32",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 32
+      }
+    },
+    {
+      "name": "p1-32k-l49",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 49
+      }
+    },
+    {
+      "name": "p1-32k-l63",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 63
+      }
+    },
+    {
+      "name": "p2-32k-gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p2-32k-auto",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p2-32k-l32",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 32
+      }
+    },
+    {
+      "name": "p2-32k-l49",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 49
+      }
+    },
+    {
+      "name": "p2-32k-l63",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 63
+      }
+    },
+    {
+      "name": "p3-32k-gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p3-32k-auto",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p3-32k-l32",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 32
+      }
+    },
+    {
+      "name": "p3-32k-l49",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 49
+      }
+    },
+    {
+      "name": "p3-32k-l63",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 63
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "name": "passkey",
+      "sizes": [
+        32768
+      ],
+      "samples_per_size": 1,
+      "max_tokens": 256,
+      "needles": [
+        "4829157"
+      ]
+    }
+  ]
+}
