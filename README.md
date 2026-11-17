@@ -68,8 +68,30 @@ setting and `bench/quality_report.py` gives accuracy per setting and task.
 - Settings: GPU only, + ANE prefill, Affine4 KV, Affine8 KV, + Spark helper. 3,530 requests.
 - Nothing is uploaded: the chat path has no leaderboard upload.
 
-Status: built and smoke-tested on GPU (2 GSM8K, 2 MMLU, 2 passkey at 32K: all correct, settings put back
-unchanged). **The full 5-setting run has not been executed yet**, so this repo has no accuracy table for it.
+### Result (Mac 3 + Spark 2, Qwen3.8-27B-oQ4e-mtp, 2026-11-16)
+
+No setting changes answer quality by more than the sampling error. 3,530 requests, 0 errors,
+settings put back unchanged after the run.
+
+![Answer quality per setting](charts/phase4-quality.png)
+
+| Setting | GSM8K (of 200) | MMLU (of 500) | Passkey (of 6) |
+| --- | ---: | ---: | ---: |
+| GPU only | 190 (95.0%) | 433 (86.6%) | 6 |
+| + ANE prefill | 192 (96.0%) | 431 (86.2%) | 6 |
+| Affine4 KV | 193 (96.5%) | 421 (84.2%) | 6 |
+| Affine8 KV | 192 (96.0%) | 428 (85.6%) | 6 |
+| + Spark helper | 192 (96.0%) | 433 (86.6%) | 6 |
+
+- Affine4 is lowest on MMLU, by 2.4 points: inside the 3 to 4 point sampling error, so not a proven loss.
+- 302 of 3,530 answers (56 to 70 per setting) hit the token cap (1,024 or 2,048) while the model was
+  still thinking, so they have no final answer and count as wrong. The cap is the same for every
+  setting, so the comparison holds; the absolute scores are a little low.
+- Raw rows: `results/mac3-media/quality-gpu-clean-2026-11-16.jsonl` (GPU block) and
+  `results/mac3-media/quality-rerun-2026-11-16.jsonl` (the other four). Summary: `report-phase4/summary.md`.
+- The first full run stopped after the GPU block: the server answered HTTP 409 "unload pending" after a
+  settings change. The runner now retries 409, waits for the model to answer after each settings change
+  (`--ready-timeout`), and stops after repeated identical failures (`--max-consecutive-failures`).
 
 ```bash
 python3 bench/quality.py --matrix matrices/quality.json \
@@ -125,7 +147,7 @@ folder it is given. To report one phase, give it a folder that holds only that p
 - `bench/report.py` — summary table and SVG charts
 - `matrices/` — the matrices used here (`m3-ultra-spark.json`, `kv-cache.json`, plus `smoke.json`)
 - `results/<machine>/` — raw rows, one JSONL per phase
-- `report-phase1/`, `report-phase3/` — generated summaries and SVG charts for the runs above
+- `report-phase1/`, `report-phase3/`, `report-phase4/` — generated summaries (and SVG charts) for the runs above
 - `charts/` — the PNG charts in this README
 - `docs/method.md` — test matrix, method rules, validity rules, known limits
 
