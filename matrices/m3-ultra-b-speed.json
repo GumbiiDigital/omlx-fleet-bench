@@ -1,6 +1,6 @@
 {
   "model": "Qwen3.8-Flash-Next-oQ4e-mtp",
-  "note": "No ANE setup: ANE prefill is not available for this model. Cold cache, 128 output tokens, 3 runs per cell.",
+  "note": "No ANE setup: ANE prefill is not available for this model on this server build, so I did not run it. Cold cache, 128 output tokens, 3 runs per cell.",
   "runs_per_cell": 3,
   "base_settings": {
     "prefill_helper_layers": null,

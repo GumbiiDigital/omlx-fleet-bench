@@ -1,6 +1,7 @@
 # Results
 
-Raw rows, one JSON object per line. One folder per machine, one file per run of a matrix.
+Raw rows, one JSON object per line. One folder per machine, one file per run of a matrix. The date in
+a file name is the local date the run started; the timestamps inside the rows are UTC.
 `published.json` lists which files make up each published study; `bench/publish.py` reads it.
 
 ## Files

@@ -67,5 +67,5 @@
       ]
     }
   ],
-  "note": "No ANE setting: ANE prefill is not available for this model. 2,824 requests (4 settings x 200 GSM8K + 500 MMLU + 6 passkey)."
+  "note": "No ANE setting: ANE prefill is not available for this model on this server build, so I did not run it. 2,824 requests (4 settings x 200 GSM8K + 500 MMLU + 6 passkey)."
 }

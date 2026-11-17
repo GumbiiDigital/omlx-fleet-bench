@@ -156,8 +156,8 @@ A second Apple M3 Ultra, 256 GB, with the same model of helper (NVIDIA GB10, DGX
 ran the same three studies on `Qwen3.8-Flash-Next-oQ4e-mtp`, a mixture-of-experts model, instead of
 the 27B dense model. Two things differ from the first machine.
 
-- **No ANE prefill.** The server answers HTTP 400 when an ANE prefill is asked for with this model,
-  so no table below has an ANE setup and speed has two setups instead of four.
+- **No ANE prefill.** ANE prefill is not available for this model on this server build, so I did not
+  run it: speed has two settings instead of four, and quality has no ANE setting.
 - **The Mac alone is much faster.** The helper still cuts the wait, but by less than it did on the
   27B.
 
