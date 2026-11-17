@@ -17,7 +17,7 @@ a file name is the local date the run started; the timestamps inside the rows ar
 | `m3-ultra-a/quality-passkey-cold-2026-11-17.jsonl` | 30 | The passkey prompts asked again with a unique first line, so each one was read cold |
 | `m3-ultra-b/speed-2026-11-16.jsonl` | 24 | Speed matrix, 8 cells × 3 runs (no ANE setup on this model) |
 | `m3-ultra-b/speed-sweep-2026-11-15.jsonl` | 28 | Prompt-size sweep 1K to 128K, 14 cells × 2 runs; one 128K helper run did not use the helper |
-| `m3-ultra-b/speed-sweep-rerun-2026-11-15.jsonl` | 4 | Two reruns of the 128K helper cell: the first failed, the second holds the valid run that cell was missing |
+| `m3-ultra-b/speed-sweep-rerun-2026-11-15.jsonl` | 4 | Reruns of the 128K helper cell: 2 server-conflict rows, 1 failed run, and the valid row that cell was missing |
 | `m3-ultra-b/speed-256k-refused-2026-11-15.jsonl` | 2 | The 256K attempt: both rows are server refusals, kept as proof that size has no result |
 | `m3-ultra-b/kv-cache-2026-11-16.jsonl` | 18 | KV cache matrix, 6 cells × 3 runs |
 | `m3-ultra-b/quality-2026-11-16.jsonl` | 2,824 | Answer quality, all four settings |

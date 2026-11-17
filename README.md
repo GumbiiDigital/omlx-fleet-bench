@@ -230,10 +230,11 @@ How to read it:
   helper's share therefore grows with the prompt, 1.1× at 1K, 1.5× at 8K, 2.1× at 32K and
   2.3× at 128K: the Mac alone keeps its prefill speed as the prompt grows, and the helper's
   rises.
-- Two rows are kept but marked not valid. One helper run at 128K never engaged the helper
-  (it read as Mac-alone speed), and a first rerun failed when the helper program stopped.
-  Both are in the raw files with their validity flags and are not in any mean. A second
-  rerun gave the missing 128K helper run, so every cell has 2 valid runs.
+- Four rows are kept but marked not valid, and none of them is in a mean. In the sweep file
+  one 128K helper run never engaged the helper, so it read as Mac-alone speed. In the rerun
+  file, two rows are server conflicts (HTTP 409) from the first attempt, and one is a failed
+  run before the valid rerun, made while the helper program had stopped. The last row of that
+  file is the 128K helper run the sweep lacked, so every cell has 2 valid runs.
 
 ### KV cache schemes (Flash-Next)
 
