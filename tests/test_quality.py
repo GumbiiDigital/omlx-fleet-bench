@@ -123,6 +123,42 @@ class CappedRetryTest(unittest.TestCase):
             quality.scale_max_tokens([], 0)
 
 
+class PasskeyCacheBustTest(unittest.TestCase):
+    """Same prompt text for every variant let oMLX serve later variants from its prompt
+    cache, so the long read was never fresh. Each unit now carries its own tag line."""
+
+    def setUp(self):
+        self.matrix = quality.load_quality_matrix(MATRIX)
+
+    def _units(self, matrix, names=("gpu", "affine4")):
+        variants = quality.load_variants(matrix, list(names))
+        return quality.build_units(matrix, variants, only_tasks=["passkey"])
+
+    def test_one_tag_per_variant_and_sample(self):
+        units = self._units(self.matrix)
+        self.assertEqual(len(units), 2 * 6)
+        firsts = [u.messages[-1]["content"].split("\n", 1)[0] for u in units]
+        for tag in firsts:
+            self.assertTrue(tag.startswith("Request tag: "), tag)
+        self.assertEqual(len(set(firsts)), len(firsts), "every passkey prompt needs its own first line")
+
+    def test_needle_and_question_unchanged(self):
+        from bench.qa import PASSKEY_QUESTION
+
+        units = self._units(self.matrix)
+        for unit in units:
+            content = unit.messages[-1]["content"]
+            self.assertIn(str(unit.expected), content)
+            self.assertTrue(content.endswith(PASSKEY_QUESTION))
+
+    def test_old_behaviour_without_cache_bust(self):
+        matrix = dict(self.matrix)
+        matrix["tasks"] = [dict(t, cache_bust=False) for t in self.matrix["tasks"]]
+        units = self._units(matrix)
+        contents = {u.messages[-1]["content"] for u in units}
+        self.assertEqual(len(contents), 6, "cache_bust false must keep prompts byte-identical across variants")
+
+
 class ScoringDispatchTest(unittest.TestCase):
     def test_dispatch(self):
         variant = quality.load_variants(quality.load_quality_matrix(MATRIX), ["gpu"])[0]

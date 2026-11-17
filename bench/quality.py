@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Run answer-quality checks against oMLX settings and write one JSONL row per request.
 
-Phase 4 of the fleet plan: does a setting (ANE prefill, Spark helper, KV compression)
-change what the model answers?
+Does a setting (ANE prefill, Spark helper, KV compression) change what the model answers?
 
 Usage:
     python3 bench/quality.py --matrix matrices/quality.json --base-url http://127.0.0.1:8004 \
@@ -182,13 +181,23 @@ def scale_max_tokens(units: Sequence[QualityUnit], scale: int) -> List[QualityUn
     return [replace(unit, max_tokens=unit.max_tokens * scale) for unit in units]
 
 
-def _passkey_units(task: Dict[str, Any], needles: Sequence[str]) -> Iterable[Dict[str, Any]]:
+def _passkey_units(
+    task: Dict[str, Any],
+    needles: Sequence[str],
+    *,
+    variant_name: str = "",
+    cache_bust: bool = True,
+) -> Iterable[Dict[str, Any]]:
+    """One unit per size and sample. The tag line is unique per variant and sample so the
+    server cannot answer a later variant from the prompt cache of an earlier one."""
     for size in [int(s) for s in task["sizes"]]:
         for index in range(int(task.get("samples_per_size", 1))):
             needle = needles[index % len(needles)]
-            text = build_passkey_prompt(size, needle)
+            sample_id = f"passkey-{size}-{index}"
+            tag = f"{variant_name}/{sample_id}" if cache_bust and variant_name else ""
+            text = build_passkey_prompt(size, needle, cache_tag=tag)
             yield {
-                "sample_id": f"passkey-{size}-{index}",
+                "sample_id": sample_id,
                 "size": size,
                 "needle": needle,
                 "prompt": text,
@@ -241,8 +250,11 @@ def build_units(
                     )
             elif name == "passkey":
                 needles = task.get("needles") or ["4829157"]
+                cache_bust = bool(task.get("cache_bust", True))
                 count = 0
-                for unit_row in _passkey_units(task, needles):
+                for unit_row in _passkey_units(
+                    task, needles, variant_name=variant.name, cache_bust=cache_bust
+                ):
                     if limit and count >= limit:
                         break
                     count += 1

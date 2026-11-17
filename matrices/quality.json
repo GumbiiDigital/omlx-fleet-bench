@@ -66,5 +66,5 @@
       "needles": ["4829157", "7304826"]
     }
   ],
-  "note": "Phase 4: does each setting change the answer? 3530 requests (5 settings x 200 GSM8K + 500 MMLU + 6 passkey). Use --limit for a smoke run."
+  "note": "Does each setting change the answer? 3530 requests (5 settings x 200 GSM8K + 500 MMLU + 6 passkey). Use --limit for a smoke run."
 }

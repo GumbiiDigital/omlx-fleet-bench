@@ -40,5 +40,5 @@
     32768,
     131072
   ],
-  "note": "ANE off to match docs/affine4.md 32K table and the 2026-11-14 Mac 3 run."
+  "note": "ANE and helper off, so only the KV cache scheme changes between cells."
 }
