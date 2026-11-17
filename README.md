@@ -77,18 +77,20 @@ settings put back unchanged after the run.
 
 | Setting | GSM8K (of 200) | MMLU (of 500) | Passkey (of 6) |
 | --- | ---: | ---: | ---: |
-| GPU only | 190 (95.0%) | 433 (86.6%) | 6 |
-| + ANE prefill | 192 (96.0%) | 431 (86.2%) | 6 |
-| Affine4 KV | 193 (96.5%) | 421 (84.2%) | 6 |
-| Affine8 KV | 192 (96.0%) | 428 (85.6%) | 6 |
-| + Spark helper | 192 (96.0%) | 433 (86.6%) | 6 |
+| GPU only | 195 (97.5%) | 454 (90.8%) | 6 |
+| + ANE prefill | 195 (97.5%) | 456 (91.2%) | 6 |
+| Affine4 KV | 196 (98.0%) | 459 (91.8%) | 6 |
+| Affine8 KV | 195 (97.5%) | 458 (91.6%) | 6 |
+| + Spark helper | 195 (97.5%) | 459 (91.8%) | 6 |
 
-- Affine4 is lowest on MMLU, by 2.4 points: inside the 3 to 4 point sampling error, so not a proven loss.
-- 302 of 3,530 answers (56 to 70 per setting) hit the token cap (1,024 or 2,048) while the model was
-  still thinking, so they have no final answer and count as wrong. The cap is the same for every
-  setting, so the comparison holds; the absolute scores are a little low.
-- Raw rows: `results/mac3-media/quality-gpu-clean-2026-11-16.jsonl` (GPU block) and
-  `results/mac3-media/quality-rerun-2026-11-16.jsonl` (the other four). Summary: `report-phase4/summary.md`.
+- No setting gap is larger than the 3 to 4 point sampling error. The largest spread is 1 answer
+  (0.5 points) on GSM8K and 5 answers (1 point) on MMLU.
+- The 304 answers that hit the cap (1,024 MMLU / 2,048 GSM8K) were asked again with an 8x cap
+  (8,192 / 16,384), same setting each. 74 still hit the 8x cap (MMLU only; per setting: gpu 16,
+  ane 17, affine4 17, affine8 12, spark 12) and count as wrong.
+- Raw rows: `results/mac3-media/quality-gpu-clean-2026-11-16.jsonl` (GPU block),
+  `results/mac3-media/quality-rerun-2026-11-16.jsonl` (the other four), and
+  `results/mac3-media/quality-capped8x-2026-11-16.jsonl` (8x re-asks). Summary: `report-phase4/summary.md`.
 - The first full run stopped after the GPU block: the server answered HTTP 409 "unload pending" after a
   settings change. The runner now retries 409, waits for the model to answer after each settings change
   (`--ready-timeout`), and stops after repeated identical failures (`--max-consecutive-failures`).
@@ -102,6 +104,14 @@ python3 bench/quality.py --matrix matrices/quality.json \
   --out results/your-label/quality-2026-11-16.jsonl
 
 python3 bench/quality_report.py results/your-label/quality-2026-11-16.jsonl --out report/quality.md
+
+python3 bench/quality.py --matrix matrices/quality.json \
+  --base-url http://127.0.0.1:8004 \
+  --settings "$HOME/.omlx/settings.json" \
+  --helper-node YOUR_HELPER_NODE_ID \
+  --machine your-label \
+  --retry-capped prior.jsonl --max-tokens-scale 8 --out retry.jsonl
+python3 bench/quality_report.py base.jsonl --replace retry.jsonl --out report/quality.md
 ```
 
 `--limit N` runs the first N samples of each task, `--only-variants` and `--only-tasks` narrow the
