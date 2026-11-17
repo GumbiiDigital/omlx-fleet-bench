@@ -33,6 +33,30 @@ def group(rows: List[Dict[str, Any]]) -> Dict[Tuple[str, str], List[Dict[str, An
     return out
 
 
+def row_key(row: Dict[str, Any]) -> Tuple[str, str, str]:
+    """Identity of one answer: which setting, which task, which sample."""
+    return (str(row.get("variant", "")), str(row.get("task", "")), str(row.get("sample_id", "")))
+
+
+def apply_replacements(
+    base_rows: List[Dict[str, Any]], new_rows: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Put re-asked answers in the place of the rows they answer again.
+
+    A new row replaces the base row with the same key and keeps its position. A key
+    that is not in the base is an error: it means the files do not belong together,
+    and a silent drop would hide that.
+    """
+    by_key = {row_key(row): row for row in new_rows}
+    known = {row_key(row) for row in base_rows}
+    unknown = sorted(set(by_key) - known)
+    if unknown:
+        raise ValueError(f"replacement key not in base rows: {unknown[0]}")
+    if not by_key:
+        return list(base_rows)
+    return [by_key.get(row_key(row), row) for row in base_rows]
+
+
 def accuracy(items: List[Dict[str, Any]]) -> Tuple[int, int]:
     scored = [r for r in items if "correct" in r]
     return sum(1 for r in scored if r["correct"]), len(scored)
@@ -56,17 +80,18 @@ def write_summary(rows: List[Dict[str, Any]]) -> str:
     lines = [
         "# Answer quality summary",
         "",
-        "| Setting | Task | Correct | Scored | Accuracy | Errors | Real/target prompt |",
-        "| --- | --- | ---: | ---: | ---: | ---: | --- |",
+        "| Setting | Task | Correct | Scored | Accuracy | Errors | Real/target prompt | Capped |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: |",
     ]
     for (variant, task) in sorted(groups):
         items = groups[(variant, task)]
         correct, scored = accuracy(items)
         errors = sum(1 for r in items if r.get("status") == "error")
+        capped = sum(1 for r in items if r.get("finish_reason") == "length")
         pct = f"{correct / scored * 100:.1f}%" if scored else "-"
         fit = prompt_fit(items) or "-"
         lines.append(
-            f"| {variant} | {task} | {correct} | {scored} | {pct} | {errors} | {fit} |"
+            f"| {variant} | {task} | {correct} | {scored} | {pct} | {errors} | {fit} | {capped} |"
         )
     empty = sum(1 for r in rows if not (r.get("content") or "").strip())
     lines += ["", f"Rows: {len(rows)}. Rows with empty answer text: {empty}."]
@@ -77,10 +102,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Summarize quality JSONL rows")
     parser.add_argument("paths", nargs="+")
     parser.add_argument("--out", default=None)
+    parser.add_argument(
+        "--replace",
+        action="append",
+        default=None,
+        metavar="FILE",
+        help="rows in FILE stand in for base rows with the same setting, task and sample (repeatable)",
+    )
     args = parser.parse_args(argv)
 
     paths = [Path(p) for p in args.paths]
-    missing = [str(p) for p in paths if not p.exists()]
+    replace_paths = [Path(p) for p in (args.replace or [])]
+    missing = [str(p) for p in paths + replace_paths if not p.exists()]
     if missing:
         print(f"missing: {missing}", file=sys.stderr)
         return 2
@@ -89,6 +122,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not rows:
         print("no rows", file=sys.stderr)
         return 2
+    if replace_paths:
+        try:
+            rows = apply_replacements(rows, load_rows(replace_paths))
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     summary = write_summary(rows)
     print(summary)
     if args.out:

@@ -20,10 +20,10 @@ import argparse
 import json
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
@@ -146,6 +146,40 @@ def read_jsonl(path: Path) -> List[Dict[str, Any]]:
             if line:
                 rows.append(json.loads(line))
     return rows
+
+
+def unit_key(variant: str, task: str, sample_id: str) -> Tuple[str, str, str]:
+    """Identity of one answer: which setting, which task, which sample."""
+    return (variant, task, sample_id)
+
+
+def capped_keys(rows: Iterable[Dict[str, Any]]) -> Set[Tuple[str, str, str]]:
+    """Keys of answers that ran out of tokens while still thinking.
+
+    finish_reason "length" means the cap cut the reply off, so the answer was never
+    given. Those are the ones worth re-asking with a bigger cap.
+    """
+    return {
+        unit_key(str(row.get("variant", "")), str(row.get("task", "")), str(row.get("sample_id", "")))
+        for row in rows
+        if row.get("finish_reason") == "length"
+    }
+
+
+def select_units(
+    units: Sequence[QualityUnit], keys: Set[Tuple[str, str, str]]
+) -> List[QualityUnit]:
+    """Keep only units whose key is wanted, in the order they were built."""
+    return [unit for unit in units if unit_key(unit.variant.name, unit.task, unit.sample_id) in keys]
+
+
+def scale_max_tokens(units: Sequence[QualityUnit], scale: int) -> List[QualityUnit]:
+    """Multiply every unit's token cap by scale, keeping order."""
+    if scale < 1:
+        raise ValueError("max tokens scale must be 1 or more")
+    if scale == 1:
+        return list(units)
+    return [replace(unit, max_tokens=unit.max_tokens * scale) for unit in units]
 
 
 def _passkey_units(task: Dict[str, Any], needles: Sequence[str]) -> Iterable[Dict[str, Any]]:
@@ -275,6 +309,7 @@ def build_row(
         "ane_on": variant.ane_on,
         "task": unit.task,
         "sample_id": unit.sample_id,
+        "max_tokens": unit.max_tokens,
         "target_tokens": unit.target_tokens,
         "prompt_chars": unit.prompt_chars,
         "approximate_prompt_tokens": (
@@ -346,6 +381,19 @@ def run(args: argparse.Namespace) -> int:
         limit=args.limit,
     )
 
+    if args.retry_capped:
+        capped_rows: List[Dict[str, Any]] = []
+        for path in args.retry_capped:
+            capped_rows.extend(read_jsonl(Path(path)))
+        keys = capped_keys(capped_rows)
+        units = select_units(units, keys)
+        logger.info("Retry: %d capped answers found, %d units selected", len(keys), len(units))
+        if not units:
+            print("no capped answer in those files matches this matrix", file=sys.stderr)
+            return 2
+
+    units = scale_max_tokens(units, args.max_tokens_scale)
+
     if args.dry_run:
         for unit in units[:20]:
             print(
@@ -416,6 +464,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--only-variants", default=None, help="comma separated variant names")
     parser.add_argument("--only-tasks", default=None, help="comma separated task names")
     parser.add_argument("--limit", type=int, default=None, help="first N samples per task")
+    parser.add_argument(
+        "--retry-capped",
+        action="append",
+        default=None,
+        metavar="FILE",
+        help="re-ask only the answers in FILE that stopped at the token cap (repeatable)",
+    )
+    parser.add_argument(
+        "--max-tokens-scale",
+        type=int,
+        default=1,
+        metavar="N",
+        help="multiply every request's token cap by N (default 1)",
+    )
     parser.add_argument(
         "--max-consecutive-failures",
         type=int,

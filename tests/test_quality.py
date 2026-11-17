@@ -78,6 +78,51 @@ class UnitExpansionTest(unittest.TestCase):
             quality.build_units(matrix, quality.load_variants(matrix, ["gpu"]))
 
 
+class CappedRetryTest(unittest.TestCase):
+    """Picking the token-capped answers so they can be re-asked with a bigger cap."""
+
+    def setUp(self):
+        self.matrix = quality.load_quality_matrix(MATRIX)
+
+    def test_capped_keys_keeps_only_length_rows(self):
+        rows = [
+            {"variant": "gpu", "task": "mmlu", "sample_id": "m1", "finish_reason": "length"},
+            {"variant": "gpu", "task": "mmlu", "sample_id": "m2", "finish_reason": "stop"},
+            {"variant": "ane", "task": "gsm8k", "sample_id": "g1", "finish_reason": "length"},
+            {"variant": "ane", "task": "gsm8k", "sample_id": "g2", "status": "error"},
+        ]
+        self.assertEqual(
+            quality.capped_keys(rows),
+            {("gpu", "mmlu", "m1"), ("ane", "gsm8k", "g1")},
+        )
+
+    def test_select_units_keeps_order_and_drops_the_rest(self):
+        variants = quality.load_variants(self.matrix, ["gpu", "ane"])
+        units = quality.build_units(self.matrix, variants, only_tasks=["gsm8k"], limit=3)
+        wanted = {(units[0].variant.name, units[0].task, units[0].sample_id),
+                  (units[-1].variant.name, units[-1].task, units[-1].sample_id)}
+        picked = quality.select_units(units, wanted)
+        self.assertEqual([u.sample_id for u in picked], [units[0].sample_id, units[-1].sample_id])
+        self.assertEqual([u.variant.name for u in picked], [units[0].variant.name, units[-1].variant.name])
+
+    def test_scale_max_tokens_multiplies_and_keeps_order(self):
+        variants = quality.load_variants(self.matrix, ["gpu"])
+        units = quality.build_units(self.matrix, variants, only_tasks=["gsm8k"], limit=2)
+        scaled = quality.scale_max_tokens(units, 8)
+        self.assertEqual([u.max_tokens for u in scaled], [u.max_tokens * 8 for u in units])
+        self.assertEqual([u.sample_id for u in scaled], [u.sample_id for u in units])
+
+    def test_scale_by_one_changes_nothing(self):
+        variants = quality.load_variants(self.matrix, ["gpu"])
+        units = quality.build_units(self.matrix, variants, only_tasks=["mmlu"], limit=2)
+        self.assertEqual([u.max_tokens for u in quality.scale_max_tokens(units, 1)],
+                         [u.max_tokens for u in units])
+
+    def test_scale_below_one_rejected(self):
+        with self.assertRaises(ValueError):
+            quality.scale_max_tokens([], 0)
+
+
 class ScoringDispatchTest(unittest.TestCase):
     def test_dispatch(self):
         variant = quality.load_variants(quality.load_quality_matrix(MATRIX), ["gpu"])[0]
@@ -126,6 +171,54 @@ class SummaryTest(unittest.TestCase):
 
     def test_empty_rows(self):
         self.assertIn("Rows: 0", quality_report_summary([]))
+
+    def test_capped_column_counts_length_rows(self):
+        rows = [
+            {"variant": "gpu", "task": "mmlu", "correct": False, "status": "completed",
+             "finish_reason": "length", "content": ""},
+            {"variant": "gpu", "task": "mmlu", "correct": True, "status": "completed",
+             "finish_reason": "stop", "content": "Answer: B"},
+            {"variant": "gpu", "task": "mmlu", "correct": True, "status": "completed",
+             "finish_reason": "length", "content": "Answer: C"},
+        ]
+        text = quality_report_summary(rows)
+        self.assertIn("| Capped |", text)
+        self.assertIn("| gpu | mmlu | 2 | 3 | 66.7% | 0 | - | 2 |", text)
+
+
+class ReplacementTest(unittest.TestCase):
+    """Re-asked answers stand in for the capped ones they replace."""
+
+    def test_apply_replacements_swaps_matching_rows(self):
+        from bench.quality_report import apply_replacements
+
+        base = [
+            {"variant": "gpu", "task": "mmlu", "sample_id": "m1", "correct": False,
+             "finish_reason": "length"},
+            {"variant": "gpu", "task": "mmlu", "sample_id": "m2", "correct": True,
+             "finish_reason": "stop"},
+        ]
+        new = [{"variant": "gpu", "task": "mmlu", "sample_id": "m1", "correct": True,
+                "finish_reason": "stop"}]
+        out = apply_replacements(base, new)
+        self.assertEqual(len(out), 2)
+        self.assertEqual([row["sample_id"] for row in out], ["m1", "m2"])
+        self.assertTrue(out[0]["correct"])
+        self.assertFalse(base[0]["correct"])
+
+    def test_apply_replacements_rejects_unknown_key(self):
+        from bench.quality_report import apply_replacements
+
+        base = [{"variant": "gpu", "task": "mmlu", "sample_id": "m1", "correct": False}]
+        new = [{"variant": "gpu", "task": "mmlu", "sample_id": "nope", "correct": True}]
+        with self.assertRaises(ValueError):
+            apply_replacements(base, new)
+
+    def test_apply_replacements_with_no_new_rows_keeps_base(self):
+        from bench.quality_report import apply_replacements
+
+        base = [{"variant": "gpu", "task": "mmlu", "sample_id": "m1", "correct": False}]
+        self.assertEqual(apply_replacements(base, []), base)
 
 
 class ConsecutiveFailureGuardTest(unittest.TestCase):
@@ -301,6 +394,32 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(self._run(admin, chat, "--max-consecutive-failures", "2"), 0)
         self.assertEqual([row["status"] for row in self._rows()], ["error", "error"])
         self.assertTrue(admin.restored)
+
+    def test_rows_record_the_cap_used(self) -> None:
+        admin, chat = _FakeAdmin(), _FakeChat()
+        self.assertEqual(self._run(admin, chat, limit=1), 0)
+        self.assertEqual([row["max_tokens"] for row in self._rows()], [2048, 2048])
+
+    def test_retry_capped_and_scale_narrow_the_run(self) -> None:
+        capped = self.dir / "capped.jsonl"
+        capped.write_text(
+            json.dumps(
+                {"variant": "ane", "task": "gsm8k", "sample_id": "gsm8k-0000", "finish_reason": "length"}
+            ) + "\n",
+            encoding="utf-8",
+        )
+        admin, chat = _FakeAdmin(), _FakeChat()
+        code = self._run(
+            admin, chat,
+            "--retry-capped", str(capped),
+            "--max-tokens-scale", "8",
+            limit=2,
+        )
+        self.assertEqual(code, 0)
+        rows = self._rows()
+        self.assertEqual([(row["variant"], row["sample_id"]) for row in rows], [("ane", "gsm8k-0000")])
+        self.assertEqual(rows[0]["max_tokens"], 16384)
+        self.assertEqual([event[0] for event in chat.events], ["wait", "wait", "chat"])
 
 
 def quality_report_summary(rows):
