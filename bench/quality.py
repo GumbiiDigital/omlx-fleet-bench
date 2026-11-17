@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Run answer-quality checks against oMLX settings and write one JSONL row per request.
 
-Phase 4 of the fleet plan: does a setting (ANE prefill, Spark helper, KV compression)
-change what the model answers?
+Does a setting (ANE prefill, Spark helper, KV compression) change what the model answers?
 
 Usage:
     python3 bench/quality.py --matrix matrices/quality.json --base-url http://127.0.0.1:8004 \

@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Run benchmark matrix against oMLX admin API."""
+"""Run a speed matrix against the oMLX admin API and append one JSONL row per run.
+
+Usage:
+    python3 bench/run.py --matrix matrices/m3-ultra-spark.json --base-url http://127.0.0.1:8004 \
+        --settings ~/.omlx/settings.json --server-log ~/.omlx/logs/server.log \
+        --helper-node NODE_ID --machine my-mac --out results/my-mac/speed-DATE.jsonl
+
+Every run is private: the benchmark is started with `align_prompt_to_ane` on, so the
+server ends it with `upload_skipped` and nothing goes to the public leaderboard.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +32,6 @@ from bench.client import (  # noqa: E402
 )
 from bench.collect import read_server_log_since  # noqa: E402
 from bench.matrix import SETTING_FIELDS, load_and_expand, load_matrix, settings_fields_touched  # noqa: E402
-from bench.spark_stats import collect_spark_stats  # noqa: E402
 from bench.validity import assess_validity  # noqa: E402
 
 logger = logging.getLogger("bench.run")
@@ -138,7 +146,6 @@ def _run_specs(
                 "metrics": metrics,
                 "log": parsed,
                 "validity": validity,
-                "spark_stats": collect_spark_stats(args.spark_stats_cmd, bench_id or ""),
             }
         except Exception as exc:  # noqa: BLE001 — record row then continue
             logger.exception("Run failed for %s", spec.cell_key)
@@ -172,11 +179,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--only-cells",
         default=None,
         help="Comma-separated variant:size filters",
-    )
-    parser.add_argument(
-        "--spark-stats-cmd",
-        default=None,
-        help="(Future) shell command template for Spark stats",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)

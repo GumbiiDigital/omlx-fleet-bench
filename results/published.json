@@ -1,0 +1,30 @@
+{
+  "machines": [
+    {
+      "label": "m3-ultra-a",
+      "hardware": "Apple M3 Ultra, 256 GB",
+      "helper": "NVIDIA GB10 (DGX Spark), 10 GbE",
+      "model": "Qwen3.8-27B-oQ4e-mtp",
+      "speed": {
+        "files": ["results/m3-ultra-a/speed-2026-11-15.jsonl"],
+        "warm_rerun": ["results/m3-ultra-a/speed-helper-warm-2026-11-15.jsonl"],
+        "baseline": "gpu",
+        "conditions": "Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better."
+      },
+      "kv_cache": {
+        "files": ["results/m3-ultra-a/kv-cache-2026-11-15.jsonl"],
+        "baseline": "native",
+        "conditions": "GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better."
+      },
+      "quality": {
+        "files": [
+          "results/m3-ultra-a/quality-gpu-2026-11-16.jsonl",
+          "results/m3-ultra-a/quality-ane-kv-helper-2026-11-16.jsonl"
+        ],
+        "replace": ["results/m3-ultra-a/quality-reask-8x-2026-11-16.jsonl"],
+        "baseline": "gpu",
+        "conditions": "Same questions under every setting, temperature 0. Higher is better."
+      }
+    }
+  ]
+}

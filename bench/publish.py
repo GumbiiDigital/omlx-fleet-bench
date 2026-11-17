@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+"""Rebuild every published number from the raw rows: README tables, reports and charts.
+
+Usage:
+    python3 bench/publish.py            # write charts/, reports/ and the README tables
+    python3 bench/publish.py --check    # change nothing; exit 1 if anything is out of date
+
+`results/published.json` lists which raw files make up each published study. Nothing in
+the README tables or the charts is typed by hand: this script computes it, and `--check`
+proves the committed files still match the rows.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from bench import quality_report, report  # noqa: E402
+from bench.charts import Caption, IntervalPanel, IntervalRow, bar_panels, interval_panels  # noqa: E402
+from bench.labels import ordered_variants, size_label, variant_label, variant_series  # noqa: E402
+from bench.stats import spread, wilson_interval  # noqa: E402
+from bench.svg import THEMES  # noqa: E402
+
+MANIFEST = "results/published.json"
+README = "README.md"
+TASK_LABELS = {"gsm8k": "GSM8K", "mmlu": "MMLU", "passkey": "Passkey"}
+# A task with fewer samples than this gets no interval in the chart; it goes in the table.
+MIN_SAMPLES_FOR_INTERVAL = 30
+
+BLOCK = re.compile(
+    r"(<!-- BEGIN GENERATED: (?P<id>[^>]+?) -->\n)(?P<body>.*?)(<!-- END GENERATED: (?P=id) -->)",
+    re.S,
+)
+
+Outputs = Dict[str, str]  # repo-relative path -> file content
+
+
+class PublishError(Exception):
+    """The manifest, the rows and the README do not fit together."""
+
+
+def _rows(root: Path, files: Sequence[str]) -> List[Dict[str, Any]]:
+    paths = [root / name for name in files]
+    missing = [str(p) for p in paths if not p.is_file()]
+    if missing:
+        raise PublishError(f"listed in {MANIFEST} but missing: {missing}")
+    return report.load_rows(paths)
+
+
+def _table(header: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
+    lines = ["| " + " | ".join(header) + " |", "|" + "|".join(["---"] + ["---:"] * (len(header) - 1)) + "|"]
+    lines += ["| " + " | ".join(row) + " |" for row in rows]
+    return "\n".join(lines)
+
+
+def _minus(text: str) -> str:
+    return text.replace("-", "−")
+
+
+def _charts(name: str, build) -> Outputs:
+    return {f"charts/{name}-{theme.name}.svg": build(theme) for theme in THEMES.values()}
+
+
+def _cells(rows: List[Dict[str, Any]], machine: str) -> List[report.CellStats]:
+    cells = [c for c in report.group_rows(rows).values() if c.machine == machine]
+    if not cells:
+        raise PublishError(f"no speed rows for machine {machine!r}")
+    broken = [f"{c.variant}:{c.size}" for c in cells if c.incomplete]
+    if broken:
+        raise PublishError(f"{machine}: cells without their planned valid runs: {broken}")
+    return cells
+
+
+def _lookup(cells: Sequence[report.CellStats]) -> Dict[Tuple[str, int], report.CellStats]:
+    return {(c.variant, c.size): c for c in cells}
+
+
+def build_speed(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
+    """Time to first token and prefill speed per setup and prompt size."""
+    study, label, baseline = machine["speed"], machine["label"], machine["speed"]["baseline"]
+    cells = _cells(_rows(root, study["files"]), label)
+    by = _lookup(cells)
+    variants = ordered_variants(c.variant for c in cells)
+    sizes = sorted({c.size for c in cells})
+    header = ["Setup"] + [size_label(s) for s in sizes]
+
+    def ttft(variant: str, size: int) -> str:
+        cell, base = by[(variant, size)], by[(baseline, size)]
+        text = f"{cell.mean_ttft_s:.1f} s"
+        return text if variant == baseline else f"{text} · {base.mean_ttft_s / cell.mean_ttft_s:.1f}×"
+
+    ttft_rows = [[variant_label(v)] + [ttft(v, s) for s in sizes] for v in variants]
+    tps_rows = [[variant_label(v)] + [f"{by[(v, s)].mean_tps:,.0f}" for s in sizes] for v in variants]
+    noisy = [c for c in report.sort_cells(cells) if c.noisy]
+    quiet = max(spread(c.valid_tps) for c in cells if not c.noisy) * 100
+    lines = [
+        f"Time to first token, and how many times shorter the wait is than {variant_label(baseline)}:",
+        "",
+        _table(header, ttft_rows),
+        "",
+        "Prefill speed in tokens per second:",
+        "",
+        _table(header, tps_rows),
+        "",
+    ]
+    spread_line = f"Run-to-run spread of prefill speed is at most {quiet:.1f}% in every cell"
+    if noisy:
+        named = ", ".join(
+            f"{variant_label(c.variant)} at {size_label(c.size)} ({spread(c.valid_tps) * 100:.1f}%)" for c in noisy
+        )
+        spread_line += f" except {named}"
+    lines.append(spread_line + ".")
+    if study.get("warm_rerun"):
+        warm = report.sort_cells(_cells(_rows(root, study["warm_rerun"]), label))
+        again = ", ".join(
+            f"{variant_label(c.variant)} at {size_label(c.size)}: {c.mean_tps:,.0f} tok/s "
+            f"({by[(c.variant, c.size)].mean_tps:,.0f} in the first pass)"
+            for c in warm
+        )
+        lines.append(f"Re-run back to back, {warm[0].n_valid} runs each: {again}.")
+
+    caption = Caption(
+        title="Time to first token by prompt size",
+        subtitle=[f"{machine['model']} · {machine['hardware']} · helper: {machine['helper']}", study["conditions"]],
+        footnotes=[f"Each panel has its own scale. “× faster” compares with {variant_label(baseline)} at the same prompt size."],
+    )
+    panels = report.ttft_panels(cells, baseline)
+    outputs = _charts(f"{label}-ttft", lambda theme: bar_panels(caption, panels, theme))
+    outputs[f"reports/{label}/speed.md"] = report.summary_markdown(cells, "Speed: every cell")
+    return outputs, "\n".join(lines)
+
+
+def build_kv_cache(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
+    """Peak memory and speed per KV cache scheme."""
+    study, label, baseline = machine["kv_cache"], machine["label"], machine["kv_cache"]["baseline"]
+    cells = _cells(_rows(root, study["files"]), label)
+    by = _lookup(cells)
+    variants = ordered_variants(c.variant for c in cells)
+    sizes = sorted({c.size for c in cells})
+
+    def change(value: float, base: float) -> str:
+        return _minus(f"{(value - base) / base * 100:+.1f}%")
+
+    header = ["Scheme"]
+    for size in sizes:
+        header += [f"{size_label(size)} peak memory", f"{size_label(size)} time to first token"]
+    rows = []
+    for variant in variants:
+        row = [variant_label(variant)]
+        for size in sizes:
+            cell, base = by[(variant, size)], by[(baseline, size)]
+            memory, wait = f"{cell.mean_peak_gb:.1f} GB", f"{cell.mean_ttft_s:.1f} s"
+            if variant != baseline:
+                memory += f" · {change(cell.mean_peak_gb, base.mean_peak_gb)}"
+                wait += f" · {change(cell.mean_ttft_s, base.mean_ttft_s)}"
+            row += [memory, wait]
+        rows.append(row)
+    worst = max(spread(c.valid_tps) for c in cells) * 100
+    body = "\n".join(
+        [_table(header, rows), "", f"Run-to-run spread of prefill speed is at most {worst:.2f}% in every cell."]
+    )
+
+    caption = Caption(
+        title="Peak memory by KV cache scheme",
+        subtitle=[f"{machine['model']} · {machine['hardware']}", study["conditions"]],
+        footnotes=["Peak MLX active memory during the run, not the size of the KV cache alone. 1 GB = 2³⁰ bytes."],
+    )
+    panels = report.memory_panels(cells, baseline)
+    outputs = _charts(f"{label}-kv-memory", lambda theme: bar_panels(caption, panels, theme))
+    outputs[f"reports/{label}/kv-cache.md"] = report.summary_markdown(cells, "KV cache: every cell")
+    return outputs, body
+
+
+def _axis(lows: Sequence[float]) -> Tuple[float, List[float]]:
+    """Axis start and ticks, in percent, for accuracies that end at 100."""
+    start = max(0.0, (int(min(lows)) // 5) * 5.0)
+    step = 5.0 if 100 - start <= 30 else 10.0
+    ticks = [start]
+    while ticks[-1] + step <= 100:
+        ticks.append(ticks[-1] + step)
+    return start, ticks
+
+
+def build_quality(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
+    """Accuracy per setting and task, with paired changes against the baseline setting."""
+    study, label, baseline = machine["quality"], machine["label"], machine["quality"]["baseline"]
+    rows = [r for r in _rows(root, study["files"]) if r.get("machine") == label]
+    try:
+        rows = quality_report.apply_replacements(rows, _rows(root, study.get("replace", [])))
+    except ValueError as exc:
+        raise PublishError(str(exc)) from None
+    errors = sum(1 for r in rows if r.get("status") == "error")
+    if errors:
+        raise PublishError(f"{label}: {errors} quality rows are errors")
+    groups = quality_report.group(rows)
+    variants = ordered_variants(v for v, _ in groups)
+    tasks = [t for t in TASK_LABELS if any(task == t for _, task in groups)]
+    tasks += sorted({task for _, task in groups} - set(tasks))
+    scores = {key: quality_report.accuracy(items) for key, items in groups.items()}
+    changes = quality_report.changes_against(rows, baseline)
+    charted = [t for t in tasks if scores[(baseline, t)][1] >= MIN_SAMPLES_FOR_INTERVAL]
+
+    header = ["Setting"] + [f"{TASK_LABELS.get(t, t)} (of {scores[(baseline, t)][1]})" for t in tasks]
+    header += [f"Answers changed against {variant_label(baseline)}", "Still cut off"]
+    table = []
+    for variant in variants:
+        row = [variant_label(variant)]
+        for task in tasks:
+            correct, scored = scores[(variant, task)]
+            row.append(f"{correct} · {correct / scored * 100:.1f}%" if task in charted else str(correct))
+        if variant == baseline:
+            row.append("baseline")
+        else:
+            moved = [changes[(variant, t)] for t in charted]
+            row.append(
+                f"{sum(m.lost for m in moved)} lost, {sum(m.gained for m in moved)} gained "
+                f"(of {sum(m.compared for m in moved)})"
+            )
+        row.append(str(sum(quality_report.capped(groups[(variant, t)]) for t in tasks)))
+        table.append(row)
+    body = _table(header, table)
+
+    series = variant_series(variants)
+    panels, lows = [], []
+    for task in charted:
+        panel_rows = []
+        for variant in variants:
+            correct, scored = scores[(variant, task)]
+            low, high = (bound * 100 for bound in wilson_interval(correct, scored))
+            lows.append(low)
+            panel_rows.append(
+                IntervalRow(
+                    label=variant_label(variant),
+                    value=correct / scored * 100,
+                    low=low,
+                    high=high,
+                    value_text=f"{correct / scored * 100:.1f}%",
+                    series=series[variant],
+                    note=f"{correct}/{scored}",
+                )
+            )
+        panels.append(
+            IntervalPanel(title=f"{TASK_LABELS.get(task, task)} · {scores[(baseline, task)][1]} questions", rows=panel_rows)
+        )
+    axis_min, ticks = _axis(lows)
+    footnotes = ["Dot: share of correct answers. Line: 95% Wilson interval for that share. The axis does not start at zero."]
+    for task in tasks:
+        if task in charted:
+            continue
+        parts = sorted({scores[(v, task)] for v in variants})
+        if len(parts) == 1:
+            footnotes.append(f"{TASK_LABELS.get(task, task)}: {parts[0][0]} of {parts[0][1]} correct under every setting.")
+    caption = Caption(
+        title="Answer accuracy by setting",
+        subtitle=[f"{machine['model']} · {machine['hardware']}", study["conditions"]],
+        footnotes=footnotes,
+    )
+    outputs = _charts(
+        f"{label}-quality",
+        lambda theme: interval_panels(
+            caption, panels, theme, axis_min=axis_min, axis_max=100.0, ticks=ticks, tick_suffix="%"
+        ),
+    )
+    outputs[f"reports/{label}/quality.md"] = quality_report.write_summary(rows)
+    return outputs, body
+
+
+BUILDERS = {"speed": build_speed, "kv_cache": build_kv_cache, "quality": build_quality}
+
+
+def build(root: Path) -> Tuple[Outputs, Dict[str, str]]:
+    """Every generated file, and every README block, keyed by '<study> <machine label>'."""
+    manifest = json.loads((root / MANIFEST).read_text(encoding="utf-8"))
+    outputs: Outputs = {}
+    blocks: Dict[str, str] = {}
+    for machine in manifest["machines"]:
+        for study, builder in BUILDERS.items():
+            if study not in machine:
+                continue
+            files, block = builder(root, machine)
+            outputs.update(files)
+            blocks[f"{study.replace('_', '-')} {machine['label']}"] = block
+    return outputs, blocks
+
+
+def splice(readme: str, blocks: Dict[str, str]) -> str:
+    """Put each block between its BEGIN/END GENERATED markers. Every block needs a marker
+    pair and every marker pair needs a block, so the README cannot drift from the rows."""
+    seen = set()
+
+    def fill(match: "re.Match[str]") -> str:
+        block_id = match.group("id")
+        if block_id not in blocks:
+            raise PublishError(f"{README} has a generated block {block_id!r} that nothing builds")
+        seen.add(block_id)
+        return f"{match.group(1)}{blocks[block_id]}\n{match.group(4)}"
+
+    text = BLOCK.sub(fill, readme)
+    unplaced = sorted(set(blocks) - seen)
+    if unplaced:
+        raise PublishError(f"{README} has no markers for: {unplaced}")
+    return text
+
+
+def stale(root: Path, outputs: Outputs) -> List[str]:
+    """Paths whose committed content differs from what the rows give now."""
+    out = []
+    for name, content in sorted(outputs.items()):
+        path = root / name
+        if not path.is_file() or path.read_text(encoding="utf-8") != content:
+            out.append(name)
+    return out
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description="Rebuild README tables, reports and charts from raw rows")
+    parser.add_argument("--check", action="store_true", help="write nothing; exit 1 if anything is out of date")
+    parser.add_argument("--root", default=str(_REPO_ROOT), help="repository root")
+    args = parser.parse_args(argv)
+    root = Path(args.root)
+    try:
+        outputs, blocks = build(root)
+        outputs[README] = splice((root / README).read_text(encoding="utf-8"), blocks)
+    except PublishError as exc:
+        print(f"publish: {exc}", file=sys.stderr)
+        return 2
+    changed = stale(root, outputs)
+    if args.check:
+        for name in changed:
+            print(f"out of date: {name}")
+        print(f"publish --check: {len(outputs) - len(changed)} of {len(outputs)} files match the raw rows")
+        return 1 if changed else 0
+    for name in changed:
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(outputs[name], encoding="utf-8")
+        print(f"wrote {name}")
+    print(f"publish: {len(outputs)} files built, {len(changed)} changed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -2,8 +2,8 @@
 """Summarize answer-quality rows: accuracy per setting and task, plus prompt-size checks.
 
 Usage:
-    python3 bench/quality_report.py results/mac3-media/quality-2026-11-16.jsonl
-    python3 bench/quality_report.py results/*/quality-*.jsonl --out report-phase4/summary.md
+    python3 bench/quality_report.py results/my-mac/quality-DATE.jsonl
+    python3 bench/quality_report.py base.jsonl --replace reask.jsonl --out report/quality.md
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -62,6 +63,47 @@ def accuracy(items: List[Dict[str, Any]]) -> Tuple[int, int]:
     return sum(1 for r in scored if r["correct"]), len(scored)
 
 
+@dataclass(frozen=True)
+class AnswerChanges:
+    """How one setting's answers differ from the baseline setting's, sample by sample."""
+
+    compared: int
+    gained: int  # baseline wrong, this setting right
+    lost: int  # baseline right, this setting wrong
+    different_text: int  # the answer text is not identical
+
+
+def changes_against(
+    rows: List[Dict[str, Any]], baseline: str
+) -> Dict[Tuple[str, str], AnswerChanges]:
+    """Compare every setting with `baseline` on the samples both answered.
+
+    Accuracy alone can hide movement: ten answers lost and ten gained is the same score.
+    The paired counts show how many answers a setting really moved.
+    """
+    by_key = {row_key(row): row for row in rows if "correct" in row}
+    out: Dict[Tuple[str, str], AnswerChanges] = {}
+    for (variant, task), items in group(rows).items():
+        if variant == baseline:
+            continue
+        compared = gained = lost = different = 0
+        for row in items:
+            base = by_key.get((baseline, task, str(row.get("sample_id", ""))))
+            if base is None or "correct" not in row:
+                continue
+            compared += 1
+            gained += bool(row["correct"]) and not base["correct"]
+            lost += bool(base["correct"]) and not row["correct"]
+            different += (row.get("content") or "") != (base.get("content") or "")
+        out[(variant, task)] = AnswerChanges(compared, gained, lost, different)
+    return out
+
+
+def capped(items: List[Dict[str, Any]]) -> int:
+    """Answers cut off by the token cap (finish_reason "length")."""
+    return sum(1 for r in items if r.get("finish_reason") == "length")
+
+
 def prompt_fit(items: List[Dict[str, Any]]) -> Optional[str]:
     """Passkey rows carry a target token count; report the real prompt size against it."""
     fits = []
@@ -87,11 +129,11 @@ def write_summary(rows: List[Dict[str, Any]]) -> str:
         items = groups[(variant, task)]
         correct, scored = accuracy(items)
         errors = sum(1 for r in items if r.get("status") == "error")
-        capped = sum(1 for r in items if r.get("finish_reason") == "length")
+        n_capped = capped(items)
         pct = f"{correct / scored * 100:.1f}%" if scored else "-"
         fit = prompt_fit(items) or "-"
         lines.append(
-            f"| {variant} | {task} | {correct} | {scored} | {pct} | {errors} | {fit} | {capped} |"
+            f"| {variant} | {task} | {correct} | {scored} | {pct} | {errors} | {fit} | {n_capped} |"
         )
     empty = sum(1 for r in rows if not (r.get("content") or "").strip())
     lines += ["", f"Rows: {len(rows)}. Rows with empty answer text: {empty}."]

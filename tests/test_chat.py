@@ -108,7 +108,7 @@ class ChatRetryTest(unittest.TestCase):
 
 
 class ConnectionErrorRetryTest(unittest.TestCase):
-    """Mac 3 runs Python 3.9: socket.timeout is not TimeoutError, and a reset is a bare OSError."""
+    """On Python 3.9 socket.timeout is not TimeoutError, and a reset is a bare OSError."""
 
     def test_socket_timeout_is_retried(self) -> None:
         opener = _ScriptedOpener([_Raise(socket.timeout("timed out")), _reply("#### 18")])

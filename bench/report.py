@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Summarize JSONL benchmark results into markdown and SVG charts."""
+"""Summarize speed rows (from bench/run.py) into a markdown table and SVG charts.
+
+Usage:
+    python3 bench/report.py results/my-mac --report-dir report
+
+It reads every JSONL file under the folder it is given and groups rows by machine, model,
+variant and prompt size. To report one study, give it a folder (or a file) that holds only
+that study. Exit code 0 means every cell has its planned valid runs and none is noisy.
+"""
 
 from __future__ import annotations
 
@@ -10,17 +18,29 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
-from typing import Any, DefaultDict, Dict, List, Optional, Tuple
+from typing import Any, DefaultDict, Dict, Iterable, List, Optional, Sequence, Tuple
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from bench.charts import BarPanel, BarRow, Caption, bar_panels  # noqa: E402
+from bench.labels import ordered_variants, size_label, variant_label, variant_series  # noqa: E402
+from bench.stats import spread  # noqa: E402
+from bench.svg import THEMES  # noqa: E402
+
 NOISE_SPREAD_THRESHOLD = 0.03
+# Memory is reported in binary gigabytes (2**30 bytes), the unit RAM sizes are quoted in,
+# so a figure can be held against "256 GB" of unified memory directly.
+BYTES_PER_GB = 2**30
+
+CellKey = Tuple[str, str, str, int]
 
 
 @dataclass
 class CellStats:
+    """One cell of a matrix: a variant at a prompt size, on one machine and model."""
+
     machine: str
     model: str
     variant: str
@@ -31,59 +51,73 @@ class CellStats:
     n_valid: int
     valid_tps: List[float]
     valid_ttft: List[float]
+    valid_peak_bytes: List[float]
 
     @property
     def incomplete(self) -> bool:
         return self.n_valid < self.runs_expected
 
     def spread_pct(self, values: List[float]) -> float:
-        if len(values) < 2:
-            return 0.0
-        m = mean(values)
-        if m == 0:
-            return 0.0
-        return (max(values) - min(values)) / m
+        return spread(values)
 
     @property
     def noisy(self) -> bool:
-        if len(self.valid_tps) < 2:
-            return False
-        return self.spread_pct(self.valid_tps) > NOISE_SPREAD_THRESHOLD
+        return spread(self.valid_tps) > NOISE_SPREAD_THRESHOLD
+
+    @property
+    def mean_tps(self) -> Optional[float]:
+        return mean(self.valid_tps) if self.valid_tps else None
+
+    @property
+    def mean_ttft_s(self) -> Optional[float]:
+        return mean(self.valid_ttft) / 1000.0 if self.valid_ttft else None
+
+    @property
+    def mean_peak_gb(self) -> Optional[float]:
+        return mean(self.valid_peak_bytes) / BYTES_PER_GB if self.valid_peak_bytes else None
 
 
-def iter_jsonl_files(results_dir: Path) -> List[Path]:
-    return sorted(results_dir.rglob("*.jsonl"))
+def iter_jsonl_files(results: Path) -> List[Path]:
+    if results.is_file():
+        return [results]
+    return sorted(results.rglob("*.jsonl"))
 
 
-def load_rows(paths: List[Path]) -> List[Dict[str, Any]]:
+def load_rows(paths: Iterable[Path]) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for path in paths:
         with open(path, encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
-                if not line:
-                    continue
-                rows.append(json.loads(line))
+                if line:
+                    rows.append(json.loads(line))
     return rows
 
 
 def metric_from_row(row: Dict[str, Any], key: str) -> Optional[float]:
+    """A metric from the benchmark result, falling back to the parsed server log line."""
     metrics = row.get("metrics") or {}
-    if key in metrics and metrics[key] is not None:
+    if metrics.get(key) is not None:
         return float(metrics[key])
     log = row.get("log") or {}
-    if key == "processing_tps" and log.get("processing_tps") is not None:
-        return float(log["processing_tps"])
-    if key == "ttft_ms" and log.get("ttft_ms") is not None:
-        return float(log["ttft_ms"])
+    if key in ("processing_tps", "ttft_ms") and log.get(key) is not None:
+        return float(log[key])
     return None
 
 
-def group_rows(rows: List[Dict[str, Any]]) -> Dict[Tuple[str, str, str, int], CellStats]:
-    buckets: DefaultDict[Tuple[str, str, str, int], List[Dict[str, Any]]] = defaultdict(list)
-    expected: Dict[Tuple[str, str, str, int], int] = defaultdict(int)
+def _runs_expected(items: List[Dict[str, Any]]) -> int:
+    declared = [int(r["runs_per_cell"]) for r in items if r.get("runs_per_cell")]
+    if declared:
+        return declared[0]
+    repeats = {int(r.get("repeat_index", 0)) for r in items}
+    return len(repeats) if repeats else len(items)
 
+
+def group_rows(rows: List[Dict[str, Any]]) -> Dict[CellKey, CellStats]:
+    buckets: DefaultDict[CellKey, List[Dict[str, Any]]] = defaultdict(list)
     for row in rows:
+        if "prompt_size" not in row:
+            continue  # not a speed row (answer-quality rows have a task instead)
         key = (
             str(row.get("machine", "")),
             str(row.get("model", "")),
@@ -92,188 +126,198 @@ def group_rows(rows: List[Dict[str, Any]]) -> Dict[Tuple[str, str, str, int], Ce
         )
         buckets[key].append(row)
 
-    for key, items in buckets.items():
-        from_rows = [int(r["runs_per_cell"]) for r in items if r.get("runs_per_cell")]
-        if from_rows:
-            expected[key] = from_rows[0]
-        else:
-            repeats = {int(r.get("repeat_index", 0)) for r in items}
-            expected[key] = len(repeats) if repeats else len(items)
-
-    grouped: Dict[Tuple[str, str, str, int], CellStats] = {}
+    grouped: Dict[CellKey, CellStats] = {}
     for key, items in buckets.items():
         machine, model, variant, size = key
-        tps_all: List[float] = []
-        ttft_all: List[float] = []
-        tps_valid: List[float] = []
-        ttft_valid: List[float] = []
-        n_valid = 0
-        for row in items:
-            tps = metric_from_row(row, "processing_tps")
-            ttft = metric_from_row(row, "ttft_ms")
-            if tps is not None:
-                tps_all.append(tps)
-            if ttft is not None:
-                ttft_all.append(ttft)
-            if (row.get("validity") or {}).get("valid"):
-                n_valid += 1
-                if tps is not None:
-                    tps_valid.append(tps)
-                if ttft is not None:
-                    ttft_valid.append(ttft)
-        grouped[key] = CellStats(
+        cell = CellStats(
             machine=machine,
             model=model,
             variant=variant,
             size=size,
-            runs_expected=expected.get(key, 3),
-            processing_tps=tps_all,
-            ttft_ms=ttft_all,
-            n_valid=n_valid,
-            valid_tps=tps_valid,
-            valid_ttft=ttft_valid,
+            runs_expected=_runs_expected(items),
+            processing_tps=[],
+            ttft_ms=[],
+            n_valid=0,
+            valid_tps=[],
+            valid_ttft=[],
+            valid_peak_bytes=[],
         )
+        for row in items:
+            tps = metric_from_row(row, "processing_tps")
+            ttft = metric_from_row(row, "ttft_ms")
+            peak = metric_from_row(row, "peak_memory_bytes")
+            valid = bool((row.get("validity") or {}).get("valid"))
+            if tps is not None:
+                cell.processing_tps.append(tps)
+            if ttft is not None:
+                cell.ttft_ms.append(ttft)
+            if not valid:
+                continue
+            cell.n_valid += 1
+            if tps is not None:
+                cell.valid_tps.append(tps)
+            if ttft is not None:
+                cell.valid_ttft.append(ttft)
+            if peak is not None:
+                cell.valid_peak_bytes.append(peak)
+        grouped[key] = cell
     return grouped
+
+
+def sort_cells(cells: Iterable[CellStats]) -> List[CellStats]:
+    """Machine, model, prompt size, then the fixed variant order."""
+    cells = list(cells)
+    rank = {name: index for index, name in enumerate(ordered_variants(c.variant for c in cells))}
+    return sorted(cells, key=lambda c: (c.machine, c.model, c.size, rank[c.variant]))
 
 
 def fmt_stats(values: List[float]) -> Tuple[str, str, str]:
     if not values:
         return "-", "-", "-"
-    return (
-        f"{mean(values):.1f}",
-        f"{min(values):.1f}",
-        f"{max(values):.1f}",
-    )
+    return f"{mean(values):.1f}", f"{min(values):.1f}", f"{max(values):.1f}"
 
 
-def write_summary_md(cells: List[CellStats], out_path: Path) -> None:
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+def fmt_seconds(seconds: float) -> str:
+    """Three significant figures: 7.79 s, 24.5 s, 638 s."""
+    if seconds < 10:
+        return f"{seconds:.2f} s"
+    if seconds < 100:
+        return f"{seconds:.1f} s"
+    return f"{seconds:.0f} s"
+
+
+def summary_markdown(cells: Iterable[CellStats], title: str = "Speed summary") -> str:
     lines = [
-        "# Benchmark summary",
+        f"# {title}",
         "",
-        "| Machine | Model | Variant | Size | n valid | TPS mean/min/max | TTFT ms mean/min/max | Spread% | Flags |",
-        "| --- | --- | --- | ---: | ---: | --- | --- | ---: | --- |",
+        "Valid runs only. Prefill speed and time to first token are mean/min/max; spread is",
+        "(max - min) / mean of prefill speed. Peak memory is MLX active memory for the run.",
+        "",
+        "| Machine | Model | Variant | Prompt tokens | Valid runs | Prefill tok/s | "
+        "Time to first token ms | Spread % | Peak memory GB | Flags |",
+        "| --- | --- | --- | ---: | ---: | --- | --- | ---: | ---: | --- |",
     ]
-    for cell in sorted(cells, key=lambda c: (c.machine, c.model, c.size, c.variant)):
-        tps_m, tps_min, tps_max = fmt_stats(cell.valid_tps or cell.processing_tps)
-        ttft_m, ttft_min, ttft_max = fmt_stats(cell.valid_ttft or cell.ttft_ms)
-        spread = cell.spread_pct(cell.valid_tps) * 100 if cell.valid_tps else 0.0
-        flags: List[str] = []
-        if cell.noisy:
-            flags.append("noisy")
-        if cell.incomplete:
-            flags.append("incomplete")
+    for cell in sort_cells(cells):
+        tps = "/".join(fmt_stats(cell.valid_tps or cell.processing_tps))
+        ttft = "/".join(fmt_stats(cell.valid_ttft or cell.ttft_ms))
+        peak = f"{cell.mean_peak_gb:.1f}" if cell.mean_peak_gb is not None else "-"
+        flags = [name for name, on in (("noisy", cell.noisy), ("incomplete", cell.incomplete)) if on]
         lines.append(
             f"| {cell.machine} | {cell.model} | {cell.variant} | {cell.size} | "
-            f"{cell.n_valid}/{cell.runs_expected} | {tps_m}/{tps_min}/{tps_max} | "
-            f"{ttft_m}/{ttft_min}/{ttft_max} | {spread:.1f} | {', '.join(flags) or '-'} |"
+            f"{cell.n_valid}/{cell.runs_expected} | {tps} | {ttft} | "
+            f"{spread(cell.valid_tps) * 100:.1f} | {peak} | {', '.join(flags) or '-'} |"
         )
-    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return "\n".join(lines) + "\n"
 
 
-def write_ttft_chart(
-    *,
-    machine: str,
-    model: str,
-    size: int,
-    variants: List[Tuple[str, float]],
-    out_path: Path,
-) -> None:
-    """Write a simple horizontal bar chart (TTFT seconds) as SVG."""
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    label_w = 120
-    track_w = 400
-    bar_h = 28
-    gap = 12
-    pad = 20
-    value_w = 90  # room for the value text after the longest bar
-    max_val = max((v for _, v in variants), default=1.0) or 1.0
-    height = pad * 2 + len(variants) * (bar_h + gap)
-
-    parts = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{label_w + track_w + value_w + pad * 2}" height="{height}">',
-        f'<text x="{pad}" y="{pad - 4}" font-family="monospace" font-size="12">'
-        f"{machine} | {model} | {size} tok — TTFT (s), lower is better</text>",
-    ]
-    y = pad + 16
-    for label, seconds in variants:
-        bar_w = int((seconds / max_val) * track_w) if max_val else 0
-        parts.append(
-            f'<text x="{pad}" y="{y + bar_h - 8}" font-family="monospace" font-size="12" '
-            f'text-anchor="start">{label[:14]:14s}</text>'
-        )
-        x0 = pad + label_w
-        parts.append(
-            f'<rect x="{x0}" y="{y}" width="{bar_w}" height="{bar_h}" fill="#4a90d9"/>'
-        )
-        parts.append(
-            f'<text x="{x0 + bar_w + 6}" y="{y + bar_h - 8}" font-family="monospace" '
-            f'font-size="11">{seconds:.2f}s</text>'
-        )
-        y += bar_h + gap
-    parts.append("</svg>")
-    out_path.write_text("\n".join(parts) + "\n", encoding="utf-8")
+def _panels(
+    cells: Sequence[CellStats],
+    baseline: str,
+    value_of,
+    value_text,
+    note_of,
+) -> List[BarPanel]:
+    """One panel per prompt size, one bar per variant that has a value."""
+    series = variant_series(c.variant for c in cells)
+    by_size: DefaultDict[int, List[CellStats]] = defaultdict(list)
+    for cell in sort_cells(cells):
+        if value_of(cell) is not None:
+            by_size[cell.size].append(cell)
+    panels = []
+    for size in sorted(by_size):
+        base = next((value_of(c) for c in by_size[size] if c.variant == baseline), None)
+        rows = [
+            BarRow(
+                label=variant_label(cell.variant),
+                value=value_of(cell),
+                value_text=value_text(value_of(cell)),
+                series=series[cell.variant],
+                note=note_of(cell, base),
+            )
+            for cell in by_size[size]
+        ]
+        panels.append(BarPanel(title=f"{size_label(size)} prompt", rows=rows))
+    return panels
 
 
-def build_charts(cells: List[CellStats], charts_dir: Path) -> None:
-    by_chart: DefaultDict[Tuple[str, str, int], List[Tuple[str, float]]] = defaultdict(list)
+def ttft_panels(cells: Sequence[CellStats], baseline: str) -> List[BarPanel]:
+    """Time to first token per variant; the note says how many times faster than `baseline`."""
+
+    def note(cell: CellStats, base: Optional[float]) -> str:
+        if cell.variant == baseline:
+            return "baseline"
+        return f"{base / cell.mean_ttft_s:.1f}× faster" if base else ""
+
+    return _panels(cells, baseline, lambda c: c.mean_ttft_s, fmt_seconds, note)
+
+
+def memory_panels(cells: Sequence[CellStats], baseline: str) -> List[BarPanel]:
+    """Peak memory per variant; the note is the change against `baseline`."""
+
+    def note(cell: CellStats, base: Optional[float]) -> str:
+        if cell.variant == baseline:
+            return "baseline"
+        if not base:
+            return ""
+        change = (cell.mean_peak_gb - base) / base * 100
+        return f"{change:+.1f}%".replace("-", "−")
+
+    return _panels(cells, baseline, lambda c: c.mean_peak_gb, lambda gb: f"{gb:.1f} GB", note)
+
+
+def _safe_name(text: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in "-._" else "-" for ch in text)
+
+
+def write_charts(cells: Sequence[CellStats], charts_dir: Path) -> List[Path]:
+    """One time-to-first-token chart per machine and model, in a light and a dark theme."""
+    groups: DefaultDict[Tuple[str, str], List[CellStats]] = defaultdict(list)
     for cell in cells:
-        if not cell.valid_ttft:
+        groups[(cell.machine, cell.model)].append(cell)
+    written: List[Path] = []
+    for (machine, model), members in sorted(groups.items()):
+        variants = ordered_variants(c.variant for c in members)
+        if not variants:
             continue
-        ttft_s = mean(cell.valid_ttft) / 1000.0
-        by_chart[(cell.machine, cell.model, cell.size)].append((cell.variant, ttft_s))
-
-    for (machine, model, size), variants in sorted(by_chart.items()):
-        safe_machine = machine.replace("/", "-")
-        safe_model = model.replace("/", "-")
-        fname = f"{safe_machine}__{safe_model}__{size}.svg"
-        write_ttft_chart(
-            machine=machine,
-            model=model,
-            size=size,
-            variants=sorted(variants, key=lambda x: x[0]),
-            out_path=charts_dir / fname,
+        baseline = "gpu" if "gpu" in variants else variants[0]
+        panels = ttft_panels(members, baseline)
+        if not panels:
+            continue
+        caption = Caption(
+            title="Time to first token",
+            subtitle=[f"{machine} · {model} · mean of valid runs · lower is better"],
         )
+        for theme in THEMES.values():
+            path = charts_dir / f"{_safe_name(machine)}__{_safe_name(model)}-ttft-{theme.name}.svg"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(bar_panels(caption, panels, theme), encoding="utf-8")
+            written.append(path)
+    return written
 
 
-def report_all(results_dir: Path, report_dir: Path) -> int:
-    paths = iter_jsonl_files(results_dir)
+def report_all(results: Path, report_dir: Path) -> int:
+    report_dir.mkdir(parents=True, exist_ok=True)
+    paths = iter_jsonl_files(results)
     if not paths:
-        report_dir.mkdir(parents=True, exist_ok=True)
-        (report_dir / "summary.md").write_text("# Benchmark summary\n\nNo JSONL files found.\n")
+        (report_dir / "summary.md").write_text("# Speed summary\n\nNo JSONL files found.\n", encoding="utf-8")
         return 1
-
-    rows = load_rows(paths)
-    grouped = group_rows(rows)
-    cells = list(grouped.values())
-
-    write_summary_md(cells, report_dir / "summary.md")
-    build_charts(cells, report_dir / "charts")
-
-    ok = True
-    for cell in cells:
-        if cell.incomplete or cell.noisy:
-            ok = False
-            break
-    return 0 if ok else 1
+    cells = list(group_rows(load_rows(paths)).values())
+    (report_dir / "summary.md").write_text(summary_markdown(cells), encoding="utf-8")
+    write_charts(cells, report_dir / "charts")
+    return 1 if any(cell.incomplete or cell.noisy for cell in cells) else 0
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Generate benchmark report")
+    parser = argparse.ArgumentParser(description="Summarize speed rows into a table and charts")
     parser.add_argument(
-        "results_dir",
+        "results",
         nargs="?",
         default="results",
-        help="Directory containing **/*.jsonl",
+        help="a JSONL file, or a folder searched for **/*.jsonl",
     )
-    parser.add_argument(
-        "--report-dir",
-        default="report",
-        help="Output directory for summary.md and charts",
-    )
+    parser.add_argument("--report-dir", default="report", help="where summary.md and charts/ go")
     args = parser.parse_args(argv)
-    return report_all(Path(args.results_dir), Path(args.report_dir))
+    return report_all(Path(args.results), Path(args.report_dir))
 
 
 if __name__ == "__main__":
