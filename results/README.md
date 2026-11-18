@@ -141,12 +141,16 @@ It carries every field of a quality row above, and these:
 | `request_start_offset_s` | Seconds between the wave start and this request's own start |
 | `expected`, `got`, `correct` | The passkey in this request's own prompt, the number in the reply, and whether they match |
 | `error` | Present instead of `status`/`content` when the request failed; the row is kept |
-| `validity` | `valid`, plus `wave_answered` (every request of the wave came back), `status_completed`, `cached_tokens_zero`, `helper_ready_at_wave_start` and `helper_served` |
+| `validity` | `valid`, plus `wave_answered` (every request of the wave came back), `status_completed`, `cached_tokens_zero`, `helper_ready_at_wave_start`, `helper_served_proven` and `helper_served` |
 
 No two requests of a run share prompt text: each prompt's first line names its wave and its user, so
-a wave cannot be answered from the prompt cache of an earlier one. A request that began before the
+a wave cannot be answered from the prompt cache of an earlier one. Each request is sent once, with no
+retry: a retried request would begin after its wave and its time would cover one attempt only, so a
+failure keeps its error row and makes its whole wave not valid. A request that began before the
 helper session was up is flagged by `helper_ready_at_wave_start`, because it was read by the Mac
-alone with no error.
+alone with no error. On a helper row `helper_served_proven` holds only when the proof read after the
+wave says the helper served it; a proof that could not be read leaves that unproven and the wave not
+valid. `helper_served` keeps the raw read, and on a Mac-alone row neither flag fails the wave.
 
 ## Helper fields (rows from 2026-11-17)
 

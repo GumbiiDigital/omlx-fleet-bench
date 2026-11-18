@@ -88,8 +88,13 @@ def assess_many_users_validity(
     only when the server answered every request of the wave. A request that began before the helper
     session was up was read by the Mac alone with no error, so a helper row needs `ready` at the
     wave start. `cached_tokens_zero` says this request read its prompt cold, which a wave with its
-    own prompt per request should always give. `helper_served` is read once after the wave; only a
-    False fails, because None means the field could not be read.
+    own prompt per request should always give.
+
+    `helper_served` is the proof read once after the wave. On a helper row it must be True: a False
+    means the helper did not read that wave, and a None means the proof could not be read at all,
+    which leaves nothing to show that the helper did its work — neither can pass for a measured
+    helper wave. On a Mac-alone row the proof says nothing about the Mac, so the flag does not fail
+    it. `helper_served_proven` names that rule, and is the flag a reader should test.
     """
     answered_ok = int(wave_users) > 0 and int(wave_answered) == int(wave_users)
     status_ok = str(status).lower() == "completed"
@@ -100,7 +105,7 @@ def assess_many_users_validity(
         if not helper_on
         else str(helper_state or "").strip().lower() == HELPER_READY_STATE
     )
-    served_ok = helper_served is not False
+    served_ok = True if not helper_on else helper_served is True
 
     return {
         "valid": answered_ok and status_ok and cached_ok and ready_ok and served_ok,
@@ -108,5 +113,6 @@ def assess_many_users_validity(
         "status_completed": status_ok,
         "cached_tokens_zero": cached_ok,
         "helper_ready_at_wave_start": ready_ok,
+        "helper_served_proven": served_ok,
         "helper_served": helper_served,
     }

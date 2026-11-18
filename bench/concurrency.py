@@ -10,8 +10,9 @@ One wave is one prompt size, one setting, and N requests (`--users`) released to
 first wave of a setting the runner sends the settings, probes the model and waits for the helper
 through `bench/runflow.py` — the one home of that order — because a request that begins before the
 helper session is ready is read by the Mac alone, with no error. Each request of a wave carries its
-own prompt (a unique first line), so no request is answered from another's prompt cache. The
-settings are restored when the run ends, also after a failure.
+own prompt (a unique first line), so no request is answered from another's prompt cache, and each
+is sent exactly once: a retry would start after its wave and its time would cover one attempt only.
+The settings are restored when the run ends, also after a failure.
 
 Rows have the shape of a chat row (`bench/chatrows.py`, `bench/quality.py`) plus the wave fields.
 Nothing is uploaded anywhere: the chat path has no leaderboard upload.
@@ -397,6 +398,8 @@ def run(args: argparse.Namespace) -> int:
                 )
                 first = False
                 requests = wave_requests(plan)
+                # One attempt per request: a retry inside a wave would start after the wave and its
+                # time would cover the last attempt only, and a failure would pass for an answer.
                 sends = [
                     partial(
                         chat.chat,
@@ -404,6 +407,7 @@ def run(args: argparse.Namespace) -> int:
                         request.messages,
                         max_tokens=max_tokens,
                         temperature=temperature,
+                        retries=0,
                     )
                     for request in requests
                 ]

@@ -81,12 +81,17 @@ class _FakeChat:
         failures: int = 0,
         cached: Optional[int] = 0,
         ready_error: str = "",
+        fail_first_attempt: bool = False,
     ) -> None:
         self.gate = threading.Barrier(parties, timeout=10) if parties > 1 else None
         self.failures = failures
         self.cached = cached
         self.ready_error = ready_error
+        # Each prompt fails on its first attempt and would answer on a second one.
+        self.fail_first_attempt = fail_first_attempt
         self.messages: List[List[Dict[str, str]]] = []
+        self.attempts: Dict[str, int] = {}
+        self.retries_seen: List[Optional[int]] = []
         self.events: List[str] = []
         self._lock = threading.Lock()
 
@@ -103,17 +108,24 @@ class _FakeChat:
         *,
         max_tokens: int = 512,
         temperature: float = 0.0,
+        retries: Optional[int] = None,
     ) -> Dict[str, Any]:
         if self.gate is not None:
             # Times out unless every request of the wave is in flight at the same moment.
             self.gate.wait()
+        key = messages[-1]["content"].split("\n", 1)[0]
         with self._lock:
             self.messages.append(messages)
+            self.retries_seen.append(retries)
+            self.attempts[key] = self.attempts.get(key, 0) + 1
+            attempt = self.attempts[key]
             fail = self.failures > 0
             if fail:
                 self.failures -= 1
         if fail:
             raise ChatError("HTTP 409 from chat endpoint: busy; unload pending")
+        if self.fail_first_attempt and attempt == 1:
+            raise ChatError("HTTP 500 from chat endpoint: boom on the first attempt")
         found = NEEDLE_RE.search(messages[-1]["content"])
         return reply(found.group(1) if found else "0", cached=self.cached)
 
@@ -290,17 +302,35 @@ class ManyUsersValidityTest(unittest.TestCase):
         )
         self.assertTrue(ready["valid"])
 
-    def test_the_helper_served_proof_only_fails_when_false(self) -> None:
+    def test_a_helper_wave_needs_the_served_proof_to_be_true(self) -> None:
+        """A proof that could not be read is not a pass: the helper may not have served the wave."""
         unknown = assess_many_users_validity(
             status="completed", cached_tokens=0, helper_on=True, helper_state="ready",
             wave_users=1, wave_answered=1, helper_served=None,
         )
-        self.assertTrue(unknown["valid"])
+        self.assertFalse(unknown["helper_served_proven"])
+        self.assertFalse(unknown["valid"])
         missed = assess_many_users_validity(
             status="completed", cached_tokens=0, helper_on=True, helper_state="ready",
             wave_users=1, wave_answered=1, helper_served=False,
         )
+        self.assertFalse(missed["helper_served_proven"])
         self.assertFalse(missed["valid"])
+        served = assess_many_users_validity(
+            status="completed", cached_tokens=0, helper_on=True, helper_state="ready",
+            wave_users=1, wave_answered=1, helper_served=True,
+        )
+        self.assertTrue(served["helper_served_proven"])
+        self.assertTrue(served["valid"])
+
+    def test_the_served_proof_does_not_fail_a_mac_alone_wave(self) -> None:
+        for flag in (None, False, True):
+            block = assess_many_users_validity(
+                status="completed", cached_tokens=0, helper_on=False, helper_state=None,
+                wave_users=1, wave_answered=1, helper_served=flag,
+            )
+            self.assertTrue(block["helper_served_proven"], flag)
+            self.assertTrue(block["valid"], flag)
 
 
 class QualityRowShapeTest(unittest.TestCase):
@@ -458,6 +488,35 @@ class RunnerTest(unittest.TestCase):
             self.assertEqual(row["helper_state"], "starting")
             self.assertFalse(row["validity"]["helper_ready_at_wave_start"])
             self.assertFalse(row["validity"]["valid"])
+
+    def test_a_wave_sends_each_request_once_and_does_not_retry(self) -> None:
+        """A retried request would start after its wave and its time would cover one attempt only."""
+        admin, chat = _FakeAdmin(), _FakeChat(parties=2, fail_first_attempt=True)
+        self.assertEqual(self._run(admin, chat, "--helper-stable-s", "0"), 0)
+        rows = self._rows()
+        self.assertEqual(len(rows), 4)
+        self.assertTrue(all(row["status"] == "error" for row in rows))
+        self.assertEqual(set(chat.attempts.values()), {1}, "a request of a wave was sent twice")
+        self.assertEqual(chat.retries_seen, [0] * len(chat.messages))
+        for wave_id in {row["wave_id"] for row in rows}:
+            for row in [r for r in rows if r["wave_id"] == wave_id]:
+                self.assertFalse(row["validity"]["wave_answered"])
+                self.assertFalse(row["validity"]["valid"])
+
+    def test_a_helper_wave_without_a_readable_proof_is_not_valid(self) -> None:
+        admin = _FakeAdmin([helper_answer("ready")])  # ready, and no last_prompt to read
+        chat = _FakeChat(parties=2)
+        self.assertEqual(self._run(admin, chat, "--helper-stable-s", "0"), 0)
+        spark = [row for row in self._rows() if row["variant"] == "spark"]
+        self.assertEqual(len(spark), 2)
+        for row in spark:
+            self.assertEqual(row["helper_state"], "ready")
+            self.assertTrue(row["validity"]["helper_ready_at_wave_start"])
+            self.assertIsNone(row["validity"]["helper_served"])
+            self.assertFalse(row["validity"]["helper_served_proven"])
+            self.assertFalse(row["validity"]["valid"])
+        alone = [row for row in self._rows() if row["variant"] == "gpu"]
+        self.assertTrue(all(row["validity"]["valid"] for row in alone))
 
     def test_a_cached_token_fails_the_row(self) -> None:
         admin, chat = _FakeAdmin(), _FakeChat(parties=2, cached=140)
