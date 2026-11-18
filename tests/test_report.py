@@ -316,6 +316,9 @@ class TestWaveViews(unittest.TestCase):
         }
 
     def _cells(self):
+        return waves.sort_cells(list(waves.cells(self._rows()).values()))
+
+    def _rows(self):
         rows = []
         for size, base in ((4096, {"alone": 8.0, "helper": 7.0}), (32768, {"alone": 38.0, "helper": 19.0})):
             for users in (1, 2):
@@ -327,7 +330,7 @@ class TestWaveViews(unittest.TestCase):
                             self._row(size=size, users=users, wave=wave, index=index, helper=helper, ttft=wall / 2, wall=wall)
                             for index in range(users)
                         ]
-        return waves.sort_cells(list(waves.cells(rows).values()))
+        return rows
 
     def test_the_report_lists_every_wave_with_its_own_wall_time(self):
         text = wave_markdown(self._cells())
@@ -353,6 +356,24 @@ class TestWaveViews(unittest.TestCase):
         panels = wave_lines(self._cells())
         self.assertEqual({(panel.x_min, panel.x_max) for panel in panels}, {(1, 2)})
         self.assertEqual({(panel.y_min, panel.y_max) for panel in panels}, {(7.5, 76.5)})
+
+    def test_a_cell_without_a_valid_wave_is_left_out_of_the_chart(self):
+        rows = [
+            dict(row, validity={**row["validity"], "valid": False, "wave_answered": False})
+            if row["target_tokens"] == 4096 and row["helper_on"]
+            else row
+            for row in self._rows()
+        ]
+        cells = waves.sort_cells(list(waves.cells(rows).values()))
+        panels = wave_lines(cells)
+        # The helper line at 4K has no point left, so only the Mac-alone line is drawn there.
+        self.assertEqual([series.label for series in panels[0].series], ["Mac alone"])
+
+    def test_no_cell_with_a_valid_wave_is_an_error(self):
+        rows = [dict(row, validity={**row["validity"], "valid": False, "wave_answered": False}) for row in self._rows()]
+        cells = waves.sort_cells(list(waves.cells(rows).values()))
+        with self.assertRaises(ValueError):
+            wave_lines(cells)
 
 
 if __name__ == "__main__":

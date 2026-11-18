@@ -328,26 +328,27 @@ How to read it:
 <!-- BEGIN GENERATED: many-users m3-ultra-b -->
 Time for the whole wave to finish, at each prompt size, user count and arm:
 
-| Prompt | Users | Arm | Requests | Valid | Time to first token | Wave time | Wave prompt tokens/s | Wave speed-up |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 4K | 1 | Mac alone | 3 | 3 | 4.98 s (4.91 to 5.03) | 7.9 s | 527 | baseline |
-| 4K | 1 | With helper | 3 | 3 | 4.17 s (4.05 to 4.30) | 7.2 s | 578 | 1.10× |
-| 4K | 2 | Mac alone | 6 | 6 | 10.32 s (4.92 to 16.93) | 19.2 s | 433 | baseline |
-| 4K | 2 | With helper | 6 | 6 | 6.67 s (5.85 to 7.49) | 14.2 s | 583 | 1.35× |
-| 4K | 4 | Mac alone | 12 | 12 | 19.23 s (4.91 to 24.48) | 33.2 s | 499 | baseline |
-| 4K | 4 | With helper | 12 | 12 | 10.93 s (6.02 to 15.55) | 23.1 s | 718 | 1.44× |
-| 4K | 8 | Mac alone | 24 | 24 | 38.43 s (4.96 to 74.27) | 65.5 s | 520 | baseline |
-| 4K | 8 | With helper | 24 | 24 | 19.21 s (6.18 to 33.03) | 42.0 s | 789 | 1.56× |
-| 32K | 1 | Mac alone | 3 | 3 | 34.36 s (33.77 to 34.65) | 38.7 s | 846 | baseline |
-| 32K | 1 | With helper | 3 | 3 | 16.77 s (16.29 to 17.05) | 20.4 s | 1,605 | 1.90× |
-| 32K | 2 | Mac alone | 6 | 6 | 55.02 s (35.08 to 75.30) | 79.2 s | 826 | baseline |
-| 32K | 2 | With helper | 6 | 6 | 26.87 s (18.21 to 36.14) | 38.7 s | 1,693 | 2.05× |
-| 32K | 4 | Mac alone | 12 | 12 | 115.48 s (35.69 to 157.94) | 161.3 s | 811 | baseline |
-| 32K | 4 | With helper | 12 | 12 | 45.91 s (19.46 to 72.76) | 75.6 s | 1,731 | 2.13× |
-| 32K | 8 | Mac alone | 24 | 24 | 245.48 s (37.28 to 322.50) | 324.7 s | 806 | baseline |
-| 32K | 8 | With helper | 24 | 24 | 84.50 s (20.22 to 147.46) | 149.5 s | 1,751 | 2.17× |
+| Prompt | Users | Arm | Requests | Valid | Waves in the means | Time to first token | Wave time | Wave prompt tokens/s | Wave speed-up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4K | 1 | Mac alone | 3 | 3 | 3 of 3 | 4.98 s (4.91 to 5.03) | 7.9 s | 527 | baseline |
+| 4K | 1 | With helper | 3 | 3 | 3 of 3 | 4.17 s (4.05 to 4.30) | 7.2 s | 578 | 1.10× |
+| 4K | 2 | Mac alone | 6 | 6 | 3 of 3 | 10.32 s (4.92 to 16.93) | 19.2 s | 433 | baseline |
+| 4K | 2 | With helper | 6 | 6 | 3 of 3 | 6.67 s (5.85 to 7.49) | 14.2 s | 583 | 1.35× |
+| 4K | 4 | Mac alone | 12 | 12 | 3 of 3 | 19.23 s (4.91 to 24.48) | 33.2 s | 499 | baseline |
+| 4K | 4 | With helper | 12 | 12 | 3 of 3 | 10.93 s (6.02 to 15.55) | 23.1 s | 718 | 1.44× |
+| 4K | 8 | Mac alone | 24 | 24 | 3 of 3 | 38.43 s (4.96 to 74.27) | 65.5 s | 520 | baseline |
+| 4K | 8 | With helper | 24 | 24 | 3 of 3 | 19.21 s (6.18 to 33.03) | 42.0 s | 789 | 1.56× |
+| 32K | 1 | Mac alone | 3 | 3 | 3 of 3 | 34.36 s (33.77 to 34.65) | 38.7 s | 846 | baseline |
+| 32K | 1 | With helper | 3 | 3 | 3 of 3 | 16.77 s (16.29 to 17.05) | 20.4 s | 1,605 | 1.90× |
+| 32K | 2 | Mac alone | 6 | 6 | 3 of 3 | 55.02 s (35.08 to 75.30) | 79.2 s | 826 | baseline |
+| 32K | 2 | With helper | 6 | 6 | 3 of 3 | 26.87 s (18.21 to 36.14) | 38.7 s | 1,693 | 2.05× |
+| 32K | 4 | Mac alone | 12 | 12 | 3 of 3 | 115.48 s (35.69 to 157.94) | 161.3 s | 811 | baseline |
+| 32K | 4 | With helper | 12 | 12 | 3 of 3 | 45.91 s (19.46 to 72.76) | 75.6 s | 1,731 | 2.13× |
+| 32K | 8 | Mac alone | 24 | 24 | 3 of 3 | 245.48 s (37.28 to 322.50) | 324.7 s | 806 | baseline |
+| 32K | 8 | With helper | 24 | 24 | 3 of 3 | 84.50 s (20.22 to 147.46) | 149.5 s | 1,751 | 2.17× |
 
 Mean of 3 waves per cell, at 1, 2, 4 and 8 users per wave.
+A wave with a request a check marks not valid is left out of the wave means as a whole: its own wall time and prompt tokens are not used in any mean.
 All 180 requests read their prompt cold and got a correct answer.
 <!-- END GENERATED: many-users m3-ultra-b -->
 

@@ -456,6 +456,10 @@ def wave_lines(cells: Sequence["waves.WaveCell"]) -> List[LinePanel]:
     """
     if not cells:
         raise ValueError("no cells to plot")
+    # A cell whose waves all broke has no wave time to plot; the table still shows it, with dashes.
+    cells = [cell for cell in cells if cell.has_valid_wave]
+    if not cells:
+        raise ValueError("no cell has a valid wave to plot")
     counts = sorted({cell.users for cell in cells})
     if len(counts) < 2:
         raise ValueError("a line needs at least two user counts")

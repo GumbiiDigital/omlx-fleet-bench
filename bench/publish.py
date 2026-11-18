@@ -557,6 +557,53 @@ def _users_note(counts: Sequence[int]) -> str:
     return ", ".join(str(count) for count in counts[:-1]) + f" and {counts[-1]} users"
 
 
+def _waves_in_means(cells: Sequence["waves.WaveCell"], counts: Sequence[int]) -> str:
+    """One sentence on how many waves each mean rests on, read from the cells themselves.
+
+    A cell whose every wave broke has no mean, so the sentence then gives a range that starts at
+    zero and points the reader at the column that says which cell is which.
+    """
+    used = sorted({cell.waves_used for cell in cells})
+    if len(used) == 1 and used[0] > 0:
+        return f"Mean of {used[0]} waves per cell, at {_users_note(counts)} per wave."
+    if len(used) == 1:
+        return "No cell has a fully valid wave, so every mean in the table is `-`."
+    return (
+        f"A mean rests on {used[0]} to {used[-1]} waves per cell, at {_users_note(counts)} per wave; "
+        "the `Waves in the means` column gives the count for each cell."
+    )
+
+
+def _wait_text(cell: "waves.WaveCell") -> str:
+    """The wait of a request in the cell, or '-' when no request of it is valid."""
+    if not cell.valid_members:
+        return "-"
+    return f"{cell.mean_ttft_s:.2f} s ({cell.low_ttft_s:.2f} to {cell.high_ttft_s:.2f})"
+
+
+def _wave_text(cell: "waves.WaveCell") -> str:
+    """The mean wall time of a whole wave, or '-' when no wave of the cell is fully valid."""
+    return f"{cell.mean_wall_s:.1f} s" if cell.has_valid_wave else "-"
+
+
+def _wave_tps_text(cell: "waves.WaveCell") -> str:
+    """The prompt tokens of all users together over the wave, or '-' with no fully valid wave."""
+    return f"{cell.mean_prompt_tps:,.0f}" if cell.has_valid_wave else "-"
+
+
+def _speed_up_text(cell: "waves.WaveCell", base: "waves.WaveCell", arm: str, baseline: str) -> str:
+    """How many times shorter this wave is than the Mac-alone wave of the same cell.
+
+    Both sides need a wave that survived its checks: a missing figure on either side leaves the
+    speed-up unknown, which is not the same as a speed-up of one.
+    """
+    if arm == baseline:
+        return "baseline"
+    if not (cell.has_valid_wave and base.has_valid_wave):
+        return "-"
+    return f"{waves.comparison(cell, base):.2f}×"
+
+
 def _wave_cells(rows: List[Dict[str, Any]], label: str) -> List["waves.WaveCell"]:
     """Every cell of a many-users study, checked to cover each prompt size, user count and arm."""
     cells = waves.sort_cells(list(waves.cells(rows).values()))
@@ -601,6 +648,7 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
         "Arm",
         "Requests",
         "Valid",
+        "Waves in the means",
         "Time to first token",
         "Wave time",
         "Wave prompt tokens/s",
@@ -611,7 +659,6 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
         for users in counts:
             for arm in ordered_arms(cell.arm for cell in cells):
                 cell, base = by[(size, users, arm)], by[(size, users, baseline)]
-                faster = "baseline" if arm == baseline else f"{waves.comparison(cell, base):.2f}×"
                 rows.append(
                     [
                         size_label(size),
@@ -619,25 +666,22 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
                         arm_label(arm),
                         str(cell.requests),
                         str(cell.n_valid),
-                        f"{cell.mean_ttft_s:.2f} s ({cell.low_ttft_s:.2f} to {cell.high_ttft_s:.2f})",
-                        f"{cell.mean_wall_s:.1f} s",
-                        f"{cell.mean_prompt_tps:,.0f}",
-                        faster,
+                        f"{cell.waves_used} of {len(cell.waves)}",
+                        _wait_text(cell),
+                        _wave_text(cell),
+                        _wave_tps_text(cell),
+                        _speed_up_text(cell, base, arm, baseline),
                     ]
                 )
 
-    waves_per_cell = sorted({len(cell.waves) for cell in cells})
-    count_line = (
-        f"Mean of {waves_per_cell[0]} waves per cell, at {_users_note(counts)} per wave."
-        if len(waves_per_cell) == 1
-        else "Waves per cell: " + ", ".join(str(count) for count in waves_per_cell) + "."
-    )
     lines = [
         "Time for the whole wave to finish, at each prompt size, user count and arm:",
         "",
         _table(header, rows),
         "",
-        count_line,
+        _waves_in_means(cells, counts),
+        "A wave with a request a check marks not valid is left out of the wave means as a whole: "
+        "its own wall time and prompt tokens are not used in any mean.",
     ]
 
     members = [member for cell in cells for member in cell.members]
@@ -647,17 +691,19 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
         lines.append(f"Requests marked not valid by a check, kept in their wave's count and out of its means: {counts_text}.")
     lines.append(waves.reading_line(members))
 
-    panels = report.wave_lines(cells)
-    caption = Caption(
-        title="Wave time by number of users",
-        subtitle=[f"{machine['model']} · {machine['hardware']} · helper: {machine['helper']}", study["conditions"]],
-        footnotes=[
-            "Both axes are log scale and shared by both panels. One line per arm; hover a point for its value.",
-            "A wave is its user count of requests released together. Lower is better.",
-        ],
-    )
-    outputs = _charts(f"{label}-many-users", lambda theme: line_panels(caption, panels, theme))
-    outputs[f"reports/{label}/many-users.md"] = report.wave_markdown(cells)
+    outputs: Outputs = {f"reports/{label}/many-users.md": report.wave_markdown(cells)}
+    plottable = [cell for cell in cells if cell.has_valid_wave]
+    if plottable:
+        caption = Caption(
+            title="Wave time by number of users",
+            subtitle=[f"{machine['model']} · {machine['hardware']} · helper: {machine['helper']}", study["conditions"]],
+            footnotes=[
+                "Both axes are log scale and shared by both panels. One line per arm; hover a point for its value.",
+                "A wave is its user count of requests released together. Lower is better.",
+            ],
+        )
+        panels = report.wave_lines(plottable)
+        outputs.update(_charts(f"{label}-many-users", lambda theme: line_panels(caption, panels, theme)))
     return outputs, "\n".join(lines)
 
 

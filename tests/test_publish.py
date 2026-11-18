@@ -579,14 +579,25 @@ class ManyUsersStudyTest(unittest.TestCase):
     def test_the_table_has_one_line_per_prompt_size_user_count_and_arm(self):
         _, blocks = publish.build(self.ws.root)
         block = blocks["many-users box"]
-        self.assertIn("| 4K | 1 | Mac alone | 2 | 2 | 5.25 s (5.00 to 5.50) | 10.5 s | 382 | baseline |", block)
-        self.assertIn("| 4K | 1 | With helper | 2 | 2 |", block)
+        self.assertIn(
+            "| 4K | 1 | Mac alone | 2 | 2 | 2 of 2 | 5.25 s (5.00 to 5.50) | 10.5 s | 382 | baseline |", block
+        )
+        self.assertIn("| 4K | 1 | With helper | 2 | 2 | 2 of 2 |", block)
+        self.assertIn("| Waves in the means |", block)
         self.assertIn("Mean of 2 waves per cell, at 1 and 2 users per wave.", block)
         self.assertEqual(sum(1 for line in block.splitlines() if line.startswith("| 4K") or line.startswith("| 32K")), 8)
 
+    def test_the_block_says_which_waves_a_mean_rests_on_and_why_one_is_left_out(self):
+        _, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"]
+        self.assertIn("A wave with a request a check marks not valid is left out of the wave means as a whole", block)
+
     def test_the_speed_up_is_the_mac_alone_wave_over_the_helper_wave(self):
         _, blocks = publish.build(self.ws.root)
-        self.assertIn("| 4K | 1 | With helper | 2 | 2 | 4.25 s (4.00 to 4.50) | 8.5 s | 472 | 1.24× |", blocks["many-users box"])
+        self.assertIn(
+            "| 4K | 1 | With helper | 2 | 2 | 2 of 2 | 4.25 s (4.00 to 4.50) | 8.5 s | 472 | 1.24× |",
+            blocks["many-users box"],
+        )
 
     def test_a_flagged_row_is_counted_and_named_and_left_out_of_the_means(self):
         rows = [dict(row) for row in self.ws.rows]
@@ -596,12 +607,54 @@ class ManyUsersStudyTest(unittest.TestCase):
         self.ws.rewrite(rows)
         _, blocks = publish.build(self.ws.root)
         block = blocks["many-users box"]
-        self.assertIn("| 32K | 2 | With helper | 4 | 2 |", block)
-        # The wave that holds the flagged request has no whole-wave figure: the mean is wave 0 alone.
-        self.assertIn("| 32K | 2 | With helper | 4 | 2 | 8.00 s (8.00 to 8.00) | 16.0 s | 500 |", block)
+        # The wave that holds the flagged request has no whole-wave figure: the mean is wave 0 alone,
+        # and the column says the mean rests on 1 wave of the cell's 2.
+        self.assertIn("| 32K | 2 | With helper | 4 | 2 | 1 of 2 | 8.00 s (8.00 to 8.00) | 16.0 s | 500 |", block)
+        self.assertIn("A mean rests on 1 to 2 waves per cell, at 1 and 2 users per wave", block)
         self.assertIn("Requests marked not valid by a check", block)
         self.assertIn("2 · helper_served_proven", block)
         self.assertIn("All 24 requests read their prompt cold and got a correct answer.", block)
+
+    def _break(self, keep, **fields):
+        """Write the rows back with the matching ones marked not valid."""
+        rows = []
+        for row in self.ws.rows:
+            if all(row[key] == value for key, value in fields.items()):
+                row = dict(row)
+                row["validity"] = {**row["validity"], "valid": False, **keep}
+            rows.append(row)
+        self.ws.rewrite(rows)
+
+    def test_a_cell_without_a_fully_valid_wave_prints_dashes_and_the_publish_goes_on(self):
+        self._break({"wave_answered": False}, target_tokens=4096, users=2, helper_on=True)
+        outputs, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"]
+        # No request of the cell is valid, so nothing in the row can be worked out but its counts.
+        self.assertIn("| 4K | 2 | With helper | 4 | 0 | 0 of 2 | - | - | - | - |", block)
+        # The rest of the study is untouched, table and chart alike.
+        self.assertIn("| 4K | 2 | Mac alone | 4 | 4 | 2 of 2 | 10.25 s (10.00 to 10.50) | 20.5 s | 390 | baseline |", block)
+        self.assertIn("A mean rests on 0 to 2 waves per cell", block)
+        self.assertEqual(sorted(outputs), sorted(
+            [f"charts/box-many-users-{theme}.svg" for theme in ("light", "dark")] + ["reports/box/many-users.md"]
+        ))
+
+    def test_a_helper_cell_whose_mac_alone_cell_has_no_valid_wave_has_no_speed_up(self):
+        self._break({"wave_answered": False}, target_tokens=4096, users=2, helper_on=False)
+        _, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"]
+        self.assertIn("| 4K | 2 | Mac alone | 4 | 0 | 0 of 2 | - | - | - | baseline |", block)
+        # The helper cell itself is intact, so its own figures stand and only the speed-up is missing.
+        self.assertIn("| 4K | 2 | With helper | 4 | 4 | 2 of 2 | 8.25 s (8.00 to 8.50) | 16.5 s | 485 | - |", block)
+
+    def test_a_study_with_no_valid_wave_at_all_still_builds_its_table_and_report(self):
+        self._break({"wave_answered": False})
+        outputs, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"]
+        self.assertIn("| 4K | 1 | Mac alone | 2 | 0 | 0 of 2 | - | - | - | baseline |", block)
+        self.assertIn("No cell has a fully valid wave, so every mean in the table is `-`.", block)
+        self.assertEqual(sorted(outputs), ["reports/box/many-users.md"])
+        self.assertEqual(self.ws.run(), 0)
+        self.assertEqual(self.ws.run("--check"), 0)
 
     def test_outputs_cover_the_report_and_one_chart_pair(self):
         outputs, _ = publish.build(self.ws.root)

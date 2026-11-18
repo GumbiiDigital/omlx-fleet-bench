@@ -74,13 +74,24 @@ class WaveCell:
         """The waves with no request a flag marks not valid: the ones whose own figures are used.
 
         A wave is over when its last reply arrives, so one failed request leaves the wave with no
-        honest whole-wave time; that wave is kept in the report and left out of the wave means.
+        honest whole-wave time; that wave is kept in the report and left out of the wave means as a
+        whole, rather than counted with its slow or short figure.
         """
         return {
             wave: members
             for wave, members in self.waves.items()
             if all(member.request.valid for member in members)
         }
+
+    @property
+    def waves_used(self) -> int:
+        """How many waves this cell's means rest on: the ones no flag touches."""
+        return len(self.valid_waves)
+
+    @property
+    def has_valid_wave(self) -> bool:
+        """True when at least one wave of the cell has no request a flag marks not valid."""
+        return bool(self.valid_waves)
 
     @property
     def mean_ttft_s(self) -> float:
