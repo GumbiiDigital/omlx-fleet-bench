@@ -125,6 +125,29 @@ rows were moved out of the speed file into their own file; no row was edited or 
 | `note` | Present only when something needs saying: `no_answer_text` marks a reply with no answer text |
 | `target_tokens`, `approximate_prompt_tokens`, `prompt_chars` | Passkey rows: the size asked for and the size built |
 
+## Many-users rows (`bench/concurrency.py`)
+
+A many-users row is a chat row about one request of a wave: N requests that begin at one moment.
+It carries every field of a quality row above, and these:
+
+| Field | Meaning |
+|---|---|
+| `task` | Always `many_users` |
+| `users` | How many requests began at once in this wave |
+| `wave` | Which repeat of that user count it was: 0, 1, 2 |
+| `wave_id` | The same for every request of one wave, for example `spark-32768-u4-w0` |
+| `user_index` | 0 to `users` − 1: which request of the wave this row is |
+| `wave_wall_s` | Wall time of the whole wave, from the moment it opened to the last reply |
+| `request_start_offset_s` | Seconds between the wave start and this request's own start |
+| `expected`, `got`, `correct` | The passkey in this request's own prompt, the number in the reply, and whether they match |
+| `error` | Present instead of `status`/`content` when the request failed; the row is kept |
+| `validity` | `valid`, plus `wave_answered` (every request of the wave came back), `status_completed`, `cached_tokens_zero`, `helper_ready_at_wave_start` and `helper_served` |
+
+No two requests of a run share prompt text: each prompt's first line names its wave and its user, so
+a wave cannot be answered from the prompt cache of an earlier one. A request that began before the
+helper session was up is flagged by `helper_ready_at_wave_start`, because it was read by the Mac
+alone with no error.
+
 ## Helper fields (rows from 2026-11-17)
 
 Both kinds of row carry the state and the wait, whether or not the harness waited for the helper.
