@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bench import latency
+from bench import latency, waves
 from bench.report import (
     group_rows,
     memory_panels,
@@ -15,6 +15,8 @@ from bench.report import (
     summary_markdown,
     ttft_lines,
     ttft_panels,
+    wave_lines,
+    wave_markdown,
 )
 
 
@@ -290,6 +292,67 @@ class TestSettingPanels(unittest.TestCase):
         colours = {row.label: row.series for panel in panels for row in panel.rows}
         self.assertEqual(colours["Mac alone"], "blue")
         self.assertNotEqual(colours["Automatic"], colours["49 layers"])
+
+
+class TestWaveViews(unittest.TestCase):
+    """The many-users report and chart read the waves, not the requests."""
+
+    def _row(self, *, size=4096, users=2, wave=0, index=0, helper=False, ttft=10.0, wall=19.2, valid=True):
+        return {
+            "machine": "m1",
+            "helper_on": helper,
+            "helper_state": "ready" if helper else None,
+            "desired_settings": {"prefill_helper_layers": None},
+            "users": users,
+            "wave": wave,
+            "user_index": index,
+            "target_tokens": size,
+            "status": "completed",
+            "correct": True,
+            "usage": {"cached_tokens": 0, "prompt_tokens": 4100},
+            "server_timing": {"time_to_first_token": ttft},
+            "wave_wall_s": wall,
+            "validity": {"valid": valid, "wave_answered": valid, "cached_tokens_zero": True},
+        }
+
+    def _cells(self):
+        rows = []
+        for size, base in ((4096, {"alone": 8.0, "helper": 7.0}), (32768, {"alone": 38.0, "helper": 19.0})):
+            for users in (1, 2):
+                for helper, arm in ((False, "alone"), (True, "helper")):
+                    for wave in range(2):
+                        # A longer wave for each extra user, so the line has a slope to draw.
+                        wall = base[arm] * users + wave
+                        rows += [
+                            self._row(size=size, users=users, wave=wave, index=index, helper=helper, ttft=wall / 2, wall=wall)
+                            for index in range(users)
+                        ]
+        return waves.sort_cells(list(waves.cells(rows).values()))
+
+    def test_the_report_lists_every_wave_with_its_own_wall_time(self):
+        text = wave_markdown(self._cells())
+        self.assertIn("| Mac alone | 4K | 1 | 0 | 1 | 1 |", text)
+        self.assertIn("| 8.00 |", text)
+        self.assertIn("| With helper | 32K | 2 | 1 | 2 | 2 |", text)
+        # Two sizes, two arms, two user counts, two waves each.
+        self.assertEqual(sum(1 for line in text.splitlines() if line.startswith("| Mac") or line.startswith("| With")), 16)
+
+    def test_the_chart_has_one_panel_per_prompt_size_and_one_line_per_arm(self):
+        panels = wave_lines(self._cells())
+        self.assertEqual([panel.title for panel in panels], ["4K prompt", "32K prompt"])
+        self.assertEqual([series.label for series in panels[0].series], ["Mac alone", "With helper"])
+        self.assertEqual([point.x for point in panels[0].series[0].points], [1, 2])
+
+    def test_the_chart_points_are_the_mean_wave_times(self):
+        panels = wave_lines(self._cells())
+        alone, helped = panels[0].series
+        self.assertEqual([point.y for point in alone.points], [8.5, 16.5])
+        self.assertEqual([point.y for point in helped.points], [7.5, 14.5])
+
+    def test_both_panels_are_given_the_same_ranges(self):
+        panels = wave_lines(self._cells())
+        self.assertEqual({(panel.x_min, panel.x_max) for panel in panels}, {(1, 2)})
+        self.assertEqual({(panel.y_min, panel.y_max) for panel in panels}, {(7.5, 76.5)})
 
 
 if __name__ == "__main__":

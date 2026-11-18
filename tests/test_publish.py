@@ -39,6 +39,37 @@ def _quality_row(variant, task, sample, correct, content="answer", finish="stop"
     }
 
 
+def _wave_row(size, users, wave, index, helper, wall, machine="box"):
+    """One many-users row: a request of a wave, with the wave's own figures beside it."""
+    return {
+        "machine": machine,
+        "helper_on": helper,
+        "helper_state": "ready" if helper else None,
+        "helper_wait_s": 0.0,
+        "desired_settings": {"prefill_helper_layers": None},
+        "users": users,
+        "wave": wave,
+        "wave_id": f"{'spark' if helper else 'gpu'}-{size}-u{users}-w{wave}",
+        "user_index": index,
+        "target_tokens": size,
+        "task": "many_users",
+        "status": "completed",
+        "correct": True,
+        "usage": {"cached_tokens": 0, "prompt_tokens": 4000},
+        "server_timing": {"time_to_first_token": wall / 2},
+        "wave_wall_s": wall,
+        "validity": {
+            "valid": True,
+            "wave_answered": True,
+            "status_completed": True,
+            "cached_tokens_zero": True,
+            "helper_ready_at_wave_start": True,
+            "helper_served_proven": True,
+            "helper_served": True,
+        },
+    }
+
+
 def _write(path, rows):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
@@ -494,6 +525,114 @@ class CommittedResultsTest(unittest.TestCase):
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
             code = publish.main(["--check", "--root", str(REPO_ROOT)])
         self.assertEqual(code, 0, out.getvalue())
+
+
+class ManyUsersWorkspace:
+    """A repository that holds a many-users study: waves of requests in two arms."""
+
+    def __init__(self, tmp):
+        self.root = Path(tmp)
+        self.rows = []
+        for size in (4096, 32768):
+            for users in (1, 2):
+                for helper in (False, True):
+                    for wave in range(2):
+                        wall = (10.0 if not helper else 8.0) * users + wave
+                        for index in range(users):
+                            self.rows.append(_wave_row(size, users, wave, index, helper, wall))
+        _write(self.root / "results/box/waves.jsonl", self.rows)
+        self.manifest = {
+            "machines": [
+                {
+                    "label": "box",
+                    "hardware": "Test Mac",
+                    "helper": "Test helper",
+                    "model": MODEL,
+                    "many_users": {
+                        "kind": "request",
+                        "files": ["results/box/waves.jsonl"],
+                        "conditions": "cold, every user of a wave sends at the same moment",
+                    },
+                }
+            ]
+        }
+        (self.root / publish.MANIFEST).write_text(json.dumps(self.manifest), encoding="utf-8")
+        (self.root / "README.md").write_text("# Title\n\n" + _marker("many-users box"), encoding="utf-8")
+
+    def rewrite(self, rows):
+        _write(self.root / "results/box/waves.jsonl", rows)
+
+    def save_manifest(self):
+        (self.root / publish.MANIFEST).write_text(json.dumps(self.manifest), encoding="utf-8")
+
+    def run(self, *args):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return publish.main(["--root", str(self.root), *args])
+
+
+class ManyUsersStudyTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.ws = ManyUsersWorkspace(self._tmp.name)
+
+    def test_the_table_has_one_line_per_prompt_size_user_count_and_arm(self):
+        _, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"]
+        self.assertIn("| 4K | 1 | Mac alone | 2 | 2 | 5.25 s (5.00 to 5.50) | 10.5 s | 382 | baseline |", block)
+        self.assertIn("| 4K | 1 | With helper | 2 | 2 |", block)
+        self.assertIn("Mean of 2 waves per cell, at 1 and 2 users per wave.", block)
+        self.assertEqual(sum(1 for line in block.splitlines() if line.startswith("| 4K") or line.startswith("| 32K")), 8)
+
+    def test_the_speed_up_is_the_mac_alone_wave_over_the_helper_wave(self):
+        _, blocks = publish.build(self.ws.root)
+        self.assertIn("| 4K | 1 | With helper | 2 | 2 | 4.25 s (4.00 to 4.50) | 8.5 s | 472 | 1.24× |", blocks["many-users box"])
+
+    def test_a_flagged_row_is_counted_and_named_and_left_out_of_the_means(self):
+        rows = [dict(row) for row in self.ws.rows]
+        for row in rows:
+            if row["target_tokens"] == 32768 and row["users"] == 2 and row["helper_on"] and row["wave"] == 1:
+                row["validity"] = {**row["validity"], "valid": False, "helper_served_proven": False}
+        self.ws.rewrite(rows)
+        _, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"]
+        self.assertIn("| 32K | 2 | With helper | 4 | 2 |", block)
+        # The wave that holds the flagged request has no whole-wave figure: the mean is wave 0 alone.
+        self.assertIn("| 32K | 2 | With helper | 4 | 2 | 8.00 s (8.00 to 8.00) | 16.0 s | 500 |", block)
+        self.assertIn("Requests marked not valid by a check", block)
+        self.assertIn("2 · helper_served_proven", block)
+        self.assertIn("All 24 requests read their prompt cold and got a correct answer.", block)
+
+    def test_outputs_cover_the_report_and_one_chart_pair(self):
+        outputs, _ = publish.build(self.ws.root)
+        self.assertEqual(
+            sorted(outputs),
+            sorted(
+                [f"charts/box-many-users-{theme}.svg" for theme in ("light", "dark")]
+                + ["reports/box/many-users.md"]
+            ),
+        )
+        report_text = outputs["reports/box/many-users.md"]
+        self.assertIn("| Mac alone | 4K | 1 | 0 | 1 | 1 |", report_text)
+
+    def test_write_then_check_passes(self):
+        self.assertEqual(self.ws.run(), 0)
+        self.assertEqual(self.ws.run("--check"), 0)
+
+    def test_a_study_kind_that_does_not_match_its_builder_is_an_error(self):
+        self.ws.manifest["machines"][0]["many_users"]["kind"] = "speed"
+        self.ws.save_manifest()
+        self.assertEqual(self.ws.run(), 2)
+
+    def test_a_study_with_one_arm_is_an_error(self):
+        self.ws.rewrite([row for row in self.ws.rows if not row["helper_on"]])
+        self.assertEqual(self.ws.run(), 2)
+
+    def test_a_cell_without_a_wave_is_an_error(self):
+        self.ws.rewrite(
+            [row for row in self.ws.rows if not (row["target_tokens"] == 4096 and row["users"] == 2 and row["helper_on"])]
+        )
+        self.assertEqual(self.ws.run(), 2)
 
 
 if __name__ == "__main__":

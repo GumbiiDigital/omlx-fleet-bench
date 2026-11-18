@@ -42,6 +42,17 @@ SETTING_MAC_ALONE = "mac-alone"
 SETTING_AUTOMATIC = "automatic"
 LAYER_SETTING_PREFIX = "layers-"
 
+# An arm is what a wave of many requests ran on: the Mac alone, or the Mac with its helper.
+# The arm comes from the row (whether the helper was on), never from a list of variant names.
+ARM_ALONE = "mac-alone"
+ARM_HELPER = "helper"
+
+ARM_LABELS: Dict[str, str] = {ARM_ALONE: "Mac alone", ARM_HELPER: "With helper"}
+
+# The Mac alone keeps the baseline blue; the helper keeps the aqua it has in every other chart.
+ARM_ORDER: List[str] = [ARM_ALONE, ARM_HELPER]
+ARM_SERIES: Dict[str, str] = {ARM_ALONE: "blue", ARM_HELPER: "aqua"}
+
 SETTING_LABELS: Dict[str, str] = {SETTING_MAC_ALONE: "Mac alone", SETTING_AUTOMATIC: "Automatic"}
 
 # Colour follows the setting, in the order the settings are shown: the Mac alone keeps the
@@ -102,6 +113,28 @@ def ordered_variants(names: Iterable[str]) -> List[str]:
     unique = set(names)
     known = [name for name in VARIANT_ORDER if name in unique]
     return known + sorted(unique - set(known))
+
+
+def arm_label(name: str) -> str:
+    """'mac-alone' -> 'Mac alone', 'helper' -> 'With helper'."""
+    return ARM_LABELS.get(name, name)
+
+
+def ordered_arms(names: Iterable[str]) -> List[str]:
+    """Known arms in the fixed order (the Mac alone first), then any other by name."""
+    unique = set(names)
+    known = [name for name in ARM_ORDER if name in unique]
+    return known + sorted(unique - set(known))
+
+
+def arm_series(names: Iterable[str]) -> Dict[str, str]:
+    """Colour slot per arm. An arm with no slot is an error, not a guess."""
+    out: Dict[str, str] = {}
+    for name in ordered_arms(names):
+        if name not in ARM_SERIES:
+            raise ValueError(f"no chart colour for arm {name!r}; add it to bench/labels.py")
+        out[name] = ARM_SERIES[name]
+    return out
 
 
 def variant_series(names: Iterable[str]) -> Dict[str, str]:
