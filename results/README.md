@@ -15,6 +15,11 @@ a file name is the local date the run started; the timestamps inside the rows ar
 | `m3-ultra-a/quality-ane-kv-helper-2026-11-16.jsonl` | 2,824 | Answer quality, the other four settings |
 | `m3-ultra-a/quality-reask-8x-2026-11-16.jsonl` | 304 | The cut-off answers asked again with an 8× token cap |
 | `m3-ultra-a/quality-passkey-cold-2026-11-17.jsonl` | 30 | The passkey prompts asked again with a unique first line, so each one was read cold |
+| `m3-ultra-a/helper-ready-chat-nowait-2026-11-17.jsonl` | 12 | Chat path, no helper wait: 6 rounds of one helper-off request and then one 32K passkey request with the helper on |
+| `m3-ultra-a/helper-ready-chat-wait-2026-11-17.jsonl` | 12 | The same 6 rounds with the helper wait |
+| `m3-ultra-a/helper-ready-speed-nowait-2026-11-17.jsonl` | 12 | The same 6 rounds on the server's benchmark call, no helper wait |
+| `m3-ultra-a/helper-ready-speed-wait-2026-11-17.jsonl` | 12 | The same 6 rounds on the server's benchmark call, with the helper wait |
+| `m3-ultra-a/helper-layers-2026-11-17.jsonl` | 27 | Chat path, helper wait: Mac alone, automatic layers, and 32, 49 and 63 layers, at 32K and 128K, 3 requests per cell |
 | `m3-ultra-b/speed-2026-11-16.jsonl` | 24 | Speed matrix, 8 cells × 3 runs (no ANE setup on this model) |
 | `m3-ultra-b/speed-sweep-2026-11-15.jsonl` | 28 | Prompt-size sweep 1K to 128K, 14 cells × 2 runs; one 128K helper run did not use the helper |
 | `m3-ultra-b/speed-sweep-rerun-2026-11-15.jsonl` | 4 | Reruns of the 128K helper cell: 2 server-conflict rows, 1 failed run, and the valid row that cell was missing |
@@ -51,6 +56,20 @@ DGX Spark unit of the same type as the helper, one day before the speed matrix a
 sets are not one series. The error rows in those files are as the harness wrote them: they carry
 `error` and no metrics or log, so their fields differ from a completed row. No key was added or
 removed, and no measured value was changed.
+
+The five helper files (`helper-ready-*`, `helper-layers-*`) got the machine label and the helper
+node id, and nothing else. Their chat rows carry the helper fields below and no `validity` block;
+the speed-test rows carry one. Rows that a check marks not valid stay in the file:
+
+- `helper-ready-speed-nowait`: 6 rows, all marked not valid by `helper_ready_at_start`. Every
+  helper-on request in that arm began while the helper was `starting`. These 6 rows are the fault
+  the study replays, and no mean in the README uses them.
+- `helper-ready-speed-wait`: 0 rows marked not valid.
+- The two chat files and the layer file: no `validity` block. All 24 helper-on requests across the
+  chat arms and all 27 layer requests read 0 cached tokens, and every answer was correct.
+- In the chat files the helper-off requests after the first round reused 140 cached tokens of the
+  round before (5 rows in the no-wait file, 6 in the wait file). They are there to force the
+  settings switch; they are not part of any helper-on figure.
 
 Earlier commits of this repository hold the rows under their old file names. The two warm re-run
 rows were moved out of the speed file into their own file; no row was edited or dropped.
@@ -105,3 +124,16 @@ rows were moved out of the speed file into their own file; no row was edited or 
 | `status` | `completed`, or `error` with the reason |
 | `note` | Present only when something needs saying: `no_answer_text` marks a reply with no answer text |
 | `target_tokens`, `approximate_prompt_tokens`, `prompt_chars` | Passkey rows: the size asked for and the size built |
+
+## Helper fields (rows from 2026-11-17)
+
+Both kinds of row carry these once the harness waits for the helper. Read them together: the state
+at the start says what the request could use, and the last three say whether the helper served it.
+
+| Field | Meaning |
+|---|---|
+| `helper_state` | The helper's state when the request went out: `connecting`, `starting`, `ready`, or empty with the helper off |
+| `helper_wait_s` | Seconds the harness waited for `ready` before the request; 0 when it did not wait |
+| `helper_layers` | Layers the helper really took for this request, read after it. Empty when the helper served none |
+| `helper_held`, `helper_session_since` | Layers the helper held, and the server's clock reading when that session started |
+| `helper_last_prompt_at`, `helper_last_prompt_tokens`, `helper_last_prompt_seconds` | The helper's last prompt: when it started, its tokens and its seconds. Empty when the helper had served no prompt |

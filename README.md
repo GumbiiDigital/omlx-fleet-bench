@@ -147,14 +147,20 @@ Same questions under every setting: 200 from GSM8K, 500 from MMLU (25 from each 
   passkey prompt, so a new run reads the whole prompt. I ran the 30 passkey prompts again on
   2026-11-17 with that fixed harness. Every row has 0 cached tokens and all 30 answers are correct.
   The published passkey numbers come from that run.
-- **The first helper request at 32K was slow.** In that cold passkey run, the first helper request at
-  32K took 109.7 s and the next one 30.9 s.
+- **The first helper request at 32K was slow, and now it has a proven cause.** In that cold passkey
+  run the first helper request at 32K took 109.7 s and the next one 30.9 s. After a switch from
+  helper off to helper on the server loads the model again and sets up the helper session again. A
+  request that begins before that session is ready is served by the Mac alone, with no error and no
+  warning. The harness now probes the model, waits until the helper state is `ready` and stays so,
+  and records the helper state in each row. The replay under
+  [helper start](#what-the-first-helper-request-waits) shows the fault 6 times of 6 on the chat
+  path; the server's speed-test path did not show it.
 
 ## Helper start and layer count
 
-Two smaller tests on the 27B machine, both on the chat path, both with a cold cache. The first
-replays the fault that made the first helper request slow; the second sets how much of the model
-the helper holds.
+Two more tests on the 27B machine. The first replays the fault that made the first helper request
+slow, on the chat path and on the server's own speed-test call. The second sets how much of the
+model the helper holds.
 
 ### What the first helper request waits
 
@@ -214,11 +220,11 @@ How to read it:
 
 - 49 layers is the fastest setting at both sizes: 29.8 s at 32K and 166.0 s at 128K, means of 3.
   Fewer layers (32) or more (63) are slower at both sizes.
-- The automatic choice picks 49 layers, and once 50. At 32K two of its three requests were slower
-  than every 49-layer request, so it is as fast as pinned 49 layers on its best pass and not as
-  steady; these rows do not say why.
-- So the automatic default is a fair choice, and pinning 49 buys the steadiest result. Pinning 32
-  or 63 costs time, so the setting is not worth tuning by hand in either direction.
+- The automatic choice picks 49 layers, and once 50. At 32K it beat every 49-layer request on its
+  best pass and was slower than every one of them on the other two, so it is not as steady; these
+  rows do not say why.
+- So the automatic default is a fair choice; pinning 49 layers buys the steadiest result, and
+  pinning 32 or 63 costs time.
 - One model on one machine pair, 3 requests per cell: enough to rank these five settings, not
   enough to separate two of them that differ by a few percent.
 - The layer count in the table is what the helper really took, read after the request; the count it
@@ -486,7 +492,10 @@ with your own `--machine` label, keep the JSONL untouched, and open a pull reque
 
 `matrices/m3-ultra-b-speed.json`, `m3-ultra-b-kv-cache.json` and `m3-ultra-b-quality.json` are the
 three matrices behind the Flash-Next tables. `m3-ultra-b-speed-sweep.json` and `m3-ultra-b-256k.json`
-are behind the prompt-size sweep. `matrices/flash-next-moe.json` is an earlier matrix for
+are behind the prompt-size sweep. `matrices/m3-ultra-a-helper-ready.json` and
+`m3-ultra-a-helper-ready-chat.json` are behind the helper-start table, and
+`m3-ultra-a-helper-layers-chat-32k.json` and `m3-ultra-a-helper-layers-chat-128k.json` behind the
+layer table. `matrices/flash-next-moe.json` is an earlier matrix for
 a mixture-of-experts model; its results are not published here.
 
 ## Credits and scope
