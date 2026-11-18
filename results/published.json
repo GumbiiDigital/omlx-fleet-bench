@@ -30,6 +30,43 @@
         ],
         "baseline": "gpu",
         "conditions": "Same questions under every setting, temperature 0. Higher is better."
+      },
+      "helper_ready": {
+        "kind": "request",
+        "arms": [
+          {
+            "path": "chat",
+            "arm": "no wait",
+            "file": "results/m3-ultra-a/helper-ready-chat-nowait-2026-11-17.jsonl"
+          },
+          {
+            "path": "chat",
+            "arm": "wait",
+            "file": "results/m3-ultra-a/helper-ready-chat-wait-2026-11-17.jsonl"
+          },
+          {
+            "path": "speed test",
+            "arm": "no wait",
+            "file": "results/m3-ultra-a/helper-ready-speed-nowait-2026-11-17.jsonl"
+          },
+          {
+            "path": "speed test",
+            "arm": "wait",
+            "file": "results/m3-ultra-a/helper-ready-speed-wait-2026-11-17.jsonl"
+          }
+        ],
+        "conditions": "Cold cache. Six rounds per arm, each one request with the helper off and then one request at 32K with the helper on. Lower is better."
+      },
+      "helper_layers": {
+        "kind": "request",
+        "arms": [
+          {
+            "path": "chat",
+            "arm": "wait",
+            "file": "results/m3-ultra-a/helper-layers-2026-11-17.jsonl"
+          }
+        ],
+        "conditions": "Cold cache, 256 output tokens, 3 requests per setting and prompt size. Lower is better."
       }
     },
     {

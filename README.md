@@ -150,6 +150,80 @@ Same questions under every setting: 200 from GSM8K, 500 from MMLU (25 from each 
 - **The first helper request at 32K was slow.** In that cold passkey run, the first helper request at
   32K took 109.7 s and the next one 30.9 s.
 
+## Helper start and layer count
+
+Two smaller tests on the 27B machine, both on the chat path, both with a cold cache. The first
+replays the fault that made the first helper request slow; the second sets how much of the model
+the helper holds.
+
+### What the first helper request waits
+
+<!-- BEGIN GENERATED: helper-ready m3-ultra-a -->
+Time to first token of a helper-on request at 32K, after a switch from helper off to helper on:
+
+| Path | Arm | Helper-on requests | Helper state at start | Not valid | Waited (mean) | Time to first token | Ran at helper speed |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| chat | no wait | 6 | connecting (6 of 6) | 0 | 0.0 s | 109.70 to 109.76 s | 0 of 6 |
+| chat | wait | 6 | ready (6 of 6) | 0 | 20.1 s | 29.31 to 29.93 s | 6 of 6 |
+| speed test | no wait | 6 | starting (6 of 6) | 6 · helper_ready_at_start | 0.0 s | 29.52 to 30.04 s | 6 of 6 |
+| speed test | wait | 6 | ready (6 of 6) | 0 | 17.5 s | 29.87 to 30.17 s | 6 of 6 |
+
+chat, no wait: 6 of 6 requests ran at the speed of the Mac alone.
+6 requests are marked not valid by `helper_ready_at_start`: each began before the helper session was up, so the Mac read the whole prompt alone.
+Every request read its prompt cold; 12 of 12 answers were correct.
+<!-- END GENERATED: helper-ready m3-ultra-a -->
+
+How to read it:
+
+- One round is a request with the helper off, then a request at 32K with the helper on, so every
+  helper request starts straight after a switch.
+- "No wait" is the old harness behaviour, kept to replay the fault. "Wait" is what the harness does
+  now: it probes the model, then waits until the helper reads `ready` and holds it.
+- A request counts as running at helper speed when it waited under half of the Mac-alone wait at
+  the same prompt size. A request that goes out before the helper session is ready reads the whole
+  prompt on the Mac alone and takes that full wait: those are the 109.7 s rows above.
+- The server's speed-test path did not show the fault. Its no-wait requests began while the helper
+  was `starting` and were served by the helper anyway, so `helper_ready_at_start` kept them out of
+  every mean while the rows stayed in the file.
+- The chat rows record no validity block. Every helper-on request in both chat arms read 0 cached
+  tokens and answered correctly.
+
+### How many layers the helper holds
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-a-helper-layers-dark.svg">
+  <img alt="Time to first token at 32K and 128K prompt tokens for the Mac alone, automatic layers, and 32, 49 and 63 layers" src="charts/m3-ultra-a-helper-layers-light.svg">
+</picture>
+
+<!-- BEGIN GENERATED: helper-layers m3-ultra-a -->
+Time to first token per helper layer count, and how many times faster than the Mac alone at 32K:
+
+| Setting | 32K time to first token | 128K time to first token | Helper layers | Faster than Mac alone at 32K |
+|---|---:|---:|---:|---:|
+| Mac alone | 109.7 s (109.69 to 109.72) | not run | none | baseline |
+| Automatic | 32.1 s (29.42 to 33.62) | 178.7 s (177.96 to 179.42) | 32K: 49; 128K: 50, 49, 49 | 3.4× |
+| 32 layers | 56.8 s (56.77 to 56.91) | 321.6 s (321.54 to 321.69) | 32 | 1.9× |
+| 49 layers | 29.8 s (29.50 to 29.91) | 166.0 s (165.71 to 166.40) | 49 | 3.7× |
+| 63 layers | 35.9 s (35.43 to 36.23) | 208.2 s (207.43 to 209.25) | 63 | 3.1× |
+
+Mean of 3 requests per cell.
+All 27 requests read their prompt cold and got a correct answer.
+<!-- END GENERATED: helper-layers m3-ultra-a -->
+
+How to read it:
+
+- 49 layers is the fastest setting at both sizes: 29.8 s at 32K and 166.0 s at 128K, means of 3.
+  Fewer layers (32) or more (63) are slower at both sizes.
+- The automatic choice picks 49 layers, and once 50. At 32K two of its three requests were slower
+  than every 49-layer request, so it is as fast as pinned 49 layers on its best pass and not as
+  steady; these rows do not say why.
+- So the automatic default is a fair choice, and pinning 49 buys the steadiest result. Pinning 32
+  or 63 costs time, so the setting is not worth tuning by hand in either direction.
+- One model on one machine pair, 3 requests per cell: enough to rank these five settings, not
+  enough to separate two of them that differ by a few percent.
+- The layer count in the table is what the helper really took, read after the request; the count it
+  was asked for is in `desired_settings` in each row.
+
 ## Second machine (Flash-Next)
 
 A second Apple M3 Ultra, 256 GB, with the same model of helper (NVIDIA GB10, DGX Spark, 10 GbE),
@@ -398,6 +472,7 @@ with your own `--machine` label, keep the JSONL untouched, and open a pull reque
 | [bench/run.py](bench/run.py) | Speed runner: one JSONL row per benchmark run |
 | [bench/quality.py](bench/quality.py) | Answer-quality runner: one JSONL row per question |
 | [bench/report.py](bench/report.py), [bench/quality_report.py](bench/quality_report.py) | Summaries of your own rows |
+| [bench/latency.py](bench/latency.py) | Reads a speed row or a chat row as one request: its wait, its setting, its helper state |
 | [bench/publish.py](bench/publish.py) | Rebuilds the README tables, `reports/` and `charts/` from `results/` |
 | [bench/charts.py](bench/charts.py), [bench/svg.py](bench/svg.py) | The chart forms and the SVG writer behind them |
 | [bench/client.py](bench/client.py), [bench/chat.py](bench/chat.py) | oMLX admin API and chat API clients |

@@ -24,9 +24,16 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from bench import quality_report, report  # noqa: E402
+from bench import latency, quality_report, report  # noqa: E402
 from bench.charts import Caption, IntervalPanel, IntervalRow, bar_panels, interval_panels, line_panel  # noqa: E402
-from bench.labels import ordered_variants, size_label, variant_label, variant_series  # noqa: E402
+from bench.labels import (  # noqa: E402
+    ordered_settings,
+    ordered_variants,
+    setting_label,
+    size_label,
+    variant_label,
+    variant_series,
+)
 from bench.stats import spread, wilson_interval  # noqa: E402
 from bench.svg import THEMES  # noqa: E402
 
@@ -320,11 +327,193 @@ def build_speed_sweep(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str
     return outputs, "\n".join(lines)
 
 
+def _requests(root: Path, study: Dict[str, Any], machine: str) -> List[latency.Request]:
+    """Every request of a request-level study, each in the path and arm its file names."""
+    requests: List[latency.Request] = []
+    for arm in study["arms"]:
+        rows = [row for row in _rows(root, [arm["file"]]) if row.get("machine") == machine]
+        if not rows:
+            raise PublishError(f"{machine}: {arm['file']} holds no request for this machine")
+        requests += [latency.from_row(row, path=arm["path"], arm=arm["arm"]) for row in rows]
+    return requests
+
+
+def _reading_line(requests: Sequence[latency.Request]) -> str:
+    """One sentence on the cold cache and the answers, counted from the rows.
+
+    A speed-test row has no answer of its own, so answers are counted only where a row records
+    one; the sentence then says how many that was rather than implying the rest were wrong.
+    """
+    total = len(requests)
+    cold = sum(1 for request in requests if request.cached_tokens == 0)
+    answered = [request for request in requests if request.correct is not None]
+    right = sum(1 for request in answered if request.correct)
+    if cold == total and len(answered) == total and right == total:
+        return f"All {total} requests read their prompt cold and got a correct answer."
+    if cold == total:
+        return f"Every request read its prompt cold; {right} of {len(answered)} answers were correct."
+    return (
+        f"{cold} of {total} requests read their prompt cold; "
+        f"{right} of {len(answered)} answers were correct."
+    )
+
+
+def _layers_across_sizes(groups: Dict[Tuple[int, str], latency.Waits], setting: str, sizes: Sequence[int]) -> str:
+    """The layer count the helper took, saying which prompt size when it differed between them."""
+    texts = [
+        (size_label(size), groups[(size, setting)].layers_text) for size in sizes if (size, setting) in groups
+    ]
+    if not texts:
+        return "none"
+    if len({text for _, text in texts}) == 1:
+        return texts[0][1]
+    return "; ".join(f"{label}: {text}" for label, text in texts)
+
+
+def build_helper_ready(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
+    """What the first request after a settings switch waited, one line per path and arm.
+
+    The switch unloads the model, loads it again and starts a new helper session. A request that
+    goes out before that session is up is served by the Mac alone, with no error and no warning,
+    so the helper state at the start of each request is the whole point of this study.
+    """
+    study, label = machine["helper_ready"], machine["label"]
+    requests = _requests(root, study, label)
+    helped = [request for request in requests if request.helper_on]
+    groups = latency.group_requests(helped, lambda request: (request.path, request.arm))
+    alone = latency.mac_alone_wait_s(helped)
+
+    header = [
+        "Path",
+        "Arm",
+        "Helper-on requests",
+        "Helper state at start",
+        "Not valid",
+        "Waited (mean)",
+        "Time to first token",
+        "Ran at helper speed",
+    ]
+    rows = []
+    for arm in study["arms"]:
+        key = (arm["path"], arm["arm"])
+        waits = groups.get(key)
+        if waits is None:
+            raise PublishError(f"{label}: no helper-on request for {key[0]}, {key[1]}")
+        rows.append(
+            [
+                key[0],
+                key[1],
+                str(waits.requests),
+                waits.state_text,
+                waits.failed_text,
+                f"{waits.mean_wait_s:.1f} s",
+                f"{waits.low_ttft_s:.2f} to {waits.high_ttft_s:.2f} s",
+                f"{waits.at_helper_speed(alone)} of {waits.requests}",
+            ]
+        )
+
+    lines = [
+        "Time to first token of a helper-on request at 32K, after a switch from helper off to helper on:",
+        "",
+        _table(header, rows),
+        "",
+    ]
+    for arm in study["arms"]:
+        waits = groups[(arm["path"], arm["arm"])]
+        on_the_mac = waits.requests - waits.at_helper_speed(alone)
+        if on_the_mac:
+            lines.append(
+                f"{arm['path']}, {arm['arm']}: {on_the_mac} of {waits.requests} requests ran at the "
+                "speed of the Mac alone."
+            )
+    not_ready = sum(1 for request in requests if "helper_ready_at_start" in request.failed)
+    if not_ready:
+        lines.append(
+            f"{not_ready} requests are marked not valid by `helper_ready_at_start`: each began before the "
+            "helper session was up, so the Mac read the whole prompt alone."
+        )
+    # The helper-off requests are there to force the switch; the cache and answer counts are the
+    # helper-on ones, because those are the requests the table is about.
+    lines.append(_reading_line(helped))
+
+    outputs: Outputs = {
+        f"reports/{label}/helper-ready.md": report.request_markdown(
+            requests, "Helper-ready replay: every request"
+        )
+    }
+    return outputs, "\n".join(lines)
+
+
+def build_helper_layers(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
+    """Time to first token per helper layer count, at each prompt size, against the Mac alone."""
+    study, label = machine["helper_layers"], machine["label"]
+    requests = _requests(root, study, label)
+    groups = latency.group_requests(requests, lambda request: (request.size, request.setting))
+    sizes = sorted({request.size for request in requests})
+    baseline = next((request.setting for request in requests if not request.helper_on), None)
+    if baseline is None:
+        raise PublishError(f"{label}: the layer study needs a request with the helper off to compare with")
+    reference = min(size for size in sizes if (size, baseline) in groups)
+    base = groups[(reference, baseline)].mean_ttft_s
+
+    header = ["Setting"] + [f"{size_label(size)} time to first token" for size in sizes]
+    header += ["Helper layers", f"Faster than {setting_label(baseline)} at {size_label(reference)}"]
+    rows = []
+    for setting in ordered_settings(name for _, name in groups):
+        row = [setting_label(setting)]
+        for size in sizes:
+            waits = groups.get((size, setting))
+            row.append(
+                "not run"
+                if waits is None
+                else f"{waits.mean_ttft_s:.1f} s ({waits.low_ttft_s:.2f} to {waits.high_ttft_s:.2f})"
+            )
+        row.append(_layers_across_sizes(groups, setting, sizes))
+        if setting == baseline:
+            row.append("baseline")
+        elif (reference, setting) in groups:
+            row.append(f"{base / groups[(reference, setting)].mean_ttft_s:.1f}×")
+        else:
+            row.append("-")
+        rows.append(row)
+
+    counts = sorted({waits.requests for waits in groups.values()})
+    count_line = (
+        f"Mean of {counts[0]} requests per cell."
+        if len(counts) == 1
+        else "Requests per cell: " + ", ".join(str(count) for count in counts) + "."
+    )
+    lines = [
+        "Time to first token per helper layer count, and how many times faster than the Mac alone "
+        f"at {size_label(reference)}:",
+        "",
+        _table(header, rows),
+        "",
+        count_line,
+        _reading_line(requests),
+    ]
+
+    caption = Caption(
+        title="Time to first token by helper layer count",
+        subtitle=[f"{machine['model']} · {machine['hardware']} · helper: {machine['helper']}", study["conditions"]],
+        footnotes=[
+            "Each panel has its own scale. “× faster” compares with the Mac alone at the same prompt size.",
+            "A pinned count is the number of layers the helper was asked for; the table gives the number it took.",
+        ],
+    )
+    panels = report.setting_panels(groups, baseline)
+    outputs = _charts(f"{label}-helper-layers", lambda theme: bar_panels(caption, panels, theme))
+    outputs[f"reports/{label}/helper-layers.md"] = report.request_markdown(
+        requests, "Helper layer count: every request"
+    )
+    return outputs, "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class Study:
     """A published study: the shape of its rows, and the builder that reads them."""
 
-    kind: str  # "speed" or "quality": what one row of the study measures
+    kind: str  # "speed", "quality" or "request": what one row of the study measures
     build: Callable[[Path, Dict[str, Any]], Tuple[Outputs, str]]
 
 
@@ -333,6 +522,8 @@ STUDIES = {
     "speed_sweep": Study("speed", build_speed_sweep),
     "kv_cache": Study("speed", build_kv_cache),
     "quality": Study("quality", build_quality),
+    "helper_ready": Study("request", build_helper_ready),
+    "helper_layers": Study("request", build_helper_layers),
 }
 
 

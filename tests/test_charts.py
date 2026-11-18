@@ -234,6 +234,25 @@ class LabelsTest(unittest.TestCase):
         self.assertEqual(labels.size_label(131072), "128K")
         self.assertEqual(labels.size_label(1000), "1,000")
 
+    def test_a_layer_setting_is_named_by_what_was_asked_for(self):
+        self.assertEqual(labels.setting_label("mac-alone"), "Mac alone")
+        self.assertEqual(labels.setting_label("automatic"), "Automatic")
+        self.assertEqual(labels.setting_label("layers-32"), "32 layers")
+        self.assertEqual(labels.setting_label("something-else"), "something-else")
+
+    def test_settings_are_ordered_mac_alone_then_automatic_then_layer_counts(self):
+        self.assertEqual(
+            labels.ordered_settings(["layers-63", "mac-alone", "layers-32", "automatic", "layers-49"]),
+            ["mac-alone", "automatic", "layers-32", "layers-49", "layers-63"],
+        )
+
+    def test_a_setting_keeps_one_colour_and_runs_out_loudly(self):
+        series = labels.setting_series(["layers-49", "mac-alone", "automatic"])
+        self.assertEqual(series["mac-alone"], "blue")
+        self.assertEqual(len(set(series.values())), 3)
+        with self.assertRaises(ValueError):
+            labels.setting_series([f"layers-{count}" for count in range(20)])
+
 
 class StatsTest(unittest.TestCase):
     def test_spread(self):

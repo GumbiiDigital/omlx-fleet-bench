@@ -5,7 +5,49 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bench.report import group_rows, memory_panels, report_all, summary_markdown, ttft_lines, ttft_panels
+from bench import latency
+from bench.report import (
+    group_rows,
+    memory_panels,
+    report_all,
+    request_markdown,
+    setting_panels,
+    summary_markdown,
+    ttft_lines,
+    ttft_panels,
+)
+
+
+def _request_row(
+    ttft: float,
+    *,
+    size: int = 32768,
+    helper: bool = True,
+    ask=None,
+    took=None,
+    state: str = "ready",
+    wait: float = 0.0,
+    status: str = "completed",
+    correct: bool = True,
+    cached: int = 0,
+    validity=None,
+) -> dict:
+    row = {
+        "machine": "m1",
+        "helper_on": helper,
+        "helper_state": state if helper else None,
+        "helper_wait_s": wait,
+        "helper_layers": took,
+        "desired_settings": {"prefill_helper_layers": ask},
+        "target_tokens": size,
+        "status": status,
+        "correct": correct,
+        "usage": {"cached_tokens": cached},
+        "server_timing": {"time_to_first_token": ttft},
+    }
+    if validity is not None:
+        row["validity"] = validity
+    return row
 
 
 def _row(
@@ -161,6 +203,64 @@ class TestTtftLines(unittest.TestCase):
         panel = ttft_lines(list(group_rows(rows).values()))
         self.assertEqual([line.label for line in panel.series], ["GPU only", "+ Spark helper"])
         self.assertEqual([p.x for p in panel.series[1].points], [8192])
+
+
+class TestRequestMarkdown(unittest.TestCase):
+    def _requests(self):
+        rows = [
+            (_request_row(109.70, state="connecting", took=49), "chat", "no wait"),
+            (_request_row(29.31, state="ready", wait=20.0, took=49), "chat", "wait"),
+            (_request_row(30.0, state="starting", took=49), "speed test", "no wait"),
+            (_request_row(0.14, helper=False), "chat", "wait"),
+        ]
+        return [latency.from_row(row, path=path, arm=arm) for row, path, arm in rows]
+
+    def test_one_line_per_request_with_its_helper_state(self):
+        text = request_markdown(self._requests(), "Every request")
+        self.assertIn("# Every request", text)
+        self.assertIn("| chat | no wait | 32K | Automatic | on | connecting | 0.0 | 109.70 | 49 | 0 | yes | - |", text)
+        self.assertIn("| chat | wait | 32K | Automatic | on | ready | 20.0 | 29.31 | 49 | 0 | yes | - |", text)
+        self.assertIn("| speed test | no wait | 32K | Automatic | on | starting | 0.0 | 30.00 | 49 | 0 | yes | - |", text)
+        self.assertIn("| chat | wait | 32K | Mac alone | off | none | 0.0 | 0.14 | none | 0 | yes | - |", text)
+        self.assertEqual(text.count("\n| "), 6)  # header, separator and four requests
+
+    def test_a_failed_check_is_named_on_its_row(self):
+        row = _request_row(30.0, validity={"valid": False, "helper_ready_at_start": False})
+        text = request_markdown([latency.from_row(row, path="speed test", arm="no wait")], "Every request")
+        self.assertIn("| helper_ready_at_start |", text)
+
+
+class TestSettingPanels(unittest.TestCase):
+    def _groups(self):
+        rows = [
+            _request_row(109.70, helper=False, size=32768),
+            _request_row(109.76, helper=False, size=32768),
+            _request_row(32.1, ask=None, took=49, size=32768),
+            _request_row(29.8, ask=49, took=49, size=32768),
+            _request_row(178.7, ask=None, took=50, size=131072),
+        ]
+        requests = [latency.from_row(row, path="chat", arm="wait") for row in rows]
+        return latency.group_requests(requests, lambda r: (r.size, r.setting))
+
+    def test_one_panel_per_prompt_size_in_the_setting_order(self):
+        panels = setting_panels(self._groups(), "mac-alone")
+        self.assertEqual([panel.title for panel in panels], ["32K prompt", "128K prompt"])
+        self.assertEqual([row.label for row in panels[0].rows], ["Mac alone", "Automatic", "49 layers"])
+
+    def test_the_note_compares_with_the_mac_alone_where_it_was_run(self):
+        panels = setting_panels(self._groups(), "mac-alone")
+        by_label = {row.label: row for row in panels[0].rows}
+        self.assertEqual(by_label["Mac alone"].note, "baseline")
+        self.assertEqual(by_label["Automatic"].value_text, "32.1 s")
+        self.assertEqual(by_label["Automatic"].note, "3.4× faster")
+        # No Mac-alone request at 128K, so there is nothing to compare with.
+        self.assertEqual([row.note for row in panels[1].rows], [""])
+
+    def test_each_setting_keeps_one_colour_across_panels(self):
+        panels = setting_panels(self._groups(), "mac-alone")
+        colours = {row.label: row.series for panel in panels for row in panel.rows}
+        self.assertEqual(colours["Mac alone"], "blue")
+        self.assertNotEqual(colours["Automatic"], colours["49 layers"])
 
 
 if __name__ == "__main__":

@@ -24,8 +24,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from bench import latency  # noqa: E402
 from bench.charts import BarPanel, BarRow, Caption, LinePanel, LinePoint, LineSeries, bar_panels  # noqa: E402
-from bench.labels import ordered_variants, size_label, variant_label, variant_series  # noqa: E402
+from bench.labels import (  # noqa: E402
+    ordered_settings,
+    ordered_variants,
+    setting_label,
+    setting_series,
+    size_label,
+    variant_label,
+    variant_series,
+)
 from bench.stats import spread  # noqa: E402
 from bench.svg import THEMES  # noqa: E402
 
@@ -310,6 +319,67 @@ def ttft_lines(cells: Sequence[CellStats]) -> LinePanel:
         y_ticks=[(tick, f"{tick:g} s") for tick in log_ticks(min(waits), max(waits))],
         series=lines,
     )
+
+
+def request_markdown(requests: Sequence["latency.Request"], title: str = "Requests") -> str:
+    """Every request of a study on one line, with the checks its row failed named.
+
+    A study about waits keeps the rows it cannot use: a request that began before the helper
+    session was up is the evidence, not a row to drop. So the list is the whole file, in order.
+    """
+    lines = [
+        f"# {title}",
+        "",
+        "One line per request, in the order the rows were written. Time to first token is the",
+        "server's own figure. A request whose row failed a check stays in the list and names it.",
+        "",
+        "| Path | Arm | Prompt | Setting | Helper | State at start | Waited s "
+        "| Time to first token s | Layers | Cached tokens | Answer correct | Failed checks |",
+        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for request in requests:
+        correct = "-" if request.correct is None else ("yes" if request.correct else "no")
+        cached = "-" if request.cached_tokens is None else str(request.cached_tokens)
+        layers = "none" if request.helper_layers is None else str(request.helper_layers)
+        lines.append(
+            f"| {request.path} | {request.arm} | {size_label(request.size)} "
+            f"| {setting_label(request.setting)} | {'on' if request.helper_on else 'off'} "
+            f"| {request.helper_state or 'none'} | {request.helper_wait_s:.1f} | {request.ttft_s:.2f} "
+            f"| {layers} | {cached} | {correct} | {', '.join(request.failed) or '-'} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def setting_panels(
+    groups: Dict[Tuple[int, str], "latency.Waits"], baseline: Optional[str] = None
+) -> List[BarPanel]:
+    """One panel per prompt size, one bar per setting; the note compares with `baseline`.
+
+    A size where the baseline was not run gets no note: there is nothing to compare with there,
+    and a made-up reference would read as a measurement.
+    """
+    sizes = sorted({size for size, _ in groups})
+    series = setting_series(setting for _, setting in groups)
+    panels = []
+    for size in sizes:
+        base = groups[(size, baseline)].mean_ttft_s if baseline and (size, baseline) in groups else None
+        rows = []
+        for setting in ordered_settings(name for group_size, name in groups if group_size == size):
+            waits = groups[(size, setting)]
+            note = ""
+            if base:
+                note = "baseline" if setting == baseline else f"{base / waits.mean_ttft_s:.1f}× faster"
+            rows.append(
+                BarRow(
+                    label=setting_label(setting),
+                    value=waits.mean_ttft_s,
+                    value_text=fmt_seconds(waits.mean_ttft_s),
+                    series=series[setting],
+                    note=note,
+                )
+            )
+        panels.append(BarPanel(title=f"{size_label(size)} prompt", rows=rows))
+    return panels
 
 
 def _safe_name(text: str) -> str:
