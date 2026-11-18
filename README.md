@@ -360,8 +360,9 @@ How to read it:
 - More users make the wave longer in both arms. On the Mac alone the wave time roughly doubles each
   time the user count doubles; with the helper it also rises at every step.
 - At the same cell the whole wave is shorter with the helper than on the Mac alone, at both prompt
-  sizes and at every user count. The gap is wider at 32K than at 4K, and it grows a little as the
-  number of users rises.
+  sizes and at every user count. The gap is wider at 32K than at 4K. The speed-up grows with the
+  number of users at both prompt sizes: at 4K from 1.10× with one user to 1.56× with eight, and at
+  32K from 1.90× to 2.17×.
 - The prompt tokens per second column counts every user's prompt together over the wave. Put
   together that way, the wave moves 433 to 846 prompt tokens a second on the Mac alone, and 578 to
   1,751 with the helper. These rows do not say how the server or the helper shares the work between
