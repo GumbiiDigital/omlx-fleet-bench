@@ -1,0 +1,30 @@
+{
+  "model": "Qwen3.8-Flash-Next-oQ4e-mtp",
+  "note": "Many users at once: waves of 1, 2, 4 and 8 chat requests that begin at one moment, 3 waves per count, at 4K and 32K prompt tokens, 128 output tokens, temperature 0. The two settings are the Mac-alone and the helper setting of the m3-ultra-b speed matrices; no ANE, because ANE prefill is not available for this model on this server build.",
+  "base_settings": {
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "spark",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    }
+  ],
+  "prompt_sizes": [4096, 32768],
+  "users": [1, 2, 4, 8],
+  "waves": 3,
+  "max_tokens": 128,
+  "temperature": 0
+}
