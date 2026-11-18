@@ -370,12 +370,34 @@ def _layers_across_sizes(groups: Dict[Tuple[int, str], latency.Waits], setting: 
     return "; ".join(f"{label}: {text}" for label, text in texts)
 
 
+def _not_valid_line(path: str, arm: str, flagged: "latency.Waits", alone: Dict[int, float]) -> str:
+    """One sentence on the rows a flag marks not valid, saying what their waits measured.
+
+    The helper state at the start alone does not say who served the request: a request that goes
+    out while the session is still starting can be read by the Mac alone or by the helper. The
+    measured wait is what tells them apart, so the sentence is built from it, never from the state.
+    """
+    on_the_helper = flagged.at_helper_speed(alone)
+    waits = f"{flagged.low_ttft_s:.2f} to {flagged.high_ttft_s:.2f} s"
+    if on_the_helper == flagged.requests:
+        ran = f"ran at helper speed ({waits})"
+    elif on_the_helper == 0:
+        ran = f"ran at the speed of the Mac alone ({waits})"
+    else:
+        ran = f"{on_the_helper} of {flagged.requests} ran at helper speed"
+    return (
+        f"{flagged.requests} requests in {path} / {arm} are marked not valid by "
+        f"`helper_ready_at_start`: they began at helper state {flagged.state_text} and {ran}."
+    )
+
+
 def build_helper_ready(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
     """What the first request after a settings switch waited, one line per path and arm.
 
     The switch unloads the model, loads it again and starts a new helper session. A request that
-    goes out before that session is up is served by the Mac alone, with no error and no warning,
-    so the helper state at the start of each request is the whole point of this study.
+    goes out before that session is up has no error and no warning either way: on the chat path it
+    was read by the Mac alone, on the server's speed-test call by the helper. So the study records
+    the helper state at the start of each request and reads the wait it got.
     """
     study, label = machine["helper_ready"], machine["label"]
     requests = _requests(root, study, label)
@@ -428,10 +450,11 @@ def build_helper_ready(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, st
             )
     not_ready = sum(1 for request in requests if "helper_ready_at_start" in request.failed)
     if not_ready:
-        lines.append(
-            f"{not_ready} requests are marked not valid by `helper_ready_at_start`: each began before the "
-            "helper session was up, so the Mac read the whole prompt alone."
-        )
+        for arm in study["arms"]:
+            waits = groups[(arm["path"], arm["arm"])]
+            flagged = latency.Waits([member for member in waits.members if "helper_ready_at_start" in member.failed])
+            if flagged.requests:
+                lines.append(_not_valid_line(arm["path"], arm["arm"], flagged, alone))
     # The helper-off requests are there to force the switch; the cache and answer counts are the
     # helper-on ones, because those are the requests the table is about.
     lines.append(_reading_line(helped))
@@ -498,7 +521,7 @@ def build_helper_layers(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, s
         subtitle=[f"{machine['model']} · {machine['hardware']} · helper: {machine['helper']}", study["conditions"]],
         footnotes=[
             "Each panel has its own scale. “× faster” compares with the Mac alone at the same prompt size.",
-            "A pinned count is the number of layers the helper was asked for; the table gives the number it took.",
+            "A pinned count is the number of layers the helper was asked for; the table gives the number it held.",
         ],
     )
     panels = report.setting_panels(groups, baseline)

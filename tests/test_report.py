@@ -210,7 +210,11 @@ class TestRequestMarkdown(unittest.TestCase):
         rows = [
             (_request_row(109.70, state="connecting", took=49), "chat", "no wait"),
             (_request_row(29.31, state="ready", wait=20.0, took=49), "chat", "wait"),
-            (_request_row(30.0, state="starting", took=49), "speed test", "no wait"),
+            (
+                _request_row(30.0, state="starting", took=49, validity={"valid": True, "helper_ready_at_start": True}),
+                "speed test",
+                "no wait",
+            ),
             (_request_row(0.14, helper=False), "chat", "wait"),
         ]
         return [latency.from_row(row, path=path, arm=arm) for row, path, arm in rows]
@@ -218,11 +222,36 @@ class TestRequestMarkdown(unittest.TestCase):
     def test_one_line_per_request_with_its_helper_state(self):
         text = request_markdown(self._requests(), "Every request")
         self.assertIn("# Every request", text)
-        self.assertIn("| chat | no wait | 32K | Automatic | on | connecting | 0.0 | 109.70 | 49 | 0 | yes | - |", text)
-        self.assertIn("| chat | wait | 32K | Automatic | on | ready | 20.0 | 29.31 | 49 | 0 | yes | - |", text)
+        self.assertIn("| chat | no wait | 32K | Automatic | on | connecting | 0.0 | 109.70 | 49 | 0 | yes | no validity marks |", text)
+        self.assertIn("| chat | wait | 32K | Automatic | on | ready | 20.0 | 29.31 | 49 | 0 | yes | no validity marks |", text)
         self.assertIn("| speed test | no wait | 32K | Automatic | on | starting | 0.0 | 30.00 | 49 | 0 | yes | - |", text)
-        self.assertIn("| chat | wait | 32K | Mac alone | off | none | 0.0 | 0.14 | none | 0 | yes | - |", text)
+        self.assertIn("| chat | wait | 32K | Mac alone | off | none | 0.0 | 0.14 | none | 0 | yes | no validity marks |", text)
         self.assertEqual(text.count("\n| "), 6)  # header, separator and four requests
+
+    def test_a_row_that_records_no_checks_says_so_rather_than_dash(self):
+        text = request_markdown([latency.from_row(_request_row(109.70), path="chat", arm="no wait")], "Every request")
+        self.assertIn("| no validity marks |", text)
+        # The note names the kind of row the study actually holds.
+        self.assertIn("These rows carry no validity block", text)
+        self.assertNotIn("A speed row carries", text)
+
+    def test_a_mixed_study_explains_both_kinds_of_row(self):
+        text = request_markdown(self._requests(), "Every request")
+        self.assertIn("A speed row carries a validity block; a chat row carries none", text)
+
+    def test_a_speed_only_study_says_every_row_carries_a_validity_block(self):
+        row = _request_row(29.5, validity={"valid": True})
+        text = request_markdown([latency.from_row(row, path="speed test", arm="no wait")], "Every request")
+        self.assertIn("Every row here carries a validity block", text)
+
+    def test_a_helper_row_that_does_not_record_its_layers_says_so(self):
+        row = _request_row(29.5)
+        row["prompt_size"] = 32768
+        row["metrics"] = {"ttft_ms": 29500.0}
+        row["log"] = {"cached_tokens": 0}
+        text = request_markdown([latency.from_row(row, path="speed test", arm="no wait")], "Every request")
+        self.assertIn("| not recorded |", text)
+        self.assertNotIn("| none |", text)
 
     def test_a_failed_check_is_named_on_its_row(self):
         row = _request_row(30.0, validity={"valid": False, "helper_ready_at_start": False})

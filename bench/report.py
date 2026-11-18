@@ -332,6 +332,9 @@ def request_markdown(requests: Sequence["latency.Request"], title: str = "Reques
         "",
         "One line per request, in the order the rows were written. Time to first token is the",
         "server's own figure. A request whose row failed a check stays in the list and names it.",
+    ]
+    lines += _checks_note(requests)
+    lines += [
         "",
         "| Path | Arm | Prompt | Setting | Helper | State at start | Waited s "
         "| Time to first token s | Layers | Cached tokens | Answer correct | Failed checks |",
@@ -340,14 +343,37 @@ def request_markdown(requests: Sequence["latency.Request"], title: str = "Reques
     for request in requests:
         correct = "-" if request.correct is None else ("yes" if request.correct else "no")
         cached = "-" if request.cached_tokens is None else str(request.cached_tokens)
-        layers = "none" if request.helper_layers is None else str(request.helper_layers)
+        if request.helper_layers is not None:
+            layers = str(request.helper_layers)
+        else:
+            # No helper at all, or a row that does not record what the helper held: not the same thing.
+            layers = "none" if not request.helper_on else "not recorded"
+        checks = ", ".join(request.failed) or ("-" if request.checks_recorded else "no validity marks")
         lines.append(
             f"| {request.path} | {request.arm} | {size_label(request.size)} "
             f"| {setting_label(request.setting)} | {'on' if request.helper_on else 'off'} "
             f"| {request.helper_state or 'none'} | {request.helper_wait_s:.1f} | {request.ttft_s:.2f} "
-            f"| {layers} | {cached} | {correct} | {', '.join(request.failed) or '-'} |"
+            f"| {layers} | {cached} | {correct} | {checks} |"
         )
     return "\n".join(lines) + "\n"
+
+
+def _checks_note(requests: Sequence["latency.Request"]) -> List[str]:
+    """Where the checks in the last column come from, for the kinds of row the study actually has."""
+    speed = any(request.checks_recorded for request in requests)
+    chat = any(not request.checks_recorded for request in requests)
+    if speed and chat:
+        return [
+            "A speed row carries a validity block; a chat row carries none, so its cold-cache and",
+            "answer checks are read from its own fields, and a chat row with nothing to report says",
+            "`no validity marks`.",
+        ]
+    if speed:
+        return ["Every row here carries a validity block; a row that passed every check says `-`."]
+    return [
+        "These rows carry no validity block: their cold-cache and answer checks are read from their",
+        "own fields, and a row with nothing to report says `no validity marks`.",
+    ]
 
 
 def setting_panels(

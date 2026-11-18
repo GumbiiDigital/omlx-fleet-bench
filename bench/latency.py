@@ -43,6 +43,9 @@ class Request:
     cached_tokens: Optional[int]
     correct: Optional[bool]
     failed: Tuple[str, ...]
+    # A speed row carries a validity block; a chat row carries none, and an empty `failed` there
+    # means "nothing was checked", not "everything passed".
+    checks_recorded: bool
 
     @property
     def valid(self) -> bool:
@@ -102,14 +105,20 @@ class Waits:
 
     @property
     def failed_text(self) -> str:
-        """'2 · helper_ready_at_start', or '0' when every row passed every check."""
+        """'2 · helper_ready_at_start', '0' when every checked row passed, or a note that no row
+        recorded a check at all. A zero for unchecked rows would read as a clean bill of health."""
+        marked = [member for member in self.members if member.checks_recorded]
+        if not marked:
+            return "no validity marks"
         counts: Dict[str, int] = {}
-        for member in self.members:
+        for member in marked:
             for name in member.failed:
                 counts[name] = counts.get(name, 0) + 1
-        if not counts:
-            return "0"
-        return ", ".join(f"{count} · {name}" for name, count in counts.items())
+        text = ", ".join(f"{count} · {name}" for name, count in counts.items()) or "0"
+        unmarked = len(self.members) - len(marked)
+        if unmarked:
+            text += f" · {unmarked} row{'s' if unmarked != 1 else ''} unmarked"
+        return text
 
     def at_helper_speed(self, alone: Dict[int, float]) -> int:
         return sum(1 for member in self.members if at_helper_speed(member, alone))
@@ -198,6 +207,7 @@ def from_row(row: Dict[str, Any], *, path: str, arm: str) -> Request:
         cached_tokens=cached_tokens(row),
         correct=correct if isinstance(correct, bool) else None,
         failed=failed_checks(row),
+        checks_recorded=isinstance(row.get("validity"), dict),
     )
 
 

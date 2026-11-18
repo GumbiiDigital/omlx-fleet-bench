@@ -121,6 +121,14 @@ class RequestTest(unittest.TestCase):
         self.assertTrue(request.correct)
         self.assertEqual(request.cached_tokens, 0)
 
+    def test_a_speed_row_records_its_checks(self):
+        request = latency.from_row(_speed_row(ttft_ms=29500.0), path="speed test", arm="no wait")
+        self.assertTrue(request.checks_recorded)
+
+    def test_a_chat_row_records_no_checks(self):
+        request = latency.from_row(_chat_row(ttft=29.31), path="chat", arm="wait")
+        self.assertFalse(request.checks_recorded)
+
     def test_a_not_valid_request_keeps_its_failed_checks(self):
         row = _speed_row(ttft_ms=29500.0, valid=False, checks={"helper_ready_at_start": False})
         request = latency.from_row(row, path="speed test", arm="no wait")
@@ -182,6 +190,16 @@ class GroupTest(unittest.TestCase):
     def test_a_group_with_nothing_wrong_says_zero(self):
         groups = latency.group_requests([latency.from_row(_speed_row(ttft_ms=1.0), path="s", arm="a")], lambda r: r.arm)
         self.assertEqual(groups["a"].failed_text, "0")
+
+    def test_a_group_whose_rows_record_no_checks_says_so(self):
+        rows = [_chat_row(ttft=1.0, state="connecting") for _ in range(2)]
+        groups = latency.group_requests([latency.from_row(r, path="c", arm="a") for r in rows], lambda r: r.arm)
+        self.assertEqual(groups["a"].failed_text, "no validity marks")
+
+    def test_a_group_that_mixes_both_says_how_many_rows_are_unmarked(self):
+        rows = [_speed_row(ttft_ms=1.0), _chat_row(ttft=1.0)]
+        groups = latency.group_requests([latency.from_row(r, path="m", arm="a") for r in rows], lambda r: r.arm)
+        self.assertEqual(groups["a"].failed_text, "0 · 1 row unmarked")
 
 
 class MacAloneTest(unittest.TestCase):

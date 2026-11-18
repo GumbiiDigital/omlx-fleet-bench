@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bench import publish, quality_report, report
+from bench import latency, publish, quality_report, report
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODEL = "test-model"
@@ -348,15 +348,18 @@ class RequestStudyTest(unittest.TestCase):
     def test_the_helper_ready_table_has_one_line_per_arm(self):
         _, blocks = publish.build(self.ws.root)
         block = blocks["helper-ready box"]
-        self.assertIn("| chat | no wait | 2 | connecting (2 of 2) | 0 | 0.0 s | 109.70 to 109.76 s | 0 of 2 |", block)
-        self.assertIn("| chat | wait | 2 | ready (2 of 2) | 0 | 20.1 s | 29.31 to 29.93 s | 2 of 2 |", block)
+        self.assertIn("| chat | no wait | 2 | connecting (2 of 2) | no validity marks | 0.0 s | 109.70 to 109.76 s | 0 of 2 |", block)
+        self.assertIn("| chat | wait | 2 | ready (2 of 2) | no validity marks | 20.1 s | 29.31 to 29.93 s | 2 of 2 |", block)
         self.assertIn("| speed test | no wait | 2 | starting (2 of 2) |", block)
 
     def test_the_rows_a_flag_marks_not_valid_are_named_in_the_table(self):
         _, blocks = publish.build(self.ws.root)
         block = blocks["helper-ready box"]
         self.assertIn("| speed test | no wait | 2 | starting (2 of 2) | 2 · helper_ready_at_start |", block)
-        self.assertIn("| chat | no wait | 2 | connecting (2 of 2) | 0 |", block)
+        # The chat rows carry no validity block, so the cell says that instead of a zero a reader
+        # would take for "every row passed".
+        self.assertIn("| chat | no wait | 2 | connecting (2 of 2) | no validity marks |", block)
+        self.assertNotIn("| chat | no wait | 2 | connecting (2 of 2) | 0 |", block)
 
     def test_the_helper_ready_block_says_which_arm_ran_on_the_mac_alone(self):
         _, blocks = publish.build(self.ws.root)
@@ -365,6 +368,15 @@ class RequestStudyTest(unittest.TestCase):
         self.assertNotIn("chat, wait: 2 of 2 requests ran at the speed of the Mac alone.", block)
         # The speed-test row has no answer of its own, so answers are counted where they exist.
         self.assertIn("Every request read its prompt cold; 4 of 4 answers were correct.", block)
+
+    def test_the_not_valid_line_says_what_the_waits_measured(self):
+        _, blocks = publish.build(self.ws.root)
+        line = next(l for l in blocks["helper-ready box"].splitlines() if "helper_ready_at_start" in l and "marked" in l)
+        # These rows began at `starting` and still came back in about 30 s: helper speed, not Mac alone.
+        self.assertIn("began at helper state starting (2 of 2)", line)
+        self.assertIn("ran at helper speed (29.50 to 30.00 s)", line)
+        self.assertNotIn("Mac alone", line)
+        self.assertNotIn("read the whole prompt", line)
 
     def test_the_layer_table_gives_a_mean_and_a_range_for_each_prompt_size(self):
         _, blocks = publish.build(self.ws.root)
@@ -400,6 +412,48 @@ class RequestStudyTest(unittest.TestCase):
         self.ws.manifest["machines"][0]["helper_layers"]["arms"][0]["file"] = "results/box/absent.jsonl"
         self.ws.save_manifest()
         self.assertEqual(self.ws.run(), 2)
+
+
+class NotValidLineTest(unittest.TestCase):
+    """The sentence about the flagged rows follows the measured waits, not the state alone."""
+
+    def _flagged(self, ttfts, state="starting"):
+        return latency.Waits(
+            [
+                latency.Request(
+                    machine="box",
+                    path="p",
+                    arm="a",
+                    size=32768,
+                    setting="automatic",
+                    ttft_s=ttft,
+                    helper_on=True,
+                    helper_state=state,
+                    helper_wait_s=0.0,
+                    helper_layers=49,
+                    cached_tokens=0,
+                    correct=None,
+                    failed=("helper_ready_at_start",),
+                    checks_recorded=True,
+                )
+                for ttft in ttfts
+            ]
+        )
+
+    def test_rows_that_came_back_fast_are_called_helper_speed(self):
+        line = publish._not_valid_line("speed test", "no wait", self._flagged([29.5, 30.0]), {32768: 109.7})
+        self.assertIn("ran at helper speed (29.50 to 30.00 s)", line)
+        self.assertNotIn("Mac alone", line)
+
+    def test_rows_that_took_the_mac_alone_wait_are_called_that(self):
+        line = publish._not_valid_line(
+            "chat", "no wait", self._flagged([109.7, 109.8], state="connecting"), {32768: 109.7}
+        )
+        self.assertIn("ran at the speed of the Mac alone (109.70 to 109.80 s)", line)
+
+    def test_a_mixed_set_says_how_many_ran_on_the_helper(self):
+        line = publish._not_valid_line("p", "a", self._flagged([29.5, 109.8]), {32768: 109.7})
+        self.assertIn("1 of 2 ran at helper speed", line)
 
 
 class SpliceTest(unittest.TestCase):

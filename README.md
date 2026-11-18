@@ -149,10 +149,10 @@ Same questions under every setting: 200 from GSM8K, 500 from MMLU (25 from each 
   The published passkey numbers come from that run.
 - **The first helper request at 32K was slow, and now it has a proven cause.** In that cold passkey
   run the first helper request at 32K took 109.7 s and the next one 30.9 s. After a switch from
-  helper off to helper on the server loads the model again and sets up the helper session again. A
-  request that begins before that session is ready is served by the Mac alone, with no error and no
-  warning. The harness now probes the model, waits until the helper state is `ready` and stays so,
-  and records the helper state in each row. The replay under
+  helper off to helper on the server loads the model again and sets up the helper session again. On
+  the chat path a request that begins before that session is ready is served by the Mac alone, with
+  no error and no warning. The harness now probes the model, waits until the helper state is `ready`
+  and stays so, and records the helper state in each row. The replay under
   [helper start](#what-the-first-helper-request-waits) shows the fault 6 times of 6 on the chat
   path; the server's speed-test path did not show it.
 
@@ -169,13 +169,13 @@ Time to first token of a helper-on request at 32K, after a switch from helper of
 
 | Path | Arm | Helper-on requests | Helper state at start | Not valid | Waited (mean) | Time to first token | Ran at helper speed |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| chat | no wait | 6 | connecting (6 of 6) | 0 | 0.0 s | 109.70 to 109.76 s | 0 of 6 |
-| chat | wait | 6 | ready (6 of 6) | 0 | 20.1 s | 29.31 to 29.93 s | 6 of 6 |
+| chat | no wait | 6 | connecting (6 of 6) | no validity marks | 0.0 s | 109.70 to 109.76 s | 0 of 6 |
+| chat | wait | 6 | ready (6 of 6) | no validity marks | 20.1 s | 29.31 to 29.93 s | 6 of 6 |
 | speed test | no wait | 6 | starting (6 of 6) | 6 · helper_ready_at_start | 0.0 s | 29.52 to 30.04 s | 6 of 6 |
 | speed test | wait | 6 | ready (6 of 6) | 0 | 17.5 s | 29.87 to 30.17 s | 6 of 6 |
 
 chat, no wait: 6 of 6 requests ran at the speed of the Mac alone.
-6 requests are marked not valid by `helper_ready_at_start`: each began before the helper session was up, so the Mac read the whole prompt alone.
+6 requests in speed test / no wait are marked not valid by `helper_ready_at_start`: they began at helper state starting (6 of 6) and ran at helper speed (29.52 to 30.04 s).
 Every request read its prompt cold; 12 of 12 answers were correct.
 <!-- END GENERATED: helper-ready m3-ultra-a -->
 
@@ -186,11 +186,12 @@ How to read it:
 - "No wait" is the old harness behaviour, kept to replay the fault. "Wait" is what the harness does
   now: it probes the model, then waits until the helper reads `ready` and holds it.
 - A request counts as running at helper speed when it waited under half of the Mac-alone wait at
-  the same prompt size. A request that goes out before the helper session is ready reads the whole
-  prompt on the Mac alone and takes that full wait: those are the 109.7 s rows above.
+  the same prompt size. A request that goes out before the helper session is ready may read the
+  whole prompt on the Mac alone and take that full wait: on the chat path all six did, and those
+  are the 109.7 s rows above.
 - The server's speed-test path did not show the fault. Its no-wait requests began while the helper
-  was `starting` and were served by the helper anyway, so `helper_ready_at_start` kept them out of
-  every mean while the rows stayed in the file.
+  was `starting` and still came back at helper speed. The table shows those six rows, marked not
+  valid by `helper_ready_at_start`; no other study uses them.
 - The chat rows record no validity block. Every helper-on request in both chat arms read 0 cached
   tokens and answered correctly.
 
@@ -198,7 +199,7 @@ How to read it:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-a-helper-layers-dark.svg">
-  <img alt="Time to first token at 32K and 128K prompt tokens for the Mac alone, automatic layers, and 32, 49 and 63 layers" src="charts/m3-ultra-a-helper-layers-light.svg">
+  <img alt="Time to first token at 32K for the Mac alone and four layer settings, and at 128K for the four settings" src="charts/m3-ultra-a-helper-layers-light.svg">
 </picture>
 
 <!-- BEGIN GENERATED: helper-layers m3-ultra-a -->
@@ -227,8 +228,9 @@ How to read it:
   pinning 32 or 63 costs time.
 - One model on one machine pair, 3 requests per cell: enough to rank these five settings, not
   enough to separate two of them that differ by a few percent.
-- The layer count in the table is what the helper really took, read after the request; the count it
-  was asked for is in `desired_settings` in each row.
+- The layer count in the table is what the helper really held, read after the request, and every
+  one of these rows records the helper's last prompt, so the helper served all 24. The count it was
+  asked for is in `desired_settings` in each row.
 
 ## Second machine (Flash-Next)
 

@@ -62,14 +62,14 @@ node id, and nothing else. Their chat rows carry the helper fields below and no 
 the speed-test rows carry one. Rows that a check marks not valid stay in the file:
 
 - `helper-ready-speed-nowait`: 6 rows, all marked not valid by `helper_ready_at_start`. Every
-  helper-on request in that arm began while the helper was `starting`. These 6 rows are the fault
-  the study replays, and no mean in the README uses them.
+  helper-on request in that arm began while the helper was `starting`, and all six came back at
+  helper speed. The helper-start table shows them, marked not valid; no other study uses them.
 - `helper-ready-speed-wait`: 0 rows marked not valid.
-- The two chat files and the layer file: no `validity` block. All 24 helper-on requests across the
-  chat arms and all 27 layer requests read 0 cached tokens, and every answer was correct.
-- In the chat files the helper-off requests after the first round reused 140 cached tokens of the
-  round before (5 rows in the no-wait file, 6 in the wait file). They are there to force the
-  settings switch; they are not part of any helper-on figure.
+- The two chat files and the layer file: no `validity` block. All 12 helper-on requests in the chat
+  files and all 27 layer requests read 0 cached tokens, and every answer was correct.
+- In the chat files the helper-off requests reused 140 cached tokens of the same short question
+  asked earlier: all 6 in the wait file, 5 of 6 in the no-wait file, whose first row was cold. They
+  are there to force the settings switch; they are not part of any helper-on figure.
 
 Earlier commits of this repository hold the rows under their old file names. The two warm re-run
 rows were moved out of the speed file into their own file; no row was edited or dropped.
@@ -127,13 +127,14 @@ rows were moved out of the speed file into their own file; no row was edited or 
 
 ## Helper fields (rows from 2026-11-17)
 
-Both kinds of row carry these once the harness waits for the helper. Read them together: the state
-at the start says what the request could use, and the last three say whether the helper served it.
+Both kinds of row carry the state and the wait, whether or not the harness waited for the helper.
+The rest are the proof read from the helper after the request; the speed-test rows hold no value
+there, so on those rows the wait is what says what served the request.
 
 | Field | Meaning |
 |---|---|
 | `helper_state` | The helper's state when the request went out: `connecting`, `starting`, `ready`, or empty with the helper off |
 | `helper_wait_s` | Seconds the harness waited for `ready` before the request; 0 when it did not wait |
-| `helper_layers` | Layers the helper really took for this request, read after it. Empty when the helper served none |
-| `helper_held`, `helper_session_since` | Layers the helper held, and the server's clock reading when that session started |
-| `helper_last_prompt_at`, `helper_last_prompt_tokens`, `helper_last_prompt_seconds` | The helper's last prompt: when it started, its tokens and its seconds. Empty when the helper had served no prompt |
+| `helper_layers` | Layers the helper's session held, read from the helper after the request. Empty on the speed-test rows, which hold no value, so it is not proof that the helper read that request |
+| `helper_held`, `helper_session_since` | Layers the helper held, and the server's clock reading when that session started; empty on the speed-test rows |
+| `helper_last_prompt_at`, `helper_last_prompt_tokens`, `helper_last_prompt_seconds` | The helper's last prompt, read after the request: when it started, its tokens and its seconds. Empty when the read gave none, as on the speed-test rows |
