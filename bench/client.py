@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 from http.cookiejar import CookieJar
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
+from bench.helper import HELPER_STATE_ENDPOINT
 from bench.matrix import SETTING_FIELDS
 
 logger = logging.getLogger(__name__)
@@ -111,6 +112,11 @@ class OMLXClient:
             f"/admin/api/models/{model}/settings",
             settings,
         )
+
+    def get_prefill_helper_state(self, model: str) -> Optional[Dict[str, Any]]:
+        """GET /admin/api/prefill-helper/models/{model}; None when the answer is not an object."""
+        data = self._request_with_relogin("GET", HELPER_STATE_ENDPOINT.format(model=model))
+        return dict(data) if isinstance(data, dict) else None
 
     def start_benchmark(
         self,

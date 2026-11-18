@@ -42,11 +42,29 @@ A speed row is valid only when all of these hold:
 - the server log shows 0 cached tokens, so the cache was cold;
 - the feature flags match the cell: `prefill_accelerator` is present for helper rows and absent for
   the others;
+- the helper session was up and stable when the request started: a wait that gave up on a `ready`
+  it did not see hold does not count. A row that records no state, as older rows do, is not failed
+  by this rule;
+- the helper served the request (`helper_served`): its last prompt is at or after the request
+  start. A row where that field could not be read, as older rows, is not failed by this rule;
 - for ANE rows, the server log shows that ANE operations ran. The planned tile count alone is not
   accepted, because the server can plan ANE tiles and then not use them.
 
 `bench/validity.py` makes the call and records each check in the row. Rows that fail stay in the
 file. Nothing is deleted.
+
+## The helper wait
+
+A settings change unloads the model and reloads it, and the helper starts a new session that
+attaches to the loaded model. Both runners therefore do the same three things before a request:
+send the settings, ask the model for one token so the load happens, then wait for the helper.
+The wait accepts `ready` only when it holds for `--helper-stable-s` seconds (default 5) with the
+same session start (`since`), because the session from before the change can read `ready` for a
+moment. `--helper-ready-timeout` (seconds, default 120) limits the whole wait.
+`--no-helper-wait` skips the wait but keeps the probe and the state read, for replaying an older
+run. Each row records the state at its request (`helper_state`, `helper_wait_s`) and, once the
+request ends, `helper_layers`, `helper_held`, `helper_session_since`, `helper_last_prompt_at`,
+`helper_last_prompt_tokens` and `helper_last_prompt_seconds`.
 
 ## Noise
 

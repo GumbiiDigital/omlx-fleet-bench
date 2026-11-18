@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="302" viewBox="0 0 840 302" role="img" aria-label="Time to first token by helper layer count Qwen3.8-27B-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE Cold cache, 256 output tokens, 3 requests per setting and prompt size. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Time to first token by helper layer count Qwen3.8-27B-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE Cold cache, 256 output tokens, 3 requests per setting and prompt size. Lower is better.</title>
+<rect x="0.5" y="0.5" width="839" height="301" fill="#1a1a19" rx="8" stroke="#2c2c2a" stroke-width="1"/>
+<text x="24" y="40" font-size="16" fill="#f0efec" font-weight="600">Time to first token by helper layer count</text>
+<text x="24" y="57" font-size="12" fill="#c3c2b7">Qwen3.8-27B-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE</text>
+<text x="24" y="74" font-size="12" fill="#c3c2b7">Cold cache, 256 output tokens, 3 requests per setting and prompt size. Lower is better.</text>
+<text x="24" y="105" font-size="13" fill="#f0efec" font-weight="600">32K prompt</text>
+<text x="24" y="129.5" font-size="12" fill="#c3c2b7">Mac alone</text>
+<path d="M98.48,118 H265.6 Q269.6,118 269.6,122 V128 Q269.6,132 265.6,132 H98.48 Z" fill="#3987e5"><title>32K prompt · Mac alone: 110 s baseline</title></path>
+<text x="277.6" y="129.5" font-size="12" fill="#f0efec" font-weight="600">110 s</text>
+<text x="322.8" y="129.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="155.5" font-size="12" fill="#c3c2b7">Automatic</text>
+<path d="M98.48,144 H144.54 Q148.54,144 148.54,148 V154 Q148.54,158 144.54,158 H98.48 Z" fill="#d55181"><title>32K prompt · Automatic: 32.1 s 3.4× faster</title></path>
+<text x="156.54" y="155.5" font-size="12" fill="#f0efec" font-weight="600">32.1 s</text>
+<text x="209.18" y="155.5" font-size="11" fill="#898781">3.4× faster</text>
+<text x="24" y="181.5" font-size="12" fill="#c3c2b7">32 layers</text>
+<path d="M98.48,170 H183.12 Q187.12,170 187.12,174 V180 Q187.12,184 183.12,184 H98.48 Z" fill="#9085e9"><title>32K prompt · 32 layers: 56.8 s 1.9× faster</title></path>
+<text x="195.12" y="181.5" font-size="12" fill="#f0efec" font-weight="600">56.8 s</text>
+<text x="247.76" y="181.5" font-size="11" fill="#898781">1.9× faster</text>
+<text x="24" y="207.5" font-size="12" fill="#c3c2b7">49 layers</text>
+<path d="M98.48,196 H140.88 Q144.88,196 144.88,200 V206 Q144.88,210 140.88,210 H98.48 Z" fill="#d95926"><title>32K prompt · 49 layers: 29.8 s 3.7× faster</title></path>
+<text x="152.88" y="207.5" font-size="12" fill="#f0efec" font-weight="600">29.8 s</text>
+<text x="205.52" y="207.5" font-size="11" fill="#898781">3.7× faster</text>
+<text x="24" y="233.5" font-size="12" fill="#c3c2b7">63 layers</text>
+<path d="M98.48,222 H150.54 Q154.54,222 154.54,226 V232 Q154.54,236 150.54,236 H98.48 Z" fill="#199e70"><title>32K prompt · 63 layers: 35.9 s 3.1× faster</title></path>
+<text x="162.54" y="233.5" font-size="12" fill="#f0efec" font-weight="600">35.9 s</text>
+<text x="215.18" y="233.5" font-size="11" fill="#898781">3.1× faster</text>
+<line x1="98.48" y1="114" x2="98.48" y2="240" stroke="#383835" stroke-width="1"/>
+<text x="436" y="105" font-size="13" fill="#f0efec" font-weight="600">128K prompt</text>
+<text x="436" y="129.5" font-size="12" fill="#c3c2b7">Automatic</text>
+<path d="M510.48,118 H601.53 Q605.53,118 605.53,122 V128 Q605.53,132 601.53,132 H510.48 Z" fill="#d55181"><title>128K prompt · Automatic: 179 s</title></path>
+<text x="613.53" y="129.5" font-size="12" fill="#f0efec" font-weight="600">179 s</text>
+<text x="436" y="155.5" font-size="12" fill="#c3c2b7">32 layers</text>
+<path d="M510.48,144 H677.6 Q681.6,144 681.6,148 V154 Q681.6,158 677.6,158 H510.48 Z" fill="#9085e9"><title>128K prompt · 32 layers: 322 s</title></path>
+<text x="689.6" y="155.5" font-size="12" fill="#f0efec" font-weight="600">322 s</text>
+<text x="436" y="181.5" font-size="12" fill="#c3c2b7">49 layers</text>
+<path d="M510.48,170 H594.81 Q598.81,170 598.81,174 V180 Q598.81,184 594.81,184 H510.48 Z" fill="#d95926"><title>128K prompt · 49 layers: 166 s</title></path>
+<text x="606.81" y="181.5" font-size="12" fill="#f0efec" font-weight="600">166 s</text>
+<text x="436" y="207.5" font-size="12" fill="#c3c2b7">63 layers</text>
+<path d="M510.48,196 H617.26 Q621.26,196 621.26,200 V206 Q621.26,210 617.26,210 H510.48 Z" fill="#199e70"><title>128K prompt · 63 layers: 208 s</title></path>
+<text x="629.26" y="207.5" font-size="12" fill="#f0efec" font-weight="600">208 s</text>
+<line x1="510.48" y1="114" x2="510.48" y2="214" stroke="#383835" stroke-width="1"/>
+<text x="24" y="270" font-size="11" fill="#898781">Each panel has its own scale. “× faster” compares with the Mac alone at the same prompt size.</text>
+<text x="24" y="286" font-size="11" fill="#898781">A pinned count is the number of layers the helper was asked for; the table gives the number it held.</text>
+</svg>

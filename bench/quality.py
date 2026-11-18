@@ -30,6 +30,13 @@ if str(_REPO_ROOT) not in sys.path:
 
 from bench.chat import ChatClient, ChatError  # noqa: E402
 from bench.client import OMLXClient, load_api_key  # noqa: E402
+from bench.helper import (  # noqa: E402
+    HelperStatus,
+    HelperWaitPolicy,
+    add_wait_arguments,
+    helper_fields,
+    request_clock,
+)
 from bench.matrix import SETTING_FIELDS, _variant_flags, settings_fields_touched  # noqa: E402
 from bench.qa import (  # noqa: E402
     approximate_tokens,
@@ -41,6 +48,7 @@ from bench.qa import (  # noqa: E402
     score_mmlu,
     score_passkey,
 )
+from bench.runflow import begin_request, end_request, state_at_request  # noqa: E402
 
 logger = logging.getLogger("bench.quality")
 
@@ -309,6 +317,7 @@ def build_row(
     unit: QualityUnit,
     desired: Dict[str, Any],
     original: Dict[str, Any],
+    helper: HelperStatus,
 ) -> Dict[str, Any]:
     """Row skeleton for one request, before the reply is known."""
     return {
@@ -318,6 +327,7 @@ def build_row(
         "model": context.model,
         "variant": variant.name,
         "helper_on": variant.helper_on,
+        **helper_fields(helper),
         "ane_on": variant.ane_on,
         "task": unit.task,
         "sample_id": unit.sample_id,
@@ -335,6 +345,7 @@ def build_row(
 
 def send_block(
     chat: ChatClient,
+    admin: Any,
     context: RunContext,
     variant: QualityVariant,
     units: Sequence[QualityUnit],
@@ -342,24 +353,43 @@ def send_block(
     original: Dict[str, Any],
     guard: ConsecutiveFailureGuard,
     sent_before: int,
+    after_settings: HelperStatus,
 ) -> Tuple[int, bool]:
-    """Send one variant's units. Return (rows written, stopped early)."""
+    """Send one variant's units. Return (rows written, stopped early).
+
+    The helper state is read before each request (the first one after the settings change uses
+    the state the wait ended on) and once more after it, so every row says what the helper was
+    doing at its own request and whether the helper served it.
+    """
     sent = 0
+    first = True
     for unit in units:
         if unit.variant.name != variant.name:
             continue
-        row = build_row(context, variant, unit, desired, original)
+        helper = state_at_request(
+            admin,
+            context.model,
+            helper_on=variant.helper_on,
+            after_settings=after_settings if first else None,
+        )
+        first = False
+        request_started_at = request_clock()
+        row = build_row(context, variant, unit, desired, original, helper)
         try:
             reply = chat.chat(context.model, unit.messages, max_tokens=unit.max_tokens)
         except ChatError as exc:
             logger.exception("Request failed for %s", unit.sample_id)
             row.update({"status": "error", "error": str(exc), "correct": False})
+            row.update(
+                helper_fields(helper, end_request(admin, context.model, helper_on=variant.helper_on))
+            )
             append_row(context.out_path, row)
             sent += 1
             if guard.record_failure(str(exc)):
                 return sent, True
             continue
         guard.record_success()
+        proof = end_request(admin, context.model, helper_on=variant.helper_on)
         score = score_unit(unit, reply["content"])
         row.update(
             {
@@ -370,6 +400,7 @@ def send_block(
                 "usage": reply["usage"],
                 "server_timing": reply["server_timing"],
                 "latency_s": reply["latency_s"],
+                **helper_fields(helper, proof),
                 **score,
             }
         )
@@ -426,6 +457,7 @@ def run(args: argparse.Namespace) -> int:
     admin = OMLXClient(args.base_url, api_key)
     admin.login()
     chat = ChatClient(args.base_url, api_key, timeout_s=args.timeout)
+    policy = HelperWaitPolicy.from_args(args)
     fields = settings_fields_touched([], base_settings)
     out_path = Path(args.out)
     context = RunContext(
@@ -441,15 +473,24 @@ def run(args: argparse.Namespace) -> int:
     with admin.preserved_settings(matrix["model"], fields) as original:
         for variant in variants:
             desired = variant.merge_settings(base_settings, args.helper_node or "")
-            admin.apply_settings(matrix["model"], desired, fields)
             try:
-                chat.wait_until_ready(matrix["model"], timeout_s=args.ready_timeout)
+                # Settings, then a probe that makes the model load, then the helper wait.
+                helper = begin_request(
+                    admin,
+                    chat,
+                    matrix["model"],
+                    desired,
+                    fields,
+                    policy,
+                    helper_on=variant.helper_on,
+                    ready_timeout_s=args.ready_timeout,
+                )
             except ChatError as exc:
                 logger.error("Model not ready for variant %s: %s", variant.name, exc)
                 logger.error("Run stopped after %d rows; settings are restored", sent)
                 return 1
             block_sent, stopped = send_block(
-                chat, context, variant, units, desired, original, guard, sent
+                chat, admin, context, variant, units, desired, original, guard, sent, helper
             )
             sent += block_sent
             if stopped:
@@ -504,6 +545,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
+    add_wait_arguments(parser)
     args = parser.parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,

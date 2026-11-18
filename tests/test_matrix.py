@@ -6,6 +6,30 @@ from pathlib import Path
 from bench.matrix import expand_runs, load_and_expand, load_matrix
 
 MATRIX = Path(__file__).resolve().parents[1] / "matrices" / "m3-ultra-spark.json"
+HELPER_READY = Path(__file__).resolve().parents[1] / "matrices" / "m3-ultra-a-helper-ready.json"
+
+# A speed matrix with a pinned layer count, built here rather than kept as a file: no run used the
+# speed-test layer matrix, so it is not published and the check lives with the code it covers.
+PINNED_LAYERS = {
+    "model": "Qwen3.8-27B-oQ4e-mtp",
+    "runs_per_cell": 3,
+    "base_settings": {
+        "qwen35_ane_prefill_enabled": False,
+        "prefill_helper_layers": None,
+        "turboquant_kv_enabled": False,
+        "turboquant_kv_scheme": "affine4",
+        "turboquant_kv_bits": 4,
+        "turboquant_skip_last": False,
+    },
+    "variants": [
+        {"name": "gpu", "helper": "off", "ane": "off", "settings": {}},
+        {"name": "spark-auto", "helper": "on", "ane": "off", "settings": {}},
+        {"name": "spark-32", "helper": "on", "ane": "off", "settings": {"prefill_helper_layers": 32}},
+        {"name": "spark-49", "helper": "on", "ane": "off", "settings": {"prefill_helper_layers": 49}},
+        {"name": "spark-63", "helper": "on", "ane": "off", "settings": {"prefill_helper_layers": 63}},
+    ],
+    "prompt_sizes": [32768, 131072],
+}
 
 
 class TestMatrix(unittest.TestCase):
@@ -53,6 +77,60 @@ class TestMatrix(unittest.TestCase):
     def test_only_cells_filter(self) -> None:
         specs = load_and_expand(str(MATRIX), only_cells=["gpu:8192", "ane:8192"])
         self.assertEqual(len(specs), 3 * 2)
+
+
+class TestHelperMatrices(unittest.TestCase):
+    def test_helper_ready_matrix_loads(self) -> None:
+        specs = load_and_expand(str(HELPER_READY))
+        self.assertEqual(len(specs), 6 * 2 * 2)
+        self.assertEqual({s.variant for s in specs}, {"gpu", "spark"})
+        self.assertEqual({s.prompt_size for s in specs}, {1024, 32768})
+
+    def test_helper_ready_filter_puts_a_helper_run_after_an_off_run(self) -> None:
+        specs = load_and_expand(
+            str(HELPER_READY), only_cells=["gpu:1024", "spark:32768"]
+        )
+        self.assertEqual(
+            [(s.repeat_index, s.variant, s.prompt_size) for s in specs],
+            [
+                (repeat, variant, size)
+                for repeat in range(6)
+                for variant, size in (("gpu", 1024), ("spark", 32768))
+            ],
+        )
+        self.assertFalse(specs[0].helper_on)
+        self.assertTrue(specs[1].helper_on)
+
+    def test_helper_layers_matrix_loads(self) -> None:
+        specs = expand_runs(PINNED_LAYERS)
+        self.assertEqual(len(specs), 3 * 2 * 5)
+        self.assertEqual(
+            [s.variant for s in specs[:5]],
+            ["gpu", "spark-auto", "spark-32", "spark-49", "spark-63"],
+        )
+        by_name = {s.variant: s for s in specs}
+        self.assertFalse(by_name["gpu"].helper_on)
+        self.assertTrue(all(by_name[name].helper_on for name in ("spark-auto", "spark-32", "spark-49", "spark-63")))
+
+    def test_helper_layers_pins_reach_the_settings(self) -> None:
+        specs = expand_runs(PINNED_LAYERS)
+        matrix = PINNED_LAYERS
+        merged = {
+            name: next(s for s in specs if s.variant == name).merge_settings(
+                matrix["base_settings"], "NODE123"
+            )
+            for name in ("gpu", "spark-auto", "spark-32", "spark-49", "spark-63")
+        }
+        self.assertIsNone(merged["spark-auto"]["prefill_helper_layers"])
+        self.assertEqual(merged["spark-32"]["prefill_helper_layers"], 32)
+        self.assertEqual(merged["spark-49"]["prefill_helper_layers"], 49)
+        self.assertEqual(merged["spark-63"]["prefill_helper_layers"], 63)
+        self.assertEqual(merged["gpu"]["prefill_helper_node_id"], "")
+        self.assertEqual(merged["spark-49"]["prefill_helper_node_id"], "NODE123")
+        for settings in merged.values():
+            self.assertFalse(settings["qwen35_ane_prefill_enabled"])
+            self.assertFalse(settings["turboquant_kv_enabled"])
+            self.assertEqual(settings["turboquant_kv_scheme"], "affine4")
 
 
 if __name__ == "__main__":

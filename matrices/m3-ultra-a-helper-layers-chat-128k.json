@@ -1,0 +1,117 @@
+{
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "note": "Helper layer count on the chat path at 131072 prompt tokens: the helper with automatic layers, 32, 49 and 63. 3 passes; one call per block, one request per block, a fresh variant name per run so the passkey tag line differs and cached tokens stay 0. Default helper wait. Private: chat path only, no upload.",
+  "base_settings": {
+    "qwen35_ane_prefill_enabled": false,
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "p1-128k-auto",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p1-128k-l32",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 32
+      }
+    },
+    {
+      "name": "p1-128k-l49",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 49
+      }
+    },
+    {
+      "name": "p1-128k-l63",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 63
+      }
+    },
+    {
+      "name": "p2-128k-auto",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p2-128k-l32",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 32
+      }
+    },
+    {
+      "name": "p2-128k-l49",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 49
+      }
+    },
+    {
+      "name": "p2-128k-l63",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 63
+      }
+    },
+    {
+      "name": "p3-128k-auto",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "p3-128k-l32",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 32
+      }
+    },
+    {
+      "name": "p3-128k-l49",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 49
+      }
+    },
+    {
+      "name": "p3-128k-l63",
+      "helper": "on",
+      "ane": "off",
+      "settings": {
+        "prefill_helper_layers": 63
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "name": "passkey",
+      "sizes": [
+        131072
+      ],
+      "samples_per_size": 1,
+      "max_tokens": 256,
+      "needles": [
+        "4829157"
+      ]
+    }
+  ]
+}

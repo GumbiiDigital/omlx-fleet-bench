@@ -1,0 +1,28 @@
+{
+  "model": "Qwen3.8-27B-oQ4e-mtp",
+  "note": "Helper start after a switch: only gpu:1024 and spark:32768 run (--only-cells gpu:1024,spark:32768), 6 runs per cell, so every helper request comes straight after a run with the helper off. Cold cache, 128 output tokens, 1K prompt to keep the switch cheap.",
+  "runs_per_cell": 6,
+  "base_settings": {
+    "qwen35_ane_prefill_enabled": false,
+    "prefill_helper_layers": null,
+    "turboquant_kv_enabled": false,
+    "turboquant_kv_scheme": "affine4",
+    "turboquant_kv_bits": 4,
+    "turboquant_skip_last": false
+  },
+  "variants": [
+    {
+      "name": "gpu",
+      "helper": "off",
+      "ane": "off",
+      "settings": {}
+    },
+    {
+      "name": "spark",
+      "helper": "on",
+      "ane": "off",
+      "settings": {}
+    }
+  ],
+  "prompt_sizes": [1024, 32768]
+}

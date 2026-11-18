@@ -1,5 +1,6 @@
 import json
 import tempfile
+import time
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
@@ -12,6 +13,14 @@ from bench.chat import ChatError, _normalize
 REPO = Path(__file__).resolve().parents[1]
 MATRIX = str(REPO / "matrices" / "quality.json")
 BUSY_ERROR = "HTTP 409 from chat endpoint: {\"detail\":\"busy; unload pending\"}"
+
+
+def helper_answer(state: str = "ready", at: Optional[float] = None) -> Dict[str, Any]:
+    """One GET /admin/api/prefill-helper/models/<model> answer."""
+    answer: Dict[str, Any] = {"state": state, "since": 10.0, "layers": 49, "held": 63}
+    if at is not None:
+        answer["last_prompt"] = {"tokens": 32768, "seconds": 26.04, "at": at}
+    return answer
 
 
 class MatrixTest(unittest.TestCase):
@@ -286,12 +295,24 @@ class ConsecutiveFailureGuardTest(unittest.TestCase):
 class _FakeAdmin:
     """Records settings writes and whether the restore block ran."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self, helper_states: Optional[List[Any]] = None, order: Optional[List[str]] = None
+    ) -> None:
         self.applied: List[Dict[str, Any]] = []
         self.restored = False
+        self.helper_states = list(helper_states or [{"state": "ready"}])
+        self.helper_reads = 0
+        self.order = order if order is not None else []
 
     def login(self) -> None:
         return None
+
+    def get_prefill_helper_state(self, model: str) -> Any:
+        self.order.append("read")
+        self.helper_reads += 1
+        if len(self.helper_states) > 1:
+            return self.helper_states.pop(0)
+        return self.helper_states[0]
 
     @contextmanager
     def preserved_settings(self, model: str, fields: List[str]) -> Any:
@@ -301,6 +322,7 @@ class _FakeAdmin:
             self.restored = True
 
     def apply_settings(self, model: str, desired: Dict[str, Any], fields: List[str]) -> None:
+        self.order.append("settings")
         self.applied.append({field: desired.get(field) for field in fields})
 
 
@@ -314,16 +336,19 @@ class _FakeChat:
         ready_error: str = "",
         errors: Optional[List[str]] = None,
         content: str = "#### 18",
+        order: Optional[List[str]] = None,
     ) -> None:
         self.error = error
         self.ready_error = ready_error
         self.errors = list(errors or [])
         self.content = content
         self.events: List[Any] = []
+        self.order = order if order is not None else []
 
     def wait_until_ready(
         self, model: str, *, timeout_s: float = 600.0, interval_s: float = 5.0
     ) -> Dict[str, Any]:
+        self.order.append("probe")
         self.events.append(("wait", model, timeout_s))
         if self.ready_error:
             raise ChatError(self.ready_error)
@@ -337,6 +362,7 @@ class _FakeChat:
         max_tokens: int = 512,
         temperature: float = 0.0,
     ) -> Dict[str, Any]:
+        self.order.append("chat")
         self.events.append(("chat", model))
         if self.errors:
             raise ChatError(self.errors.pop(0))
@@ -370,6 +396,7 @@ class RunnerTest(unittest.TestCase):
         chat: _FakeChat,
         *extra: str,
         limit: int = 1,
+        variants: str = "gpu,ane",
     ) -> int:
         argv = [
             "--matrix", MATRIX,
@@ -377,7 +404,7 @@ class RunnerTest(unittest.TestCase):
             "--settings", self.settings,
             "--out", str(self.out),
             "--machine", "test",
-            "--only-variants", "gpu,ane",
+            "--only-variants", variants,
             "--only-tasks", "gsm8k",
             "--limit", str(limit),
             *extra,
@@ -435,6 +462,52 @@ class RunnerTest(unittest.TestCase):
         admin, chat = _FakeAdmin(), _FakeChat()
         self.assertEqual(self._run(admin, chat, limit=1), 0)
         self.assertEqual([row["max_tokens"] for row in self._rows()], [2048, 2048])
+
+    def test_helper_rows_record_the_state_and_the_proof(self) -> None:
+        admin = _FakeAdmin([helper_answer(), helper_answer(at=time.time() + 60)])
+        chat = _FakeChat()
+        self.assertEqual(
+            self._run(admin, chat, "--helper-stable-s", "0", variants="spark"), 0
+        )
+        rows = self._rows()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["helper_state"], "ready")
+        self.assertEqual(rows[0]["helper_wait_s"], 0.0)
+        self.assertEqual(rows[0]["helper_layers"], 49)
+        self.assertEqual(rows[0]["helper_held"], 63)
+        self.assertEqual(rows[0]["helper_session_since"], 10.0)
+        self.assertEqual(rows[0]["helper_last_prompt_tokens"], 32768)
+        self.assertEqual(rows[0]["helper_last_prompt_seconds"], 26.04)
+        self.assertEqual(admin.helper_reads, 2)
+
+    def test_the_order_is_settings_probe_read_chat_proof(self) -> None:
+        order: List[str] = []
+        admin = _FakeAdmin(
+            [helper_answer(), helper_answer(at=time.time() + 60)], order=order
+        )
+        chat = _FakeChat(order=order)
+        self.assertEqual(
+            self._run(admin, chat, "--helper-stable-s", "0", variants="spark"), 0
+        )
+        self.assertEqual(order, ["settings", "probe", "read", "chat", "read"])
+
+    def test_no_helper_wait_records_a_session_that_was_not_up(self) -> None:
+        admin = _FakeAdmin([helper_answer("starting"), helper_answer(at=time.time() + 60)])
+        chat = _FakeChat()
+        self.assertEqual(self._run(admin, chat, "--no-helper-wait", variants="spark"), 0)
+        rows = self._rows()
+        self.assertEqual(rows[0]["helper_state"], "starting")
+        self.assertEqual(rows[0]["helper_wait_s"], 0.0)
+        self.assertEqual(admin.helper_reads, 2)
+
+    def test_a_helper_off_row_carries_no_state(self) -> None:
+        admin, chat = _FakeAdmin(), _FakeChat()
+        self.assertEqual(self._run(admin, chat, variants="gpu"), 0)
+        rows = self._rows()
+        self.assertIsNone(rows[0]["helper_state"])
+        self.assertEqual(rows[0]["helper_wait_s"], 0.0)
+        self.assertIsNone(rows[0]["helper_layers"])
+        self.assertEqual(admin.helper_reads, 0)
 
     def test_retry_capped_and_scale_narrow_the_run(self) -> None:
         capped = self.dir / "capped.jsonl"

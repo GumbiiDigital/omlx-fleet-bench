@@ -6,7 +6,7 @@ listed here still works: it keeps its matrix name and takes the next free colour
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 VARIANT_LABELS: Dict[str, str] = {
     "gpu": "GPU only",
@@ -36,9 +36,65 @@ VARIANT_ORDER: List[str] = ["gpu", "native", "affine4", "affine8", "ane", "spark
 
 SPARE_SERIES: List[str] = ["green", "red"]
 
+# A layer setting is named by what the request asked for: the Mac on its own, the helper's own
+# choice of layers, or a pinned count. The count itself is read from the row, never typed in.
+SETTING_MAC_ALONE = "mac-alone"
+SETTING_AUTOMATIC = "automatic"
+LAYER_SETTING_PREFIX = "layers-"
+
+SETTING_LABELS: Dict[str, str] = {SETTING_MAC_ALONE: "Mac alone", SETTING_AUTOMATIC: "Automatic"}
+
+# Colour follows the setting, in the order the settings are shown: the Mac alone keeps the
+# baseline blue, then the helper settings take the checked slots (blue, magenta, violet,
+# orange, aqua) in turn.
+SETTING_SERIES: List[str] = ["blue", "magenta", "violet", "orange", "aqua", "yellow", "green", "red"]
+
 
 def variant_label(name: str) -> str:
     return VARIANT_LABELS.get(name, name)
+
+
+def layer_setting(count: int) -> str:
+    """The setting name for a pinned layer count."""
+    return f"{LAYER_SETTING_PREFIX}{int(count)}"
+
+
+def layer_count(name: str) -> Optional[int]:
+    """The pinned layer count in a setting name, or None when it pins none."""
+    if not name.startswith(LAYER_SETTING_PREFIX):
+        return None
+    try:
+        return int(name[len(LAYER_SETTING_PREFIX) :])
+    except ValueError:
+        return None
+
+
+def setting_label(name: str) -> str:
+    """'mac-alone' -> 'Mac alone', 'layers-32' -> '32 layers'."""
+    if name in SETTING_LABELS:
+        return SETTING_LABELS[name]
+    count = layer_count(name)
+    return f"{count} layers" if count is not None else name
+
+
+def ordered_settings(names: Iterable[str]) -> List[str]:
+    """The Mac alone, then the automatic choice, then pinned layer counts from fewest to most."""
+    unique = set(names)
+    head = [name for name in (SETTING_MAC_ALONE, SETTING_AUTOMATIC) if name in unique]
+    pinned = sorted((name for name in unique if layer_count(name) is not None), key=lambda name: layer_count(name) or 0)
+    rest = sorted(unique - set(head) - set(pinned))
+    return head + pinned + rest
+
+
+def setting_series(names: Iterable[str], slots: Optional[List[str]] = None) -> Dict[str, str]:
+    """Colour slot per setting, in the setting order. Runs out loudly rather than repeating."""
+    slots = list(SETTING_SERIES if slots is None else slots)
+    out: Dict[str, str] = {}
+    for name in ordered_settings(names):
+        if not slots:
+            raise ValueError(f"no chart colour left for setting {name!r}; add one to bench/labels.py")
+        out[name] = slots.pop(0)
+    return out
 
 
 def ordered_variants(names: Iterable[str]) -> List[str]:

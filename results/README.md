@@ -15,7 +15,15 @@ a file name is the local date the run started; the timestamps inside the rows ar
 | `m3-ultra-a/quality-ane-kv-helper-2026-11-16.jsonl` | 2,824 | Answer quality, the other four settings |
 | `m3-ultra-a/quality-reask-8x-2026-11-16.jsonl` | 304 | The cut-off answers asked again with an 8× token cap |
 | `m3-ultra-a/quality-passkey-cold-2026-11-17.jsonl` | 30 | The passkey prompts asked again with a unique first line, so each one was read cold |
+| `m3-ultra-a/helper-ready-chat-nowait-2026-11-17.jsonl` | 12 | Chat path, no helper wait: 6 rounds of one helper-off request and then one 32K passkey request with the helper on |
+| `m3-ultra-a/helper-ready-chat-wait-2026-11-17.jsonl` | 12 | The same 6 rounds with the helper wait |
+| `m3-ultra-a/helper-ready-speed-nowait-2026-11-17.jsonl` | 12 | The same 6 rounds on the server's benchmark call, no helper wait |
+| `m3-ultra-a/helper-ready-speed-wait-2026-11-17.jsonl` | 12 | The same 6 rounds on the server's benchmark call, with the helper wait |
+| `m3-ultra-a/helper-layers-2026-11-17.jsonl` | 27 | Chat path, helper wait: Mac alone, automatic layers, and 32, 49 and 63 layers, at 32K and 128K, 3 requests per cell |
 | `m3-ultra-b/speed-2026-11-16.jsonl` | 24 | Speed matrix, 8 cells × 3 runs (no ANE setup on this model) |
+| `m3-ultra-b/speed-sweep-2026-11-15.jsonl` | 28 | Prompt-size sweep 1K to 128K, 14 cells × 2 runs; one 128K helper run did not use the helper |
+| `m3-ultra-b/speed-sweep-rerun-2026-11-15.jsonl` | 4 | Reruns of the 128K helper cell: 2 server-conflict rows, 1 failed run, and the valid row that cell was missing |
+| `m3-ultra-b/speed-256k-refused-2026-11-15.jsonl` | 2 | The 256K attempt: both rows are server refusals, kept as proof that size has no result |
 | `m3-ultra-b/kv-cache-2026-11-16.jsonl` | 18 | KV cache matrix, 6 cells × 3 runs |
 | `m3-ultra-b/quality-2026-11-16.jsonl` | 2,824 | Answer quality, all four settings |
 | `m3-ultra-b/quality-passkey-cold-2026-11-17.jsonl` | 24 | The passkey prompts asked again with a unique first line, so each one was read cold |
@@ -42,6 +50,27 @@ For `m3-ultra-b`, the same two, plus the `matrix` path, which points at
 private value, so the matrices themselves are published unchanged apart from their `note` line. The
 rows were edited as text, so the harness's own line formatting is kept.
 
+The prompt-size sweep files (`speed-sweep-*`, `speed-256k-refused-*`) were prepared the same way:
+machine label, helper node id and matrix path only. They were measured on 2026-11-15 with a second
+DGX Spark unit of the same type as the helper, one day before the speed matrix above, so the two
+sets are not one series. The error rows in those files are as the harness wrote them: they carry
+`error` and no metrics or log, so their fields differ from a completed row. No key was added or
+removed, and no measured value was changed.
+
+The five helper files (`helper-ready-*`, `helper-layers-*`) got the machine label and the helper
+node id, and nothing else. Their chat rows carry the helper fields below and no `validity` block;
+the speed-test rows carry one. Rows that a check marks not valid stay in the file:
+
+- `helper-ready-speed-nowait`: 6 rows, all marked not valid by `helper_ready_at_start`. Every
+  helper-on request in that arm began while the helper was `starting`, and all six came back at
+  helper speed. The helper-start table shows them, marked not valid; no other study uses them.
+- `helper-ready-speed-wait`: 0 rows marked not valid.
+- The two chat files and the layer file: no `validity` block. All 12 helper-on requests in the chat
+  files and all 27 layer requests read 0 cached tokens, and every answer was correct.
+- In the chat files the helper-off requests reused 140 cached tokens of the same short question
+  asked earlier: all 6 in the wait file, 5 of 6 in the no-wait file, whose first row was cold. They
+  are there to force the settings switch; they are not part of any helper-on figure.
+
 Earlier commits of this repository hold the rows under their old file names. The two warm re-run
 rows were moved out of the speed file into their own file; no row was edited or dropped.
 
@@ -61,7 +90,7 @@ rows were moved out of the speed file into their own file; no row was edited or 
 | `desired_settings` | Model settings sent for this run |
 | `settings_before` | Model settings found before the matrix started; restored at the end |
 | `bench_id` | Server id of the benchmark run |
-| `status` | `completed` for a good run |
+| `status` | `completed` for a good run; absent on an error row, which carries `error` instead |
 | `end_event_type` | Last event of the run; `upload_skipped` means it stayed private |
 | `feature_keys` | Features the server reported as active, for example `prefill_accelerator` |
 | `metrics.processing_tps` | Prefill speed, prompt tokens per second |
@@ -95,3 +124,17 @@ rows were moved out of the speed file into their own file; no row was edited or 
 | `status` | `completed`, or `error` with the reason |
 | `note` | Present only when something needs saying: `no_answer_text` marks a reply with no answer text |
 | `target_tokens`, `approximate_prompt_tokens`, `prompt_chars` | Passkey rows: the size asked for and the size built |
+
+## Helper fields (rows from 2026-11-17)
+
+Both kinds of row carry the state and the wait, whether or not the harness waited for the helper.
+The rest are the proof read from the helper after the request; the speed-test rows hold no value
+there, so on those rows the wait is what says what served the request.
+
+| Field | Meaning |
+|---|---|
+| `helper_state` | The helper's state when the request went out: `connecting`, `starting`, `ready`, or empty with the helper off |
+| `helper_wait_s` | Seconds the harness waited for `ready` before the request; 0 when it did not wait |
+| `helper_layers` | Layers the helper's session held, read from the helper after the request. Empty on the speed-test rows, which hold no value, so it is not proof that the helper read that request |
+| `helper_held`, `helper_session_since` | Layers the helper held, and the server's clock reading when that session started; empty on the speed-test rows |
+| `helper_last_prompt_at`, `helper_last_prompt_tokens`, `helper_last_prompt_seconds` | The helper's last prompt, read after the request: when it started, its tokens and its seconds. Empty when the read gave none, as on the speed-test rows |

@@ -6,17 +6,20 @@
       "helper": "NVIDIA GB10 (DGX Spark), 10 GbE",
       "model": "Qwen3.8-27B-oQ4e-mtp",
       "speed": {
+        "kind": "speed",
         "files": ["results/m3-ultra-a/speed-2026-11-15.jsonl"],
         "warm_rerun": ["results/m3-ultra-a/speed-helper-warm-2026-11-15.jsonl"],
         "baseline": "gpu",
         "conditions": "Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better."
       },
       "kv_cache": {
+        "kind": "speed",
         "files": ["results/m3-ultra-a/kv-cache-2026-11-15.jsonl"],
         "baseline": "native",
         "conditions": "GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better."
       },
       "quality": {
+        "kind": "quality",
         "files": [
           "results/m3-ultra-a/quality-gpu-2026-11-16.jsonl",
           "results/m3-ultra-a/quality-ane-kv-helper-2026-11-16.jsonl"
@@ -27,6 +30,43 @@
         ],
         "baseline": "gpu",
         "conditions": "Same questions under every setting, temperature 0. Higher is better."
+      },
+      "helper_ready": {
+        "kind": "request",
+        "arms": [
+          {
+            "path": "chat",
+            "arm": "no wait",
+            "file": "results/m3-ultra-a/helper-ready-chat-nowait-2026-11-17.jsonl"
+          },
+          {
+            "path": "chat",
+            "arm": "wait",
+            "file": "results/m3-ultra-a/helper-ready-chat-wait-2026-11-17.jsonl"
+          },
+          {
+            "path": "speed test",
+            "arm": "no wait",
+            "file": "results/m3-ultra-a/helper-ready-speed-nowait-2026-11-17.jsonl"
+          },
+          {
+            "path": "speed test",
+            "arm": "wait",
+            "file": "results/m3-ultra-a/helper-ready-speed-wait-2026-11-17.jsonl"
+          }
+        ],
+        "conditions": "Cold cache. Six rounds per arm, each one request with the helper off and then one request at 32K with the helper on. Lower is better."
+      },
+      "helper_layers": {
+        "kind": "request",
+        "arms": [
+          {
+            "path": "chat",
+            "arm": "wait",
+            "file": "results/m3-ultra-a/helper-layers-2026-11-17.jsonl"
+          }
+        ],
+        "conditions": "Cold cache, 256 output tokens, 3 requests per setting and prompt size. Lower is better."
       }
     },
     {
@@ -35,16 +75,28 @@
       "helper": "NVIDIA GB10 (DGX Spark), 10 GbE",
       "model": "Qwen3.8-Flash-Next-oQ4e-mtp",
       "speed": {
+        "kind": "speed",
         "files": ["results/m3-ultra-b/speed-2026-11-16.jsonl"],
         "baseline": "gpu",
         "conditions": "Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better."
       },
+      "speed_sweep": {
+        "kind": "speed",
+        "files": [
+          "results/m3-ultra-b/speed-sweep-2026-11-15.jsonl",
+          "results/m3-ultra-b/speed-sweep-rerun-2026-11-15.jsonl"
+        ],
+        "baseline": "gpu",
+        "conditions": "Cold cache, 128 output tokens, mean of 2 runs per cell. Lower is better."
+      },
       "kv_cache": {
+        "kind": "speed",
         "files": ["results/m3-ultra-b/kv-cache-2026-11-16.jsonl"],
         "baseline": "native",
         "conditions": "GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better."
       },
       "quality": {
+        "kind": "quality",
         "files": ["results/m3-ultra-b/quality-2026-11-16.jsonl"],
         "replace": ["results/m3-ultra-b/quality-passkey-cold-2026-11-17.jsonl"],
         "baseline": "gpu",

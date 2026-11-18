@@ -125,6 +125,88 @@ class IntervalPanelsTest(unittest.TestCase):
             self._svg(axis_min=100.0, axis_max=85.0)
 
 
+class LinePanelTest(unittest.TestCase):
+    def _panel(self) -> charts.LinePanel:
+        return charts.LinePanel(
+            title="Time to first token by prompt size",
+            x_min=1024,
+            x_max=131072,
+            y_min=1.5,
+            y_max=140.0,
+            x_ticks=[(1024, "1K"), (8192, "8K"), (16384, "16K"), (131072, "128K")],
+            y_ticks=[(2.0, "2 s"), (10.0, "10 s"), (100.0, "100 s")],
+            series=[
+                charts.LineSeries(
+                    "GPU only",
+                    "blue",
+                    [
+                        charts.LinePoint(1024, 1.7, "1K", "1.7 s"),
+                        charts.LinePoint(8192, 8.7, "8K", "8.7 s"),
+                        charts.LinePoint(16384, 16.6, "16K", "17 s"),
+                        charts.LinePoint(131072, 137.1, "128K", "137 s"),
+                    ],
+                ),
+                charts.LineSeries(
+                    "+ Spark helper",
+                    "aqua",
+                    [
+                        charts.LinePoint(1024, 1.5, "1K", "1.5 s"),
+                        charts.LinePoint(131072, 58.4, "128K", "58.4 s"),
+                    ],
+                ),
+            ],
+        )
+
+    def setUp(self):
+        self.caption = charts.Caption("Time to first token by prompt size", ["model · machine"], ["both axes are log"])
+
+    def _svg(self, panel=None, theme=LIGHT):
+        return charts.line_panel(self.caption, panel or self._panel(), theme)
+
+    def test_series_labels_ticks_and_footnote_are_drawn(self):
+        texts = _texts(self._svg())
+        for expected in ("GPU only", "+ Spark helper", "1K", "128K", "2 s", "100 s", "both axes are log"):
+            self.assertIn(expected, texts)
+
+    def test_values_are_tooltips_not_drawn_labels(self):
+        svg = self._svg()
+        self.assertNotIn("8.7 s", _texts(svg))
+        titles = [node.text for node in ET.fromstring(svg).iter(f"{SVG_NS}title")]
+        self.assertIn("Time to first token by prompt size · GPU only · 8K: 8.7 s", titles)
+
+    def test_both_axes_are_logarithmic(self):
+        root = ET.fromstring(self._svg())
+        dots = [(float(n.get("cx")), float(n.get("cy"))) for n in root.iter(f"{SVG_NS}circle")]
+        self.assertEqual(len(dots), 6)
+        (x_1k, y_1k), (x_8k, y_8k), (x_16k, _), (x_128k, _) = dots[0:4]
+        # Three octaves (1K to 8K) must be three times one octave (8K to 16K) on x.
+        self.assertAlmostEqual(x_8k - x_1k, 3 * (x_16k - x_8k), places=1)
+        # The axis is shared, so both lines end on the same x.
+        self.assertAlmostEqual(x_128k, dots[5][0], places=1)
+        # A longer wait sits higher on the chart, as on any axis.
+        self.assertLess(y_8k, y_1k)
+
+    def test_each_series_uses_its_theme_colour(self):
+        root = ET.fromstring(self._svg(theme=DARK))
+        strokes = {node.get("stroke") for node in root.iter(f"{SVG_NS}line")}
+        self.assertIn(DARK.series["blue"], strokes)
+        self.assertIn(DARK.series["aqua"], strokes)
+
+    def test_same_input_gives_the_same_bytes(self):
+        self.assertEqual(self._svg(), self._svg())
+
+    def test_no_series_or_a_flat_axis_is_an_error(self):
+        with self.assertRaises(ValueError):
+            charts.line_panel(self.caption, charts.LinePanel("t", 1.0, 10.0, 1.0, 10.0, [], [], []), LIGHT)
+        flat = self._panel()
+        with self.assertRaises(ValueError):
+            charts.line_panel(
+                self.caption,
+                charts.LinePanel(flat.title, 0.0, flat.x_max, flat.y_min, flat.y_max, flat.x_ticks, flat.y_ticks, flat.series),
+                LIGHT,
+            )
+
+
 class LabelsTest(unittest.TestCase):
     def test_known_variants_keep_the_fixed_order(self):
         self.assertEqual(
@@ -151,6 +233,25 @@ class LabelsTest(unittest.TestCase):
         self.assertEqual(labels.size_label(8192), "8K")
         self.assertEqual(labels.size_label(131072), "128K")
         self.assertEqual(labels.size_label(1000), "1,000")
+
+    def test_a_layer_setting_is_named_by_what_was_asked_for(self):
+        self.assertEqual(labels.setting_label("mac-alone"), "Mac alone")
+        self.assertEqual(labels.setting_label("automatic"), "Automatic")
+        self.assertEqual(labels.setting_label("layers-32"), "32 layers")
+        self.assertEqual(labels.setting_label("something-else"), "something-else")
+
+    def test_settings_are_ordered_mac_alone_then_automatic_then_layer_counts(self):
+        self.assertEqual(
+            labels.ordered_settings(["layers-63", "mac-alone", "layers-32", "automatic", "layers-49"]),
+            ["mac-alone", "automatic", "layers-32", "layers-49", "layers-63"],
+        )
+
+    def test_a_setting_keeps_one_colour_and_runs_out_loudly(self):
+        series = labels.setting_series(["layers-49", "mac-alone", "automatic"])
+        self.assertEqual(series["mac-alone"], "blue")
+        self.assertEqual(len(set(series.values())), 3)
+        with self.assertRaises(ValueError):
+            labels.setting_series([f"layers-{count}" for count in range(20)])
 
 
 class StatsTest(unittest.TestCase):

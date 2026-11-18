@@ -24,8 +24,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from bench.charts import BarPanel, BarRow, Caption, bar_panels  # noqa: E402
-from bench.labels import ordered_variants, size_label, variant_label, variant_series  # noqa: E402
+from bench import latency  # noqa: E402
+from bench.charts import BarPanel, BarRow, Caption, LinePanel, LinePoint, LineSeries, bar_panels  # noqa: E402
+from bench.labels import (  # noqa: E402
+    ordered_settings,
+    ordered_variants,
+    setting_label,
+    setting_series,
+    size_label,
+    variant_label,
+    variant_series,
+)
 from bench.stats import spread  # noqa: E402
 from bench.svg import THEMES  # noqa: E402
 
@@ -263,6 +272,140 @@ def memory_panels(cells: Sequence[CellStats], baseline: str) -> List[BarPanel]:
         return f"{change:+.1f}%".replace("-", "−")
 
     return _panels(cells, baseline, lambda c: c.mean_peak_gb, lambda gb: f"{gb:.1f} GB", note)
+
+
+def log_ticks(low: float, high: float) -> List[float]:
+    """1, 2 and 5 times each power of ten, where they fall inside `low` to `high`."""
+    ticks: List[float] = []
+    decade = 1.0
+    while decade <= high:
+        for factor in (1, 2, 5):
+            value = factor * decade
+            if low <= value <= high:
+                ticks.append(float(value))
+        decade *= 10
+    return ticks or [low, high]
+
+
+def ttft_lines(cells: Sequence[CellStats]) -> LinePanel:
+    """Time to first token against prompt size, one line per variant, on log axes.
+
+    A cell with a longer wait sits lower on the chart, so a flat line means the wait grows
+    with the prompt; the two lines apart means the helper took a share of the work. Cells
+    without a valid run are left out, because they have no mean.
+    """
+    cells = sort_cells(cells)
+    sizes = sorted({c.size for c in cells})
+    series = variant_series(c.variant for c in cells)
+    lines = []
+    for variant in ordered_variants(c.variant for c in cells):
+        points = [
+            LinePoint(c.size, c.mean_ttft_s, size_label(c.size), fmt_seconds(c.mean_ttft_s))
+            for c in cells
+            if c.variant == variant and c.mean_ttft_s is not None
+        ]
+        if points:
+            lines.append(LineSeries(variant_label(variant), series[variant], points))
+    if not lines:
+        raise ValueError("no cell has a time to first token")
+    waits = [point.y for line in lines for point in line.points]
+    return LinePanel(
+        title="Time to first token by prompt size",
+        x_min=sizes[0],
+        x_max=sizes[-1],
+        y_min=min(waits),
+        y_max=max(waits),
+        x_ticks=[(size, size_label(size)) for size in sizes],
+        y_ticks=[(tick, f"{tick:g} s") for tick in log_ticks(min(waits), max(waits))],
+        series=lines,
+    )
+
+
+def request_markdown(requests: Sequence["latency.Request"], title: str = "Requests") -> str:
+    """Every request of a study on one line, with the checks its row failed named.
+
+    A study about waits keeps the rows it cannot use: a request that began before the helper
+    session was up is the evidence, not a row to drop. So the list is the whole file, in order.
+    """
+    lines = [
+        f"# {title}",
+        "",
+        "One line per request, in the order the rows were written. Time to first token is the",
+        "server's own figure. A request whose row failed a check stays in the list and names it.",
+    ]
+    lines += _checks_note(requests)
+    lines += [
+        "",
+        "| Path | Arm | Prompt | Setting | Helper | State at start | Waited s "
+        "| Time to first token s | Layers | Cached tokens | Answer correct | Failed checks |",
+        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for request in requests:
+        correct = "-" if request.correct is None else ("yes" if request.correct else "no")
+        cached = "-" if request.cached_tokens is None else str(request.cached_tokens)
+        if request.helper_layers is not None:
+            layers = str(request.helper_layers)
+        else:
+            # No helper at all, or a row that does not record what the helper held: not the same thing.
+            layers = "none" if not request.helper_on else "not recorded"
+        checks = ", ".join(request.failed) or ("-" if request.checks_recorded else "no validity marks")
+        lines.append(
+            f"| {request.path} | {request.arm} | {size_label(request.size)} "
+            f"| {setting_label(request.setting)} | {'on' if request.helper_on else 'off'} "
+            f"| {request.helper_state or 'none'} | {request.helper_wait_s:.1f} | {request.ttft_s:.2f} "
+            f"| {layers} | {cached} | {correct} | {checks} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _checks_note(requests: Sequence["latency.Request"]) -> List[str]:
+    """Where the checks in the last column come from, for the kinds of row the study actually has."""
+    speed = any(request.checks_recorded for request in requests)
+    chat = any(not request.checks_recorded for request in requests)
+    if speed and chat:
+        return [
+            "A speed row carries a validity block; a chat row carries none, so its cold-cache and",
+            "answer checks are read from its own fields, and a chat row with nothing to report says",
+            "`no validity marks`.",
+        ]
+    if speed:
+        return ["Every row here carries a validity block; a row that passed every check says `-`."]
+    return [
+        "These rows carry no validity block: their cold-cache and answer checks are read from their",
+        "own fields, and a row with nothing to report says `no validity marks`.",
+    ]
+
+
+def setting_panels(
+    groups: Dict[Tuple[int, str], "latency.Waits"], baseline: Optional[str] = None
+) -> List[BarPanel]:
+    """One panel per prompt size, one bar per setting; the note compares with `baseline`.
+
+    A size where the baseline was not run gets no note: there is nothing to compare with there,
+    and a made-up reference would read as a measurement.
+    """
+    sizes = sorted({size for size, _ in groups})
+    series = setting_series(setting for _, setting in groups)
+    panels = []
+    for size in sizes:
+        base = groups[(size, baseline)].mean_ttft_s if baseline and (size, baseline) in groups else None
+        rows = []
+        for setting in ordered_settings(name for group_size, name in groups if group_size == size):
+            waits = groups[(size, setting)]
+            note = ""
+            if base:
+                note = "baseline" if setting == baseline else f"{base / waits.mean_ttft_s:.1f}× faster"
+            rows.append(
+                BarRow(
+                    label=setting_label(setting),
+                    value=waits.mean_ttft_s,
+                    value_text=fmt_seconds(waits.mean_ttft_s),
+                    series=series[setting],
+                    note=note,
+                )
+            )
+        panels.append(BarPanel(title=f"{size_label(size)} prompt", rows=rows))
+    return panels
 
 
 def _safe_name(text: str) -> str:
