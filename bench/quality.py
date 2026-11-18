@@ -19,8 +19,7 @@ import argparse
 import json
 import logging
 import sys
-from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
@@ -29,6 +28,15 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from bench.chat import ChatClient, ChatError  # noqa: E402
+from bench.chatrows import (  # noqa: E402
+    DEFAULT_MAX_CONSECUTIVE_FAILURES,
+    ChatRunContext,
+    ConsecutiveFailureGuard,
+    append_row,
+    error_fields,
+    request_fields,
+    row_base,
+)
 from bench.client import OMLXClient, load_api_key  # noqa: E402
 from bench.helper import (  # noqa: E402
     HelperStatus,
@@ -37,7 +45,7 @@ from bench.helper import (  # noqa: E402
     helper_fields,
     request_clock,
 )
-from bench.matrix import SETTING_FIELDS, _variant_flags, settings_fields_touched  # noqa: E402
+from bench.matrix import SettingsVariant, settings_fields_touched, settings_variant  # noqa: E402
 from bench.qa import (  # noqa: E402
     approximate_tokens,
     build_passkey_prompt,
@@ -53,67 +61,14 @@ from bench.runflow import begin_request, end_request, state_at_request  # noqa: 
 logger = logging.getLogger("bench.quality")
 
 PROGRESS_EVERY = 25
-DEFAULT_MAX_CONSECUTIVE_FAILURES = 5
 DEFAULT_READY_TIMEOUT_S = 600.0
-
-
-class ConsecutiveFailureGuard:
-    """Stop a run after N identical errors in a row.
-
-    oMLX can refuse every request the same way (409 "busy; unload pending") while the
-    server still answers HTTP, so a run needs a limit on repeated identical failures
-    instead of writing thousands of error rows. A different error, or a success,
-    restarts the count.
-    """
-
-    def __init__(self, limit: int = DEFAULT_MAX_CONSECUTIVE_FAILURES) -> None:
-        if limit < 1:
-            raise ValueError("max consecutive failures must be 1 or more")
-        self.limit = limit
-        self._last_error: Optional[str] = None
-        self._count = 0
-
-    @property
-    def count(self) -> int:
-        """How many identical failures have happened in a row."""
-        return self._count
-
-    def record_success(self) -> None:
-        self._last_error = None
-        self._count = 0
-
-    def record_failure(self, error: str) -> bool:
-        """Count one failure; return True when the run must stop."""
-        if error == self._last_error:
-            self._count += 1
-        else:
-            self._last_error = error
-            self._count = 1
-        return self._count >= self.limit
-
-
-@dataclass
-class QualityVariant:
-    """One setting under test."""
-
-    name: str
-    helper_on: bool
-    ane_on: bool
-    settings_patch: Dict[str, Any] = field(default_factory=dict)
-
-    def merge_settings(self, base: Dict[str, Any], helper_node_id: str) -> Dict[str, Any]:
-        merged = dict(base)
-        merged.update(self.settings_patch)
-        merged["qwen35_ane_prefill_enabled"] = self.ane_on
-        merged["prefill_helper_node_id"] = helper_node_id if self.helper_on else ""
-        return merged
 
 
 @dataclass
 class QualityUnit:
     """One request to send."""
 
-    variant: QualityVariant
+    variant: SettingsVariant
     task: str
     sample_id: str
     max_tokens: int
@@ -132,16 +87,14 @@ def load_quality_matrix(path: str) -> Dict[str, Any]:
     return data
 
 
-def load_variants(matrix: Dict[str, Any], only: Optional[Sequence[str]] = None) -> List[QualityVariant]:
+def load_variants(matrix: Dict[str, Any], only: Optional[Sequence[str]] = None) -> List[SettingsVariant]:
     wanted = set(only) if only else None
-    variants: List[QualityVariant] = []
+    variants: List[SettingsVariant] = []
     for raw in matrix["variants"]:
         name = raw["name"]
         if wanted is not None and name not in wanted:
             continue
-        helper_on, ane_on = _variant_flags(raw)
-        patch = {k: v for k, v in (raw.get("settings") or {}).items() if k in SETTING_FIELDS}
-        variants.append(QualityVariant(name=name, helper_on=helper_on, ane_on=ane_on, settings_patch=patch))
+        variants.append(settings_variant(raw))
     return variants
 
 
@@ -293,61 +246,49 @@ def score_unit(unit: QualityUnit, content: str) -> Dict[str, Any]:
     raise ValueError(f"unknown task '{unit.task}'")
 
 
-def append_row(path: Path, row: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(row, sort_keys=True) + "\n")
-
-
-@dataclass
-class RunContext:
-    """Fixed facts that every row of one run shares."""
-
-    machine: str
-    matrix_path: str
-    model: str
-    fields: List[str]
-    out_path: Path
-    total_units: int
-
-
 def build_row(
-    context: RunContext,
-    variant: QualityVariant,
+    context: ChatRunContext,
+    variant: SettingsVariant,
     unit: QualityUnit,
     desired: Dict[str, Any],
     original: Dict[str, Any],
     helper: HelperStatus,
 ) -> Dict[str, Any]:
-    """Row skeleton for one request, before the reply is known."""
-    return {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "machine": context.machine,
-        "matrix": context.matrix_path,
-        "model": context.model,
-        "variant": variant.name,
-        "helper_on": variant.helper_on,
-        **helper_fields(helper),
-        "ane_on": variant.ane_on,
-        "task": unit.task,
-        "sample_id": unit.sample_id,
-        "max_tokens": unit.max_tokens,
-        "target_tokens": unit.target_tokens,
-        "prompt_chars": unit.prompt_chars,
-        "approximate_prompt_tokens": (
-            approximate_tokens(unit.messages[-1]["content"]) if unit.target_tokens else None
-        ),
-        "desired_settings": {k: desired.get(k) for k in context.fields},
-        "settings_before": original,
-        "expected": unit.expected,
-    }
+    """Row skeleton for one request, before the reply is known.
+
+    The shared part of a chat row comes from `bench/chatrows.py`; what a quality row adds is the
+    answer it is about: the task, the sample, its token cap and the size it was built to.
+    """
+    row = row_base(
+        context,
+        variant_name=variant.name,
+        helper_on=variant.helper_on,
+        ane_on=variant.ane_on,
+        desired=desired,
+        original=original,
+        helper=helper,
+    )
+    row.update(
+        {
+            "task": unit.task,
+            "sample_id": unit.sample_id,
+            "max_tokens": unit.max_tokens,
+            "target_tokens": unit.target_tokens,
+            "prompt_chars": unit.prompt_chars,
+            "approximate_prompt_tokens": (
+                approximate_tokens(unit.messages[-1]["content"]) if unit.target_tokens else None
+            ),
+            "expected": unit.expected,
+        }
+    )
+    return row
 
 
 def send_block(
     chat: ChatClient,
     admin: Any,
-    context: RunContext,
-    variant: QualityVariant,
+    context: ChatRunContext,
+    variant: SettingsVariant,
     units: Sequence[QualityUnit],
     desired: Dict[str, Any],
     original: Dict[str, Any],
@@ -379,7 +320,7 @@ def send_block(
             reply = chat.chat(context.model, unit.messages, max_tokens=unit.max_tokens)
         except ChatError as exc:
             logger.exception("Request failed for %s", unit.sample_id)
-            row.update({"status": "error", "error": str(exc), "correct": False})
+            row.update({**error_fields(exc), "correct": False})
             row.update(
                 helper_fields(helper, end_request(admin, context.model, helper_on=variant.helper_on))
             )
@@ -391,19 +332,9 @@ def send_block(
         guard.record_success()
         proof = end_request(admin, context.model, helper_on=variant.helper_on)
         score = score_unit(unit, reply["content"])
-        row.update(
-            {
-                "status": "completed",
-                "finish_reason": reply["finish_reason"],
-                "content": reply["content"],
-                "reasoning_chars": len(reply["reasoning"]),
-                "usage": reply["usage"],
-                "server_timing": reply["server_timing"],
-                "latency_s": reply["latency_s"],
-                **helper_fields(helper, proof),
-                **score,
-            }
-        )
+        row.update(request_fields(reply))
+        row.update(helper_fields(helper, proof))
+        row.update(score)
         if not reply["content"].strip():
             row["note"] = "no_answer_text"
         append_row(context.out_path, row)
@@ -460,7 +391,7 @@ def run(args: argparse.Namespace) -> int:
     policy = HelperWaitPolicy.from_args(args)
     fields = settings_fields_touched([], base_settings)
     out_path = Path(args.out)
-    context = RunContext(
+    context = ChatRunContext(
         machine=args.machine,
         matrix_path=str(Path(args.matrix)),
         model=matrix["model"],
