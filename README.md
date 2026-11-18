@@ -436,7 +436,8 @@ How to read it:
 
 - Two Macs, each with one helper, and one model on each, on a pre-release oMLX build. I do not know
   how far they transfer.
-- Cold cache and one request at a time. No warm-cache numbers and no concurrency.
+- Cold cache. Every study but one sends one request at a time; the many-users study sends up to 8
+  requests at once, and it is the only concurrent result here. No warm-cache numbers.
 - Three runs per cell. Enough to see a 3× effect, not enough to rank two setups that are 2% apart.
 - Decode speed (tokens per second after the first token) is in the raw rows but not studied.
 - The server refused a 256K prompt on the Flash-Next model with HTTP 400, so there is no

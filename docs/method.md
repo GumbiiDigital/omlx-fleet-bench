@@ -117,7 +117,8 @@ is byte-identical to a copy taken before it.
 ## Limits
 
 - One Mac, one helper, one model, one pre-release oMLX build.
-- Cold cache and one request at a time. No warm-cache or concurrent numbers.
+- Cold cache. Every study but one sends one request at a time; the many-users study sends up to 8
+  requests at once, and it is the only concurrent result here. No warm-cache numbers.
 - Three runs per cell.
 - The size of the KV cache is not measured. Peak MLX active memory is reported instead.
 - Helper memory and temperature are not recorded.

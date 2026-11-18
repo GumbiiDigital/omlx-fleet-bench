@@ -27,6 +27,7 @@ a file name is the local date the run started; the timestamps inside the rows ar
 | `m3-ultra-b/kv-cache-2026-11-16.jsonl` | 18 | KV cache matrix, 6 cells × 3 runs |
 | `m3-ultra-b/quality-2026-11-16.jsonl` | 2,824 | Answer quality, all four settings |
 | `m3-ultra-b/quality-passkey-cold-2026-11-17.jsonl` | 24 | The passkey prompts asked again with a unique first line, so each one was read cold |
+| `m3-ultra-b/many-users-2026-11-18.jsonl` | 180 | One row per request of a wave: 2 prompt sizes × 2 arms × 4 user counts × 3 waves |
 
 The first machine's quality run is in two files because the first attempt stopped after the GPU block: the server
 answered HTTP 409 after a settings change. The harness now waits for the model and retries, and the
@@ -56,6 +57,12 @@ DGX Spark unit of the same type as the helper, one day before the speed matrix a
 sets are not one series. The error rows in those files are as the harness wrote them: they carry
 `error` and no metrics or log, so their fields differ from a completed row. No key was added or
 removed, and no measured value was changed.
+
+The many-users file (`m3-ultra-b/many-users-2026-11-18.jsonl`: 180 rows, 0 rows a flag marks not
+valid) got the machine label and the helper node id, and nothing else. The machine held two paired
+helper entries, so both ids were searched for; only one of them stands in the rows. The `matrix`
+field names the published matrix as it is, and every row is kept. No measured value was changed,
+and all 180 rows read 0 cached tokens.
 
 The five helper files (`helper-ready-*`, `helper-layers-*`) got the machine label and the helper
 node id, and nothing else. Their chat rows carry the helper fields below and no `validity` block;
