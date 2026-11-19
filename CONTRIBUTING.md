@@ -5,7 +5,7 @@ Results from other machines are the most useful thing you can add. Code fixes ar
 ## Add results from your machine
 
 1. Pick a label for your machine that says what it is and nothing private, for example
-   `m4-max-128gb` or `m3-ultra-b`. Do not use a host name.
+   `studio-256gb` or `m3-ultra-b`. Do not use a host name.
 2. Run a matrix with `--machine your-label` and `--out results/your-label/<study>-<date>.jsonl`.
    Use `speed`, `kv-cache` or `quality` as the study name. The commands are in the README.
 3. Keep the JSONL as the harness wrote it. Do not delete rows that failed and do not edit values.
@@ -13,8 +13,16 @@ Results from other machines are the most useful thing you can add. Code fixes ar
 4. Redact one value before you commit: your helper's node id, which appears as
    `prefill_helper_node_id` in every row. Replace it with `redacted-helper-node`.
 
+   macOS:
+
    ```bash
    sed -i '' 's/YOUR-NODE-ID/redacted-helper-node/g' results/your-label/*.jsonl
+   ```
+
+   Linux:
+
+   ```bash
+   sed -i 's/YOUR-NODE-ID/redacted-helper-node/g' results/your-label/*.jsonl
    ```
 
 5. Add your machine to `results/published.json`: its label, hardware, helper, model, and the files

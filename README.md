@@ -439,7 +439,10 @@ How to read it:
 - Two Macs, each with one helper, and one model on each, on a pre-release oMLX build. I do not know
   how far they transfer.
 - Cold cache. Every study but one sends one request at a time; the many-users study sends up to 8
-  requests at once, and it is the only concurrent result here. No warm-cache numbers.
+  requests at once, and it is the only concurrent result here. There is no warm-cache study: the
+  only warm rows are the two noisy helper cells (8K, 32K) run again back to back, straight after
+  the matrix, in `results/m3-ultra-a/speed-helper-warm-2026-11-15.jsonl`, as
+  [results/README.md](results/README.md) records.
 - Three runs per cell. Enough to see a 3× effect, not enough to rank two setups that are 2% apart.
 - Decode speed (tokens per second after the first token) is in the raw rows but not studied.
 - The server refused a 256K prompt on the Flash-Next model with HTTP 400, so there is no
@@ -496,8 +499,25 @@ python3 bench/quality.py \
 python3 bench/quality_report.py results/your-label/quality-DATE.jsonl --out report/quality.md
 ```
 
+Many users at once (one wave is N requests that begin at the same moment):
+
+```bash
+python3 bench/concurrency.py \
+  --matrix matrices/m3-ultra-b-many-users.json \
+  --base-url http://127.0.0.1:8004 \
+  --settings "$HOME/.omlx/settings.json" \
+  --helper-node YOUR_HELPER_NODE_ID \
+  --machine your-label \
+  --out results/your-label/many-users-DATE.jsonl
+```
+
+I ran `bench/report.py` on a many-users file and it wrote a speed summary with an empty table: it
+groups speed rows only. The wave tables and charts come from `python3 bench/publish.py`, which reads
+the file listed under `many_users` for your machine in `results/published.json`.
+
 Useful options: `--dry-run` prints the plan and touches nothing. `--only-cells gpu:32768` (speed) and
-`--only-variants`, `--only-tasks`, `--limit N` (quality) narrow a run. `--retry-capped FILE
+`--only-variants`, `--only-tasks`, `--limit N` (quality) narrow a run; `--users 1,2,4` and `--waves 3`
+(many users) override the user counts and the wave count in the matrix. `--retry-capped FILE
 --max-tokens-scale 8` asks the cut-off answers in `FILE` again with a larger cap, and
 `quality_report.py --replace` merges them in.
 
@@ -536,18 +556,32 @@ with your own `--machine` label, keep the JSONL untouched, and open a pull reque
 |---|---|
 | [bench/run.py](bench/run.py) | Speed runner: one JSONL row per benchmark run |
 | [bench/quality.py](bench/quality.py) | Answer-quality runner: one JSONL row per question |
+| [bench/concurrency.py](bench/concurrency.py) | Many-users runner: one JSONL row per request of a wave |
+| [bench/chatrows.py](bench/chatrows.py) | The chat row both chat runners write, and the rule that stops a run |
 | [bench/report.py](bench/report.py), [bench/quality_report.py](bench/quality_report.py) | Summaries of your own rows |
 | [bench/latency.py](bench/latency.py) | Reads a speed row or a chat row as one request: its wait, its setting, its helper state |
+| [bench/waves.py](bench/waves.py) | Reads the requests of a many-users study as waves, cell by cell |
 | [bench/publish.py](bench/publish.py) | Rebuilds the README tables, `reports/` and `charts/` from `results/` |
 | [bench/charts.py](bench/charts.py), [bench/svg.py](bench/svg.py) | The chart forms and the SVG writer behind them |
+| [bench/stats.py](bench/stats.py) | The small statistics helpers the reports and charts share |
+| [bench/labels.py](bench/labels.py) | Variant display names, order and chart colour, in one place |
 | [bench/client.py](bench/client.py), [bench/chat.py](bench/chat.py) | oMLX admin API and chat API clients |
 | [bench/validity.py](bench/validity.py) | Decides whether a speed row counts |
+| [bench/helper.py](bench/helper.py) | Helper session field names, the read, and the wait rule |
+| [bench/runflow.py](bench/runflow.py) | The order of calls around a measured request, shared by both runners |
+| [bench/collect.py](bench/collect.py) | Parses the benchmark sections of the oMLX server log |
+| [bench/qa.py](bench/qa.py) | Quality tasks: passkey, GSM8K and MMLU prompts and scoring, no network |
+| [bench/matrix.py](bench/matrix.py) | Loads a matrix and expands its cells in A/B run order |
+| [bench/__init__.py](bench/__init__.py) | Marks `bench/` as a Python package |
 | [matrices/](matrices) | What to run: variants, prompt sizes, tasks |
 | [data/](data) | The fixed GSM8K and MMLU subsets, and how they were built |
 | [results/](results) | Raw rows, one JSONL file per run, and the field reference |
 | [reports/](reports) | Generated per-cell summaries |
 | [charts/](charts) | Generated charts, light and dark |
 | [docs/method.md](docs/method.md) | Method, validity rules, limits |
+| [scripts/fetch_quality_data.py](scripts/fetch_quality_data.py) | Builds the fixed GSM8K and MMLU files in `data/` |
+| [tests/](tests) | Unit tests for the harness, with their fixtures |
+| [.github/workflows/tests.yml](.github/workflows/tests.yml) | Runs the unit tests and the publish check on a push |
 
 `matrices/m3-ultra-b-speed.json`, `m3-ultra-b-kv-cache.json` and `m3-ultra-b-quality.json` are the
 three matrices behind the Flash-Next tables. `m3-ultra-b-speed-sweep.json` and `m3-ultra-b-256k.json`
