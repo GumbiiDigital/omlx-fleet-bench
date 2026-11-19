@@ -24,9 +24,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from bench import latency  # noqa: E402
+from bench import latency, waves  # noqa: E402
 from bench.charts import BarPanel, BarRow, Caption, LinePanel, LinePoint, LineSeries, bar_panels  # noqa: E402
 from bench.labels import (  # noqa: E402
+    arm_label,
+    arm_series,
+    ordered_arms,
     ordered_settings,
     ordered_variants,
     setting_label,
@@ -410,6 +413,91 @@ def setting_panels(
 
 def _safe_name(text: str) -> str:
     return "".join(ch if ch.isalnum() or ch in "-._" else "-" for ch in text)
+
+
+def wave_markdown(cells: Sequence["waves.WaveCell"], title: str = "Many users: every wave") -> str:
+    """Every wave of a many-users study on one line: the figures the cell means are made from.
+
+    A many-users study keeps its rows apart by wave on purpose: the wave, not the request, is what
+    a second user changes. So the report lists each wave with its own wall time, and the request
+    count of the wave, before any mean is taken.
+    """
+    lines = [
+        f"# {title}",
+        "",
+        "One line per wave, in cell order. A wave is its user count of requests released together.",
+        "`Wave wall` is the time from the moment the wave opened to its last reply, and `Prompt",
+        "tok/s` is every user's prompt tokens together over that time. A request a flag marks not",
+        "valid stays in its wave's count and out of its means.",
+        "",
+        "| Arm | Prompt | Users | Wave | Requests | Valid | Time to first token s | Wave wall s "
+        "| Prompt tok/s |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for cell in waves.sort_cells(cells):
+        for wave, members in cell.waves.items():
+            valid = [member for member in members if member.request.valid]
+            ttft = f"{mean(member.request.ttft_s for member in valid):.2f}" if valid else "-"
+            wall = max(member.wall_s for member in members)
+            tps = sum(member.prompt_tokens for member in members) / wall
+            lines.append(
+                f"| {arm_label(cell.arm)} | {size_label(cell.size)} | {cell.users} | {wave} "
+                f"| {len(members)} | {len(valid)} | {ttft} | {wall:.2f} | {tps:,.0f} |"
+            )
+    return "\n".join(lines) + "\n"
+
+
+def wave_lines(cells: Sequence["waves.WaveCell"]) -> List[LinePanel]:
+    """One line chart per prompt size: whole-wave time against the number of users, one line per arm.
+
+    Every panel is given the same ranges, so a line can be read against the line beside it and a
+    straight line means the wave time grows in step with the number of users. The cells keep the
+    scale of the study: no panel has a scale of its own.
+    """
+    if not cells:
+        raise ValueError("no cells to plot")
+    # A cell whose waves all broke has no wave time to plot; the table still shows it, with dashes.
+    cells = [cell for cell in cells if cell.has_valid_wave]
+    if not cells:
+        raise ValueError("no cell has a valid wave to plot")
+    counts = sorted({cell.users for cell in cells})
+    if len(counts) < 2:
+        raise ValueError("a line needs at least two user counts")
+    walls = [cell.mean_wall_s for cell in cells]
+    low, high = min(walls), max(walls)
+    if high <= low:
+        raise ValueError("every cell has the same wave time, so there is no line to draw")
+    series = arm_series(cell.arm for cell in cells)
+
+    panels = []
+    for size in sorted({cell.size for cell in cells}):
+        members = [cell for cell in cells if cell.size == size]
+        lines = []
+        for arm in ordered_arms(cell.arm for cell in members):
+            points = [
+                LinePoint(
+                    x=cell.users,
+                    y=cell.mean_wall_s,
+                    x_text=f"{cell.users} user{'s' if cell.users != 1 else ''}",
+                    y_text=fmt_seconds(cell.mean_wall_s),
+                )
+                for cell in sorted((c for c in members if c.arm == arm), key=lambda c: c.users)
+            ]
+            if points:
+                lines.append(LineSeries(arm_label(arm), series[arm], points))
+        panels.append(
+            LinePanel(
+                title=f"{size_label(size)} prompt",
+                x_min=counts[0],
+                x_max=counts[-1],
+                y_min=low,
+                y_max=high,
+                x_ticks=[(count, str(count)) for count in counts],
+                y_ticks=[(tick, f"{tick:g} s") for tick in log_ticks(low, high)],
+                series=lines,
+            )
+        )
+    return panels
 
 
 def write_charts(cells: Sequence[CellStats], charts_dir: Path) -> List[Path]:

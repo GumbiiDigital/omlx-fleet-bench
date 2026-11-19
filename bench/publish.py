@@ -24,9 +24,19 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from bench import latency, quality_report, report  # noqa: E402
-from bench.charts import Caption, IntervalPanel, IntervalRow, bar_panels, interval_panels, line_panel  # noqa: E402
+from bench import latency, quality_report, report, waves  # noqa: E402
+from bench.charts import (  # noqa: E402
+    Caption,
+    IntervalPanel,
+    IntervalRow,
+    bar_panels,
+    interval_panels,
+    line_panel,
+    line_panels,
+)
 from bench.labels import (  # noqa: E402
+    arm_label,
+    ordered_arms,
     ordered_settings,
     ordered_variants,
     setting_label,
@@ -540,6 +550,163 @@ class Study:
     build: Callable[[Path, Dict[str, Any]], Tuple[Outputs, str]]
 
 
+def _users_note(counts: Sequence[int]) -> str:
+    """'1, 2, 4 and 8 users' — the user counts of the waves, in one phrase."""
+    if len(counts) == 1:
+        return f"{counts[0]} users"
+    return ", ".join(str(count) for count in counts[:-1]) + f" and {counts[-1]} users"
+
+
+def _waves_in_means(cells: Sequence["waves.WaveCell"], counts: Sequence[int]) -> str:
+    """One sentence on how many waves each mean rests on, read from the cells themselves.
+
+    A cell whose every wave broke has no mean, so the sentence then gives a range that starts at
+    zero and points the reader at the column that says which cell is which.
+    """
+    used = sorted({cell.waves_used for cell in cells})
+    if len(used) == 1 and used[0] > 0:
+        return f"Mean of {used[0]} waves per cell, at {_users_note(counts)} per wave."
+    if len(used) == 1:
+        return "No cell has a fully valid wave, so every mean in the table is `-`."
+    return (
+        f"A mean rests on {used[0]} to {used[-1]} waves per cell, at {_users_note(counts)} per wave; "
+        "the `Waves in the means` column gives the count for each cell."
+    )
+
+
+def _wait_text(cell: "waves.WaveCell") -> str:
+    """The wait of a request in the cell, or '-' when no request of it is valid."""
+    if not cell.valid_members:
+        return "-"
+    return f"{cell.mean_ttft_s:.2f} s ({cell.low_ttft_s:.2f} to {cell.high_ttft_s:.2f})"
+
+
+def _wave_text(cell: "waves.WaveCell") -> str:
+    """The mean wall time of a whole wave, or '-' when no wave of the cell is fully valid."""
+    return f"{cell.mean_wall_s:.1f} s" if cell.has_valid_wave else "-"
+
+
+def _wave_tps_text(cell: "waves.WaveCell") -> str:
+    """The prompt tokens of all users together over the wave, or '-' with no fully valid wave."""
+    return f"{cell.mean_prompt_tps:,.0f}" if cell.has_valid_wave else "-"
+
+
+def _speed_up_text(cell: "waves.WaveCell", base: "waves.WaveCell", arm: str, baseline: str) -> str:
+    """How many times shorter this wave is than the Mac-alone wave of the same cell.
+
+    Both sides need a wave that survived its checks: a missing figure on either side leaves the
+    speed-up unknown, which is not the same as a speed-up of one.
+    """
+    if arm == baseline:
+        return "baseline"
+    if not (cell.has_valid_wave and base.has_valid_wave):
+        return "-"
+    return f"{waves.comparison(cell, base):.2f}×"
+
+
+def _wave_cells(rows: List[Dict[str, Any]], label: str) -> List["waves.WaveCell"]:
+    """Every cell of a many-users study, checked to cover each prompt size, user count and arm."""
+    cells = waves.sort_cells(list(waves.cells(rows).values()))
+    if not cells:
+        raise PublishError(f"{label}: no many-users request for this machine")
+    arms = ordered_arms(cell.arm for cell in cells)
+    if len(arms) < 2:
+        raise PublishError(f"{label}: the wave study needs a second arm to compare with {arms[0]!r}")
+    wanted = {
+        (size, users, arm)
+        for size in {cell.size for cell in cells}
+        for users in {cell.users for cell in cells}
+        for arm in arms
+    }
+    missing = sorted(wanted - {(cell.size, cell.users, cell.arm) for cell in cells})
+    if missing:
+        raise PublishError(
+            f"{label}: cells without a wave: "
+            + ", ".join(f"{size_label(size)} / {users} users / {arm_label(arm)}" for size, users, arm in missing)
+        )
+    return cells
+
+
+def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
+    """Time for a wave of many requests at once, the Mac alone against the helper.
+
+    A many-users row is one request of a wave: N requests that begin at one moment. The cell comes
+    from the row's own fields (prompt size, user count, whether the helper was on, which wave), so
+    no variant name is typed in. Two figures are the study's own: the wall time of the whole wave,
+    which every row of that wave carries, and the prompt tokens of all users together over it.
+    """
+    study, label = machine["many_users"], machine["label"]
+    cells = _wave_cells([row for row in _rows(root, study["files"]) if row.get("machine") == label], label)
+    baseline = ordered_arms(cell.arm for cell in cells)[0]
+    by = {(cell.size, cell.users, cell.arm): cell for cell in cells}
+    sizes = sorted({cell.size for cell in cells})
+    counts = sorted({cell.users for cell in cells})
+
+    header = [
+        "Prompt",
+        "Users",
+        "Arm",
+        "Requests",
+        "Valid",
+        "Waves in the means",
+        "Time to first token",
+        "Wave time",
+        "Wave prompt tokens/s",
+        "Wave speed-up",
+    ]
+    rows = []
+    for size in sizes:
+        for users in counts:
+            for arm in ordered_arms(cell.arm for cell in cells):
+                cell, base = by[(size, users, arm)], by[(size, users, baseline)]
+                rows.append(
+                    [
+                        size_label(size),
+                        str(users),
+                        arm_label(arm),
+                        str(cell.requests),
+                        str(cell.n_valid),
+                        f"{cell.waves_used} of {len(cell.waves)}",
+                        _wait_text(cell),
+                        _wave_text(cell),
+                        _wave_tps_text(cell),
+                        _speed_up_text(cell, base, arm, baseline),
+                    ]
+                )
+
+    lines = [
+        "Time for the whole wave to finish, at each prompt size, user count and arm:",
+        "",
+        _table(header, rows),
+        "",
+        _waves_in_means(cells, counts),
+        "A wave with a request a check marks not valid is left out of the wave means as a whole: "
+        "its own wall time and prompt tokens are not used in any mean.",
+    ]
+
+    members = [member for cell in cells for member in cell.members]
+    marked = waves.failed_marks(members)
+    if marked:
+        counts_text = ", ".join(f"{count} · {name}" for name, count in sorted(marked.items()))
+        lines.append(f"Requests marked not valid by a check, kept in their wave's count and out of its means: {counts_text}.")
+    lines.append(waves.reading_line(members))
+
+    outputs: Outputs = {f"reports/{label}/many-users.md": report.wave_markdown(cells)}
+    plottable = [cell for cell in cells if cell.has_valid_wave]
+    if plottable:
+        caption = Caption(
+            title="Wave time by number of users",
+            subtitle=[f"{machine['model']} · {machine['hardware']} · helper: {machine['helper']}", study["conditions"]],
+            footnotes=[
+                "Both axes are log scale and shared by both panels. One line per arm; hover a point for its value.",
+                "A wave is its user count of requests released together. Lower is better.",
+            ],
+        )
+        panels = report.wave_lines(plottable)
+        outputs.update(_charts(f"{label}-many-users", lambda theme: line_panels(caption, panels, theme)))
+    return outputs, "\n".join(lines)
+
+
 STUDIES = {
     "speed": Study("speed", build_speed),
     "speed_sweep": Study("speed", build_speed_sweep),
@@ -547,6 +714,7 @@ STUDIES = {
     "quality": Study("quality", build_quality),
     "helper_ready": Study("request", build_helper_ready),
     "helper_layers": Study("request", build_helper_layers),
+    "many_users": Study("request", build_many_users),
 }
 
 

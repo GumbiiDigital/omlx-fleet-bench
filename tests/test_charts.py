@@ -207,6 +207,88 @@ class LinePanelTest(unittest.TestCase):
             )
 
 
+class LinePanelsTest(unittest.TestCase):
+    """Several line charts in one figure, on one shared pair of ranges."""
+
+    def setUp(self):
+        self.caption = charts.Caption("Wave time by number of users", ["model · machine"], ["a footnote"])
+
+    @staticmethod
+    def _panel(title, alone, helped):
+        """One panel per prompt size: two arms, four user counts, the same ranges on every panel."""
+
+        def points(values):
+            return [
+                charts.LinePoint(users, value, f"{users} users", f"{value:.1f} s")
+                for users, value in zip((1, 2, 4, 8), values)
+            ]
+
+        return charts.LinePanel(
+            title=title,
+            x_min=1,
+            x_max=8,
+            y_min=7.0,
+            y_max=330.0,
+            x_ticks=[(1, "1"), (2, "2"), (4, "4"), (8, "8")],
+            y_ticks=[(10.0, "10 s"), (100.0, "100 s")],
+            series=[
+                charts.LineSeries("Mac alone", "blue", points(alone)),
+                charts.LineSeries("With helper", "aqua", points(helped)),
+            ],
+        )
+
+    def _panels(self):
+        return [
+            self._panel("4K prompt", (7.9, 19.2, 33.2, 65.5), (7.2, 14.2, 23.1, 42.0)),
+            self._panel("32K prompt", (38.7, 79.2, 161.3, 324.7), (20.4, 38.7, 75.6, 149.5)),
+        ]
+
+    def _svg(self, panels=None, theme=LIGHT):
+        return charts.line_panels(self.caption, panels or self._panels(), theme)
+
+    def test_every_panel_title_and_one_legend_are_drawn(self):
+        texts = _texts(self._svg())
+        self.assertIn("4K prompt", texts)
+        self.assertIn("32K prompt", texts)
+        # The legend is one row for the whole figure, so each arm is named once.
+        self.assertEqual(texts.count("Mac alone"), 1)
+        self.assertEqual(texts.count("With helper"), 1)
+        self.assertIn("a footnote", texts)
+
+    def test_every_point_keeps_its_value_in_a_tooltip(self):
+        svg = self._svg()
+        titles = [node.text for node in ET.fromstring(svg).iter(f"{SVG_NS}title")]
+        self.assertIn("4K prompt · With helper · 8 users: 42.0 s", titles)
+        self.assertIn("32K prompt · Mac alone · 8 users: 324.7 s", titles)
+        self.assertNotIn("42.0 s", _texts(svg))
+
+    def test_the_panels_share_one_scale(self):
+        root = ET.fromstring(self._svg())
+        dots = [(float(node.get("cx")), float(node.get("cy"))) for node in root.iter(f"{SVG_NS}circle")]
+        self.assertEqual(len(dots), 16)
+        # 4K at 8 users with the helper (42.0 s) against 32K at 8 users on the Mac alone (324.7 s):
+        # the shared scale puts the longer wave higher up, in either panel.
+        first_panel, second_panel = dots[:8], dots[8:]
+        self.assertLess(second_panel[7][1], first_panel[7][1])
+
+    def test_each_arm_uses_its_theme_colour_in_every_panel(self):
+        root = ET.fromstring(self._svg(theme=DARK))
+        strokes = {node.get("stroke") for node in root.iter(f"{SVG_NS}line")}
+        self.assertIn(DARK.series["blue"], strokes)
+        self.assertIn(DARK.series["aqua"], strokes)
+
+    def test_same_input_gives_the_same_bytes(self):
+        self.assertEqual(self._svg(), self._svg())
+
+    def test_no_panels_is_an_error(self):
+        with self.assertRaises(ValueError):
+            charts.line_panels(self.caption, [], LIGHT)
+
+    def test_a_panel_with_no_series_is_an_error(self):
+        with self.assertRaises(ValueError):
+            charts.line_panels(self.caption, [charts.LinePanel("t", 1.0, 10.0, 1.0, 10.0, [], [], [])], LIGHT)
+
+
 class LabelsTest(unittest.TestCase):
     def test_known_variants_keep_the_fixed_order(self):
         self.assertEqual(
@@ -233,6 +315,17 @@ class LabelsTest(unittest.TestCase):
         self.assertEqual(labels.size_label(8192), "8K")
         self.assertEqual(labels.size_label(131072), "128K")
         self.assertEqual(labels.size_label(1000), "1,000")
+
+    def test_arms_run_mac_alone_then_helper_and_keep_their_colours(self):
+        self.assertEqual(labels.ordered_arms(["helper", "mac-alone"]), ["mac-alone", "helper"])
+        self.assertEqual([labels.arm_label(arm) for arm in ("mac-alone", "helper")], ["Mac alone", "With helper"])
+        for colour in labels.arm_series(["mac-alone", "helper"]).values():
+            self.assertIn(colour, LIGHT.series)
+            self.assertIn(colour, DARK.series)
+
+    def test_an_arm_without_a_colour_is_an_error(self):
+        with self.assertRaises(ValueError):
+            labels.arm_series(["gyro"])
 
     def test_a_layer_setting_is_named_by_what_was_asked_for(self):
         self.assertEqual(labels.setting_label("mac-alone"), "Mac alone")

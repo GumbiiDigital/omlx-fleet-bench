@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from bench.helper import HELPER_READY_STATE
+
 
 def assess_validity(
     *,
@@ -67,4 +69,50 @@ def assess_validity(
         "helper_ready_at_start": helper_ready_ok,
         "helper_served": helper_served,
         "ane_tiles_match": ane_ok,
+    }
+
+
+def assess_many_users_validity(
+    *,
+    status: str,
+    cached_tokens: Optional[int],
+    helper_on: bool,
+    helper_state: Optional[str],
+    wave_users: int,
+    wave_answered: int,
+    helper_served: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Validity of one request in a wave of requests that began at the same moment.
+
+    The wave is the measurement, so `wave_answered` is the same on every row of one wave: it holds
+    only when the server answered every request of the wave. A request that began before the helper
+    session was up was read by the Mac alone with no error, so a helper row needs `ready` at the
+    wave start. `cached_tokens_zero` says this request read its prompt cold, which a wave with its
+    own prompt per request should always give.
+
+    `helper_served` is the proof read once after the wave. On a helper row it must be True: a False
+    means the helper did not read that wave, and a None means the proof could not be read at all,
+    which leaves nothing to show that the helper did its work — neither can pass for a measured
+    helper wave. On a Mac-alone row the proof says nothing about the Mac, so the flag does not fail
+    it. `helper_served_proven` names that rule, and is the flag a reader should test.
+    """
+    answered_ok = int(wave_users) > 0 and int(wave_answered) == int(wave_users)
+    status_ok = str(status).lower() == "completed"
+    cached_ok = cached_tokens == 0
+    # The helper was off, or its session was up and stable when the wave began.
+    ready_ok = (
+        True
+        if not helper_on
+        else str(helper_state or "").strip().lower() == HELPER_READY_STATE
+    )
+    served_ok = True if not helper_on else helper_served is True
+
+    return {
+        "valid": answered_ok and status_ok and cached_ok and ready_ok and served_ok,
+        "wave_answered": answered_ok,
+        "status_completed": status_ok,
+        "cached_tokens_zero": cached_ok,
+        "helper_ready_at_wave_start": ready_ok,
+        "helper_served_proven": served_ok,
+        "helper_served": helper_served,
     }

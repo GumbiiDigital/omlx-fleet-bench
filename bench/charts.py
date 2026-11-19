@@ -27,6 +27,8 @@ AXIS_LABEL_HEIGHT = 20
 PANEL_ROW_GAP = 22
 LINE_PLOT_HEIGHT = 300
 LEGEND_ROW_HEIGHT = 18
+# A panel that shares the picture with others gets a shorter plot, so two fit across the width.
+PANEL_PLOT_HEIGHT = 210
 
 TITLE_SIZE = 16
 SUBTITLE_SIZE = 12
@@ -292,61 +294,57 @@ def interval_panels(
     return _close(canvas, caption, bottom)
 
 
-def _legend(canvas: Canvas, panel: LinePanel, y: float) -> None:
+def _legend(canvas: Canvas, series: Sequence[LineSeries], y: float) -> None:
     """Series names in one row above the plot, each after a swatch in its own colour."""
     x = PAD
-    for series in panel.series:
-        canvas.line(x, y - 4, x + 14, y - 4, canvas.theme.series[series.series], width=2, round_cap=True)
-        canvas.text(x + 20, y, series.label, size=NOTE_SIZE, fill=canvas.theme.secondary)
-        x += 20 + text_width(series.label, NOTE_SIZE) + 24
+    for line in series:
+        canvas.line(x, y - 4, x + 14, y - 4, canvas.theme.series[line.series], width=2, round_cap=True)
+        canvas.text(x + 20, y, line.label, size=NOTE_SIZE, fill=canvas.theme.secondary)
+        x += 20 + text_width(line.label, NOTE_SIZE) + 24
 
 
-def line_panel(caption: Caption, panel: LinePanel, theme: Theme) -> str:
-    """One line per series, against a value that runs across decades, on log axes.
-
-    Position carries the value on both axes, so a straight line means a constant growth
-    rate. Every point gets its value in a tooltip rather than a label: on a line, labels
-    collide where two series meet.
-    """
+def _check_log_panel(panel: LinePanel) -> None:
     if not panel.series:
         raise ValueError("no series")
     if min(panel.x_min, panel.y_min) <= 0 or panel.x_max <= panel.x_min or panel.y_max <= panel.y_min:
         raise ValueError("log axes need a positive range")
-    points = [point for series in panel.series for point in series.points]
-    if not points:
+    if not any(point for series in panel.series for point in series.points):
         raise ValueError("no points")
 
-    def log_span(low: float, high: float):
-        floor, span = math.log10(low), math.log10(high) - math.log10(low)
-        return lambda value: (math.log10(min(max(value, low), high)) - floor) / span
 
-    across, down = log_span(panel.x_min, panel.x_max), log_span(panel.y_min, panel.y_max)
-    gutter = max([text_width(label, NOTE_SIZE) for _, label in panel.y_ticks] + [24.0]) + 12
-    left, right = PAD + gutter, WIDTH - PAD - 24
-    top = _header_height(caption) + LEGEND_ROW_HEIGHT + 4
-    bottom = top + LINE_PLOT_HEIGHT
+def _log_span(low: float, high: float):
+    """Map a value in `low` to `high` onto 0 to 1 along a log scale, clamped to the ends."""
+    floor, span = math.log10(low), math.log10(high) - math.log10(low)
+    return lambda value: (math.log10(min(max(value, low), high)) - floor) / span
+
+
+def _draw_plot(canvas: Canvas, panel: LinePanel, left: float, top: float, right: float, bottom: float) -> None:
+    """Both log axes, their grids and ticks, and every series of one panel, inside a box.
+
+    The caller owns the box, so the same marks serve a chart that fills the figure and one that
+    shares it with other panels.
+    """
+    across, down = _log_span(panel.x_min, panel.x_max), _log_span(panel.y_min, panel.y_max)
 
     def x_of(value: float) -> float:
         return left + across(value) * (right - left)
 
     def y_of(value: float) -> float:
-        return bottom - down(value) * LINE_PLOT_HEIGHT
+        return bottom - down(value) * (bottom - top)
 
-    canvas = _open(caption, theme, bottom + LEGEND_ROW_HEIGHT + _footer_height(caption))
-    _legend(canvas, panel, top - LEGEND_ROW_HEIGHT + 4)
     for value, label in panel.y_ticks:
         y = y_of(value)
-        canvas.line(left, y, right, y, theme.grid)
-        canvas.text(left - 8, y + 4, label, size=NOTE_SIZE, fill=theme.muted, anchor="end")
+        canvas.line(left, y, right, y, canvas.theme.grid)
+        canvas.text(left - 8, y + 4, label, size=NOTE_SIZE, fill=canvas.theme.muted, anchor="end")
     for value, label in panel.x_ticks:
         x = x_of(value)
-        canvas.line(x, top, x, bottom, theme.grid)
-        canvas.text(x, bottom + 14, label, size=NOTE_SIZE, fill=theme.muted, anchor="middle")
-    canvas.line(left, top, left, bottom, theme.axis)
-    canvas.line(left, bottom, right, bottom, theme.axis)
+        canvas.line(x, top, x, bottom, canvas.theme.grid)
+        canvas.text(x, bottom + 14, label, size=NOTE_SIZE, fill=canvas.theme.muted, anchor="middle")
+    canvas.line(left, top, left, bottom, canvas.theme.axis)
+    canvas.line(left, bottom, right, bottom, canvas.theme.axis)
 
     for series in panel.series:
-        colour = theme.series[series.series]
+        colour = canvas.theme.series[series.series]
         placed = [(x_of(point.x), y_of(point.y)) for point in series.points]
         for (x1, y1), (x2, y2) in zip(placed, placed[1:]):
             canvas.line(x1, y1, x2, y2, colour, width=2, round_cap=True)
@@ -356,7 +354,61 @@ def line_panel(caption: Caption, panel: LinePanel, theme: Theme) -> str:
                 y,
                 4,
                 colour,
-                ring=theme.surface,
+                ring=canvas.theme.surface,
                 tooltip=f"{panel.title} · {series.label} · {point.x_text}: {point.y_text}",
             )
+
+
+def line_panel(caption: Caption, panel: LinePanel, theme: Theme) -> str:
+    """One line per series, against a value that runs across decades, on log axes.
+
+    Position carries the value on both axes, so a straight line means a constant growth
+    rate. Every point gets its value in a tooltip rather than a label: on a line, labels
+    collide where two series meet.
+    """
+    _check_log_panel(panel)
+    gutter = max([text_width(label, NOTE_SIZE) for _, label in panel.y_ticks] + [24.0]) + 12
+    left, right = PAD + gutter, WIDTH - PAD - 24
+    top = _header_height(caption) + LEGEND_ROW_HEIGHT + 4
+    bottom = top + LINE_PLOT_HEIGHT
+
+    canvas = _open(caption, theme, bottom + LEGEND_ROW_HEIGHT + _footer_height(caption))
+    _legend(canvas, panel.series, top - LEGEND_ROW_HEIGHT + 4)
+    _draw_plot(canvas, panel, left, top, right, bottom)
     return _close(canvas, caption, bottom + LEGEND_ROW_HEIGHT - 6)
+
+
+def line_panels(caption: Caption, panels: Sequence[LinePanel], theme: Theme, *, columns: int = 2) -> str:
+    """One line chart per panel, side by side, on axes the caller has made the same for all.
+
+    The panels share their ranges, so a line can be read against the line of the panel next to
+    it and a straight line means the same growth rate in both. Each point keeps its value in a
+    tooltip, and each panel keeps its own title.
+    """
+    if not panels:
+        raise ValueError("no panels")
+    for panel in panels:
+        _check_log_panel(panel)
+    gutter = max(
+        [text_width(label, NOTE_SIZE) for panel in panels for _, label in panel.y_ticks] + [24.0]
+    ) + 12
+    panel_height = PANEL_TITLE_HEIGHT + PANEL_PLOT_HEIGHT + AXIS_LABEL_HEIGHT
+    top = _header_height(caption) + LEGEND_ROW_HEIGHT + 4
+    origins, panel_width, bottom = _grid(len(panels), columns, panel_height, top)
+    if panel_width - gutter < 60:
+        raise ValueError("labels leave no room for the plot; use fewer columns")
+
+    series: List[LineSeries] = []
+    for panel in panels:
+        for line in panel.series:
+            if line.label not in [known.label for known in series]:
+                series.append(line)
+
+    canvas = _open(caption, theme, bottom + _footer_height(caption))
+    _legend(canvas, series, top - LEGEND_ROW_HEIGHT + 4)
+    for panel, (px, py) in zip(panels, origins):
+        canvas.text(px, py + PANEL_TITLE_SIZE, panel.title, size=PANEL_TITLE_SIZE, weight=600)
+        plot_top = py + PANEL_TITLE_HEIGHT
+        _draw_plot(canvas, panel, px + gutter, plot_top, px + panel_width, plot_top + PANEL_PLOT_HEIGHT)
+    return _close(canvas, caption, bottom)
+

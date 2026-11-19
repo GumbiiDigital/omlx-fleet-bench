@@ -101,6 +101,11 @@
         "replace": ["results/m3-ultra-b/quality-passkey-cold-2026-11-17.jsonl"],
         "baseline": "gpu",
         "conditions": "Same questions under every setting, temperature 0. Higher is better."
+      },
+      "many_users": {
+        "kind": "request",
+        "files": ["results/m3-ultra-b/many-users-2026-11-18.jsonl"],
+        "conditions": "Cold cache, 128 output tokens, 3 waves per cell of 1, 2, 4 and 8 requests released together. Lower is better."
       }
     }
   ]

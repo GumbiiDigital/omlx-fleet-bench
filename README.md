@@ -318,6 +318,62 @@ How to read it:
   run before the valid rerun, made while the helper program had stopped. The last row of that
   file is the 128K helper run the sweep lacked, so every cell has 2 valid runs.
 
+### Many users at once (Flash-Next)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-many-users-dark.svg">
+  <img alt="Time for a wave of 1, 2, 4 and 8 requests to finish at 4K and 32K prompt tokens, Mac alone and with the Spark helper, on log scales" src="charts/m3-ultra-b-many-users-light.svg">
+</picture>
+
+<!-- BEGIN GENERATED: many-users m3-ultra-b -->
+Time for the whole wave to finish, at each prompt size, user count and arm:
+
+| Prompt | Users | Arm | Requests | Valid | Waves in the means | Time to first token | Wave time | Wave prompt tokens/s | Wave speed-up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 4K | 1 | Mac alone | 3 | 3 | 3 of 3 | 4.98 s (4.91 to 5.03) | 7.9 s | 527 | baseline |
+| 4K | 1 | With helper | 3 | 3 | 3 of 3 | 4.17 s (4.05 to 4.30) | 7.2 s | 578 | 1.10× |
+| 4K | 2 | Mac alone | 6 | 6 | 3 of 3 | 10.32 s (4.92 to 16.93) | 19.2 s | 433 | baseline |
+| 4K | 2 | With helper | 6 | 6 | 3 of 3 | 6.67 s (5.85 to 7.49) | 14.2 s | 583 | 1.35× |
+| 4K | 4 | Mac alone | 12 | 12 | 3 of 3 | 19.23 s (4.91 to 24.48) | 33.2 s | 499 | baseline |
+| 4K | 4 | With helper | 12 | 12 | 3 of 3 | 10.93 s (6.02 to 15.55) | 23.1 s | 718 | 1.44× |
+| 4K | 8 | Mac alone | 24 | 24 | 3 of 3 | 38.43 s (4.96 to 74.27) | 65.5 s | 520 | baseline |
+| 4K | 8 | With helper | 24 | 24 | 3 of 3 | 19.21 s (6.18 to 33.03) | 42.0 s | 789 | 1.56× |
+| 32K | 1 | Mac alone | 3 | 3 | 3 of 3 | 34.36 s (33.77 to 34.65) | 38.7 s | 846 | baseline |
+| 32K | 1 | With helper | 3 | 3 | 3 of 3 | 16.77 s (16.29 to 17.05) | 20.4 s | 1,605 | 1.90× |
+| 32K | 2 | Mac alone | 6 | 6 | 3 of 3 | 55.02 s (35.08 to 75.30) | 79.2 s | 826 | baseline |
+| 32K | 2 | With helper | 6 | 6 | 3 of 3 | 26.87 s (18.21 to 36.14) | 38.7 s | 1,693 | 2.05× |
+| 32K | 4 | Mac alone | 12 | 12 | 3 of 3 | 115.48 s (35.69 to 157.94) | 161.3 s | 811 | baseline |
+| 32K | 4 | With helper | 12 | 12 | 3 of 3 | 45.91 s (19.46 to 72.76) | 75.6 s | 1,731 | 2.13× |
+| 32K | 8 | Mac alone | 24 | 24 | 3 of 3 | 245.48 s (37.28 to 322.50) | 324.7 s | 806 | baseline |
+| 32K | 8 | With helper | 24 | 24 | 3 of 3 | 84.50 s (20.22 to 147.46) | 149.5 s | 1,751 | 2.17× |
+
+Mean of 3 waves per cell, at 1, 2, 4 and 8 users per wave.
+A wave with a request a check marks not valid is left out of the wave means as a whole: its own wall time and prompt tokens are not used in any mean.
+All 180 requests read their prompt cold and got a correct answer.
+<!-- END GENERATED: many-users m3-ultra-b -->
+
+How to read it:
+
+- One wave is a number of users who send a prompt of the same size at the same moment, and every
+  user of a wave sends the same prompt size. The wave is over when its last reply arrives, so the
+  wave time is what the slowest of them waited.
+- More users make the wave longer in both arms. On the Mac alone the wave time roughly doubles each
+  time the user count doubles; with the helper it also rises at every step.
+- At the same cell the whole wave is shorter with the helper than on the Mac alone, at both prompt
+  sizes and at every user count. The gap is wider at 32K than at 4K. The speed-up grows with the
+  number of users at both prompt sizes: at 4K from 1.10× with one user to 1.56× with eight, and at
+  32K from 1.90× to 2.17×.
+- The prompt tokens per second column counts every user's prompt together over the wave. Put
+  together that way, the wave moves 433 to 846 prompt tokens a second on the Mac alone, and 578 to
+  1,751 with the helper. These rows do not say how the server or the helper shares the work between
+  users; that was not measured, so the table reads out what happened and not why.
+- Limits: one model, one machine pair, 3 waves per cell, 128 output tokens, a cold cache in every
+  request. The second user, fourth user and eighth user send at the same instant as the first, so
+  this is a burst, not people typing at their own pace.
+- These rows were made on 2026-11-18 with the DGX Spark helper that was paired with this Mac that
+  day. The sweep above used a second Spark unit of the same type, so read the two as separate
+  series, as it says there.
+
 ### KV cache schemes (Flash-Next)
 
 <picture>
@@ -382,7 +438,8 @@ How to read it:
 
 - Two Macs, each with one helper, and one model on each, on a pre-release oMLX build. I do not know
   how far they transfer.
-- Cold cache and one request at a time. No warm-cache numbers and no concurrency.
+- Cold cache. Every study but one sends one request at a time; the many-users study sends up to 8
+  requests at once, and it is the only concurrent result here. No warm-cache numbers.
 - Three runs per cell. Enough to see a 3× effect, not enough to rank two setups that are 2% apart.
 - Decode speed (tokens per second after the first token) is in the raw rows but not studied.
 - The server refused a 256K prompt on the Flash-Next model with HTTP 400, so there is no

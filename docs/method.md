@@ -117,7 +117,8 @@ is byte-identical to a copy taken before it.
 ## Limits
 
 - One Mac, one helper, one model, one pre-release oMLX build.
-- Cold cache and one request at a time. No warm-cache or concurrent numbers.
+- Cold cache. Every study but one sends one request at a time; the many-users study sends up to 8
+  requests at once, and it is the only concurrent result here. No warm-cache numbers.
 - Three runs per cell.
 - The size of the KV cache is not measured. Peak MLX active memory is reported instead.
 - Helper memory and temperature are not recorded.
@@ -127,3 +128,11 @@ is byte-identical to a copy taken before it.
   published full-test scores.
 - `bench/report.py` merges every JSONL file under the folder it is given. To report one study, give
   it that study's file.
+
+## Many users at once
+
+`bench/concurrency.py` runs one wave at a time: one prompt size, one setting, and N chat requests
+released together (`--users`, `--waves`). Before a wave it sends the settings, probes the model and
+waits for the helper, as both other runners do, then releases the requests through one gate, so no
+request begins before the whole wave does; each request carries its own prompt and its own offset
+from the wave start. A row is one request, and a wave counts only when every request came back.

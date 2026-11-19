@@ -27,6 +27,7 @@ a file name is the local date the run started; the timestamps inside the rows ar
 | `m3-ultra-b/kv-cache-2026-11-16.jsonl` | 18 | KV cache matrix, 6 cells × 3 runs |
 | `m3-ultra-b/quality-2026-11-16.jsonl` | 2,824 | Answer quality, all four settings |
 | `m3-ultra-b/quality-passkey-cold-2026-11-17.jsonl` | 24 | The passkey prompts asked again with a unique first line, so each one was read cold |
+| `m3-ultra-b/many-users-2026-11-18.jsonl` | 180 | One row per request of a wave: 2 prompt sizes × 2 arms × 4 user counts × 3 waves |
 
 The first machine's quality run is in two files because the first attempt stopped after the GPU block: the server
 answered HTTP 409 after a settings change. The harness now waits for the model and retries, and the
@@ -56,6 +57,12 @@ DGX Spark unit of the same type as the helper, one day before the speed matrix a
 sets are not one series. The error rows in those files are as the harness wrote them: they carry
 `error` and no metrics or log, so their fields differ from a completed row. No key was added or
 removed, and no measured value was changed.
+
+The many-users file (`m3-ultra-b/many-users-2026-11-18.jsonl`: 180 rows, 0 rows a flag marks not
+valid) got the machine label and the helper node id, and nothing else. The machine held two paired
+helper entries, so both ids were searched for; only one of them stands in the rows. The `matrix`
+field names the published matrix as it is, and every row is kept. No measured value was changed,
+and all 180 rows read 0 cached tokens.
 
 The five helper files (`helper-ready-*`, `helper-layers-*`) got the machine label and the helper
 node id, and nothing else. Their chat rows carry the helper fields below and no `validity` block;
@@ -124,6 +131,33 @@ rows were moved out of the speed file into their own file; no row was edited or 
 | `status` | `completed`, or `error` with the reason |
 | `note` | Present only when something needs saying: `no_answer_text` marks a reply with no answer text |
 | `target_tokens`, `approximate_prompt_tokens`, `prompt_chars` | Passkey rows: the size asked for and the size built |
+
+## Many-users rows (`bench/concurrency.py`)
+
+A many-users row is a chat row about one request of a wave: N requests that begin at one moment.
+It carries every field of a quality row above, and these:
+
+| Field | Meaning |
+|---|---|
+| `task` | Always `many_users` |
+| `users` | How many requests began at once in this wave |
+| `wave` | Which repeat of that user count it was: 0, 1, 2 |
+| `wave_id` | The same for every request of one wave, for example `spark-32768-u4-w0` |
+| `user_index` | 0 to `users` − 1: which request of the wave this row is |
+| `wave_wall_s` | Wall time of the whole wave, from the moment it opened to the last reply |
+| `request_start_offset_s` | Seconds between the wave start and this request's own start |
+| `expected`, `got`, `correct` | The passkey in this request's own prompt, the number in the reply, and whether they match |
+| `error` | Present instead of `status`/`content` when the request failed; the row is kept |
+| `validity` | `valid`, plus `wave_answered` (every request of the wave came back), `status_completed`, `cached_tokens_zero`, `helper_ready_at_wave_start`, `helper_served_proven` and `helper_served` |
+
+No two requests of a run share prompt text: each prompt's first line names its wave and its user, so
+a wave cannot be answered from the prompt cache of an earlier one. Each request is sent once, with no
+retry: a retried request would begin after its wave and its time would cover one attempt only, so a
+failure keeps its error row and makes its whole wave not valid. A request that began before the
+helper session was up is flagged by `helper_ready_at_wave_start`, because it was read by the Mac
+alone with no error. On a helper row `helper_served_proven` holds only when the proof read after the
+wave says the helper served it; a proof that could not be read leaves that unproven and the wave not
+valid. `helper_served` keeps the raw read, and on a Mac-alone row neither flag fails the wave.
 
 ## Helper fields (rows from 2026-11-17)
 
