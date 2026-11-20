@@ -1,6 +1,10 @@
 # Speed: how long does a Mac make you wait?
 
-TODO(stage B): page text
+Question: how long do you wait for the first word of a long prompt, and how much does the Spark take off?
+
+Short answer: on Mac A the Spark cuts the wait 2.8 to 3.4 times, from 8K to 128K tokens. On Mac B it
+cuts 1.4 times at 8K and 2.3 times at 128K. The Apple chip alone gives 1.2 to 1.3 times, and the two
+together give 3.1 to 3.8 times.
 
 <!-- BEGIN GENERATED: speed m3-ultra-a -->
 ### Mac A (Qwen 27B)
@@ -66,3 +70,28 @@ The wait for the first word at each prompt size, and how many times shorter it i
 
 - Each figure is the mean of 2 valid runs. Every run read its prompt with a cold cache (0 cached tokens).
 <!-- END GENERATED: speed-sweep m3-ultra-b -->
+
+## What this means
+
+- The Spark pays best on long prompts, because reading the prompt is what takes the time.
+- Mac B already reads a prompt fast on its own, so the same Spark buys less there.
+- The Apple chip helps a little on its own, and its gain adds to the Spark's.
+- At 128K tokens the helper read the whole prompt with no drop and no restart. On the stock helper
+  that run fails; the fix is in [pull request 5271](https://github.com/jundot/omlx/pull/5271), not released yet.
+
+## Two helper results that are wide
+
+At 8K and 32K on Mac A the first pass of helper runs came out lower than the rerun. The cause: a
+helper run that starts after several minutes of Mac-only work is slower than one that follows other
+helper runs. Both figures are in the table above. Treat the first pass as the lower bound.
+
+## About the prompt-size test on Mac B
+
+It was measured a day before the speed table, with a second Spark of the same type and 2 runs per
+size, so read it as its own series. The four sizes both sets have agree to within 3.1%. Four rows in
+those two files are kept but marked not valid, and none is in a mean: one 128K helper run never
+reached the helper, two rows are server conflicts (HTTP 409), and one failed before the rerun.
+
+Full tables: [Mac A](../reports/m3-ultra-a/speed.md) and [Mac B](../reports/m3-ultra-b/speed.md).
+The prompt sizes on Mac B are in [the prompt-size table](../reports/m3-ultra-b/speed-sweep.md). Back
+to [the front page](../README.md).

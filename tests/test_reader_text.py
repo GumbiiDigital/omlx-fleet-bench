@@ -1,7 +1,8 @@
-"""Tests for bench/readable.py, and for the generated blocks of the reader pages.
+"""Tests for bench/readable.py, and for the reader pages it guards.
 
-Stage A checks the generated blocks only: the hand text of the pages is rewritten in stage B, and
-until then the checker runs on what a script writes, so a fault here is a fault in a generator.
+The checker runs on the whole of every page a reader lands on, hand text and generated blocks alike,
+because a hard word or a six-column table is as much a fault in the prose as in a block. The front
+door is also held to a length a person will read.
 """
 
 import json
@@ -16,6 +17,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SVG_NS = "{http://www.w3.org/2000/svg}"
 # The pages a reader lands on: the front door, and the topic pages beside it.
 PAGES = [REPO_ROOT / "README.md"] + sorted((REPO_ROOT / "docs").glob("*.md"))
+# The page a new contributor reads first, written for a person like the rest.
+CONTRIBUTING = REPO_ROOT / "CONTRIBUTING.md"
+# A front door holds the answer and the way in, not a wall of notes.
+MAX_README_LINES = 150
+
+# A Markdown link: the text in brackets, then the target, and an optional title after it.
+LINK = re.compile(r"\[[^\]\n]*\]\((?P<target>[^)\s]+)(?:\s+\"[^\"]*\")?\)")
 
 
 def _blocks(text):
@@ -175,6 +183,56 @@ class GeneratedBlocksTest(unittest.TestCase):
         body = dict(_blocks((REPO_ROOT / "README.md").read_text(encoding="utf-8")))["headline"]
         for name in re.findall(r'charts/[\w.-]+\.svg', body):
             self.assertTrue((REPO_ROOT / name).is_file(), f"{name} is not on disk")
+
+
+class ReaderPagesTextTest(unittest.TestCase):
+    """The whole of every page a reader lands on, hand text and blocks together."""
+
+    WHOLE = PAGES + [CONTRIBUTING]
+
+    def test_every_page_a_reader_lands_on_is_checked(self):
+        names = sorted(path.name for path in self.WHOLE)
+        self.assertEqual(
+            names,
+            [
+                "CONTRIBUTING.md",
+                "README.md",
+                "answer-quality.md",
+                "files.md",
+                "helper-setup.md",
+                "many-users.md",
+                "memory.md",
+                "method.md",
+                "run-it.md",
+                "speed.md",
+            ],
+        )
+
+    def test_no_page_breaks_a_rule(self):
+        problems = []
+        for path in self.WHOLE:
+            for problem in readable.check(path.read_text(encoding="utf-8")):
+                problems.append(f"{path.relative_to(REPO_ROOT)} {problem}")
+        self.assertEqual(problems, [], "\n".join(problems))
+
+    def test_the_front_door_is_short_enough_to_read(self):
+        lines = (REPO_ROOT / "README.md").read_text(encoding="utf-8").splitlines()
+        self.assertLessEqual(len(lines), MAX_README_LINES, f"README.md is {len(lines)} lines")
+
+
+class PageLinkTest(unittest.TestCase):
+    """Every relative link on a page points at a file or folder that is there."""
+
+    def test_every_relative_link_resolves(self):
+        missing = []
+        for page in PAGES:
+            for match in LINK.finditer(page.read_text(encoding="utf-8")):
+                target = match.group("target").split("#")[0]
+                if not target or "://" in target or target.startswith("mailto:"):
+                    continue
+                if not (page.parent / target).exists():
+                    missing.append(f"{page.relative_to(REPO_ROOT)} -> {target}")
+        self.assertEqual(missing, [], "\n".join(missing))
 
 
 class ChartTextTest(unittest.TestCase):

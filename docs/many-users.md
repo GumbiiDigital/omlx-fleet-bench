@@ -1,6 +1,10 @@
 # Many people sending prompts at the same time
 
-TODO(stage B): page text
+Question: what happens when several people send a long prompt at the same moment?
+
+Short answer: the whole group finishes sooner with the Spark. On Mac B at 32K and 8 users the group
+takes 5.4 min on the Mac alone and 2.5 min with the Spark, 2.17 times faster. One user at 4K gains
+1.10 times, so a single short prompt gains least.
 
 <!-- BEGIN GENERATED: many-users m3-ultra-b -->
 ### Mac B (Flash-Next)
@@ -22,3 +26,23 @@ Time for a whole group of requests to finish, at each prompt size and user count
 - A group with a request a check marks not valid is left out of the group means as a whole: its own time and prompt tokens are not used in any mean.
 - All 180 requests read their prompt cold and got a correct answer.
 <!-- END GENERATED: many-users m3-ultra-b -->
+
+## What this means
+
+- A group is N requests that start at the same instant, and its time is the wait of the slowest one.
+- The longer the prompt and the more users, the more the Spark is worth: 1.10 times at 4K with one
+  user, 2.17 times at 32K with eight.
+- On the Mac alone the group time roughly doubles each time the user count doubles. With the Spark it
+  also rises at every step, but by less.
+- These rows do not say how the Mac and the Spark share the work between users. That was not measured.
+
+## Limits
+
+- One model, one machine pair, 3 groups per case, 128 output tokens, a cold cache in every request.
+- The second, fourth and eighth user send at the same instant as the first, so this is a burst, not
+  people typing at their own pace.
+- The rows were made on 2026-11-18 with the Spark that was paired with that Mac that day, not the
+  second Spark of the same type used for the prompt-size test.
+
+Full table: [Mac B, every request](../reports/m3-ultra-b/many-users.md). Back to
+[the front page](../README.md).
