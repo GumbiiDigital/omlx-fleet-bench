@@ -28,9 +28,9 @@ Words on this page:
 
 ## Where the helper's node id comes from
 
-The server keeps the id of its paired Spark in a per-model setting named `prefill_helper_node_id`, and
-the runner sends that same id when you pass it as `--helper-node`. Find your helper id with this
-command, and copy the value it prints into `YOUR_HELPER_NODE_ID`:
+The server stores your Spark's id for each model, and the runner sends that same id when you pass it
+as `--helper-node`. Find your helper id with this command, and copy the value it prints into
+`YOUR_HELPER_NODE_ID`:
 
 ```bash
 python3 bench/helper_id.py \
@@ -89,6 +89,9 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
 Each run file tests one named model, in its `model` line. Load that model in oMLX, or copy the run
 file and change its `model` line to your model.
 
+In the commands below, replace DATE with today's date, for example 2026-11-20, and your-name with a
+short name for your Mac.
+
 0. Get the code:
 
    ```bash
@@ -98,8 +101,8 @@ file and change its `model` line to your model.
 
 1. Start with the short check that the runner can talk to your server. `matrices/smoke.json` asks for
    two prompts at 8K, one run each: one on the Mac alone, one with the Apple Neural Engine. The helper
-   is off in both, so this check does not test the Spark. This repo has no record of how long it
-   takes.
+   is off in both: the command needs the id, but this check does not use the Spark. This repo has no
+   record of how long it takes.
 
    ```bash
    python3 bench/run.py \

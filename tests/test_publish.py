@@ -487,6 +487,16 @@ class RequestStudyTest(unittest.TestCase):
         self.assertNotIn("Mac alone", line)
         self.assertNotIn("read the whole prompt", line)
 
+    def test_the_not_valid_line_says_why_they_are_left_out(self):
+        _, blocks = publish.build(self.ws.root)
+        line = next(l for l in blocks["helper-ready box"].body.splitlines() if "do not count" in l)
+        # The reason is the start state, said apart from the time: a reader must not think the good
+        # time put the row back in, and must not read "ran at helper speed" as a contradiction.
+        self.assertIn("That mark comes from the start state alone, whatever wait the row got", line)
+        self.assertIn("cannot be compared with the number a ready helper gives", line)
+        # And the good time is explained: the helper arrived inside the request.
+        self.assertIn("came up while the request was still in flight", line)
+
     def test_the_layer_table_gives_a_mean_and_a_range_for_each_prompt_size(self):
         _, blocks = publish.build(self.ws.root)
         block = blocks["helper-layers box"].body

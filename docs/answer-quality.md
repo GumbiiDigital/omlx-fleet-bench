@@ -13,8 +13,9 @@ Words on this page:
 - **passkey**: find a hidden 7-digit number in a long text; there are 6 of these prompts.
 - **helper**: the DGX Spark that reads long prompts for the Mac.
 - **temperature 0**: the server picks the same word every time, so a question gets the same answer twice.
-- **4-bit prompt memory (Affine4)** and **8-bit prompt memory (Affine8)**: the prompt memory stored
-  in fewer bits, so it is smaller.
+- **4-bit prompt memory (setting name: Affine4)**: the prompt memory stored in 4 bits, so it is
+  smaller.
+- **8-bit prompt memory (setting name: Affine8)**: the same, stored in 8 bits.
 
 ## The questions
 
@@ -75,7 +76,7 @@ Answers right, per question set and setting. The second figure in a row is the s
   here", not "safe on short prompts". That is read from equal times and reading speeds; it was not
   confirmed from the server log.
 - The Spark answered all 6 passkey prompts right, at 32K, 64K and 128K tokens.
-- 8-bit moved 8 answers, and 4-bit moved 20, about twice as many, in both directions (7 right
+- 8-bit moved 8 answers, and 4-bit moved 20, more than twice as many, in both directions (7 right
   answers became wrong, 13 wrong answers became right). Read both rows as unchanged rather than as
   a gain.
 

@@ -10,8 +10,9 @@ Words on this page:
 - **KV cache**: the memory that holds the prompt while the model answers.
 - **prompt memory**: another name for the KV cache, used for the settings below.
 - **full-size**: the prompt memory kept at its full size, the setting the others are compared with.
-- **4-bit prompt memory (Affine4)**: the same memory stored in 4 bits instead of 16, so it is smaller.
-- **8-bit prompt memory (Affine8)**: the same idea, stored in 8 bits.
+- **4-bit prompt memory (setting name: Affine4)**: the same memory stored in 4 bits instead of 16, so
+  it is smaller.
+- **8-bit prompt memory (setting name: Affine8)**: the same idea, stored in 8 bits.
 - **peak memory**: the most memory the whole run used, not the size of the KV cache alone.
 - **layer**: the model is a stack of layers, and a setting may compress only some of them.
 

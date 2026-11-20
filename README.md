@@ -62,10 +62,10 @@ the answers came back the same with and without them. We checked that from the t
 the server log.
 
 The Spark was tested on the 6 long passkey prompts only (find a hidden number in a long text), and
-got all 6 right. On Mac A, 10 or 11 of 700 answers changed against Mac alone even where neither of
-them did any work, so changes that small happen on their own. On Mac B no setting changed an answer on
-this run (0 of 700 answers); that is not a measured safety margin. The numbers are in
-[answer quality](docs/answer-quality.md).
+got all 6 right. On Mac A, even on short questions, where the Spark and the Neural Engine do nothing,
+10 or 11 of 700 answers still differed from Mac alone. That is normal run-to-run noise. On Mac B no
+setting changed an answer on this run (0 of 700 answers); that is not a measured safety margin. The
+numbers are in [answer quality](docs/answer-quality.md).
 
 ## What you need
 
@@ -78,8 +78,8 @@ this run (0 of 700 answers); that is not a measured safety margin. The numbers a
 - The oMLX helper 0.1.4 on the Spark. This repo does not say where to get the helper or how to set it
   up.
 - One language model on the Mac. Tested: the Qwen 27B model, an open language model, stored as
-  `Jundot/Qwen3.8-27B-oQ4e-mtp` (4-bit, 16 GB on disk); and the Flash-Next model, a second open
-  language model, stored as `Qwen3.8-Flash-Next-oQ4e-mtp`.
+  `Jundot/Qwen3.8-27B-oQ4e-mtp` (the model's file name; 4-bit, 16 GB on disk); and the Flash-Next
+  model, a second open language model, stored as `Qwen3.8-Flash-Next-oQ4e-mtp`.
 - One fix the helper still needs: without it, 128K prompts fail on the helper. The fix is in
   [pull request 5271](https://github.com/jundot/omlx/pull/5271), and it is not in a release yet.
   Applying it is not covered here.

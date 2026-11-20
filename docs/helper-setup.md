@@ -3,9 +3,9 @@
 Question: why is the first request after switching the Spark on so slow, and how much of the model
 should the Spark hold?
 
-Short answer: a request sent before the helper is ready is read by the Mac alone, with no error: 6 of
-6 took 109.7 s, where the same request took 29.3 s once the runner waited. The helper is fastest with
-49 of the model's layers.
+Short answer: a chat request sent before the helper is ready is read by the Mac alone, with no error:
+6 of 6 took 109.7 s, where the same request took 29.3 s once the runner waited. The helper is fastest
+with 49 of the model's layers.
 
 Words on this page:
 
@@ -38,7 +38,7 @@ The wait for the first word of a request at 32K with the helper on, sent straigh
 
 - 6 requests in every line of the table. Each line is one request with the helper off and then one at 32K with the helper on, so every helper request starts straight after a switch.
 - The helper state at the start of the request: chat, Started at once: not ready yet, still connecting (6 of 6); chat, Waited for the helper: ready (6 of 6); speed test, Started at once: not ready yet, still starting (6 of 6); speed test, Waited for the helper: ready (6 of 6).
-- These 6 started before the helper was ready, so we do not count them. They are the speed test / Started at once rows, and they ran at helper speed (29.52 to 30.04 s).
+- These 6 started before the helper was ready, so we do not count them. They are the speed test / Started at once rows. That mark comes from the start state alone, whatever wait the row got: a row that begins before the helper is up cannot be compared with the number a ready helper gives. Their time looks normal because the helper came up while the request was still in flight, so they ran at helper speed (29.52 to 30.04 s).
 - Every request read its prompt cold; 12 of 12 answers were correct.
 <!-- END GENERATED: helper-ready m3-ultra-a -->
 

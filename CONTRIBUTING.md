@@ -11,19 +11,45 @@ Results from other machines are the most useful thing you can add. Code fixes ar
    name. The commands are in [run it](docs/run-it.md).
 3. Keep the row file as the runner wrote it. Do not delete rows that failed and do not edit values.
    If you measure a case again, write the new pass to its own file.
-4. Hide one value before you commit: your helper's node id, which appears in every row. Replace it
-   with `redacted-helper-node`.
+4. Hide one value before you commit: your helper's node id, which appears in every row. The id names
+   your Spark; it is not a password, but keep it private.
+
+   Read the id from your server into a shell variable. The command prints the id alone on one line,
+   so the variable holds nothing else:
+
+   ```bash
+   HELPER_ID=$(python3 bench/helper_id.py \
+     --base-url http://127.0.0.1:8004 \
+     --settings "$HOME/.omlx/settings.json" \
+     --model your-model)
+   ```
+
+   `--model` takes your model's id, the name your server lists it under. With no `--model` the same
+   command lists every model your server holds.
+
+   A model with no helper id gets a sentence instead of an id, and the variable would then hold that
+   sentence. So pair the Spark in oMLX first, then run the command again.
+
+   Replace the id with `redacted-helper-node` in every row file. The double quotes let the shell
+   expand the variable:
 
    macOS:
 
    ```bash
-   sed -i '' 's/YOUR_HELPER_NODE_ID/redacted-helper-node/g' results/your-name/*.jsonl
+   sed -i '' "s/$HELPER_ID/redacted-helper-node/g" results/your-name/*.jsonl
    ```
 
-   Linux:
+   Linux, with the same line but no `''` after `-i`:
 
    ```bash
-   sed -i 's/YOUR_HELPER_NODE_ID/redacted-helper-node/g' results/your-name/*.jsonl
+   sed -i "s/$HELPER_ID/redacted-helper-node/g" results/your-name/*.jsonl
+   ```
+
+   Then check that no row still holds the id. Every file must print `0`. Do not commit until every
+   one does:
+
+   ```bash
+   grep -c "$HELPER_ID" results/your-name/*.jsonl
    ```
 
 5. Add your machine to the published results list, `results/published.json`: its name, its display

@@ -557,27 +557,37 @@ def _layers_across_sizes(groups: Dict[Tuple[int, str], latency.Waits], setting: 
 
 
 def _not_valid_line(path: str, arm: str, flagged: "latency.Waits", alone: Dict[int, float]) -> str:
-    """One sentence on the rows a flag marks not valid, saying what their waits measured.
+    """One sentence on the rows a flag marks not valid: why they are left out, and what they got.
 
-    The helper state at the start alone does not say who served the request: a request that goes
-    out while the session is still starting can be read by the Mac alone or by the helper. The
-    measured wait is what tells them apart, so the sentence is built from it, never from the state.
+    A row is marked from its start state alone, so the reason it is left out comes first and is
+    kept apart from its time. The helper state at the start does not say who served the request: a
+    request that goes out while the session is still starting can be read by the Mac alone or by
+    the helper, and the measured wait is what tells them apart. A row served by the helper then
+    reads as normal, which is why the sentence says where the helper was when the request went out.
 
     The reader meets these rows first as "do not count", so the sentence says why in plain words,
     then names the table line they sit on and the wait they got.
     """
     on_the_helper = flagged.at_helper_speed(alone)
     waits = f"{flagged.low_ttft_s:.2f} to {flagged.high_ttft_s:.2f} s"
-    if on_the_helper == flagged.requests:
-        ran = f"ran at helper speed ({waits})"
-    elif on_the_helper == 0:
-        ran = f"ran at the speed of the Mac alone ({waits})"
-    else:
-        ran = f"{on_the_helper} of {flagged.requests} ran at helper speed"
-    return (
+    head = (
         f"These {flagged.requests} started before the helper was ready, so we do not count them. "
-        f"They are the {path} / {arm} rows, and they {ran}."
+        f"They are the {path} / {arm} rows."
     )
+    why = (
+        " That mark comes from the start state alone, whatever wait the row got: a row that begins "
+        "before the helper is up cannot be compared with the number a ready helper gives."
+    )
+    if on_the_helper == flagged.requests:
+        got = (
+            " Their time looks normal because the helper came up while the request was still in "
+            f"flight, so they ran at helper speed ({waits})."
+        )
+    elif on_the_helper == 0:
+        got = f" They ran at the speed of the Mac alone ({waits})."
+    else:
+        got = f" {on_the_helper} of {flagged.requests} ran at helper speed ({waits})."
+    return head + why + got
 
 
 def build_helper_ready(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
