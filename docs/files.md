@@ -50,6 +50,7 @@ Words on this page:
 
 - [The admin and chat clients](../bench/client.py): how a run logs in and sends a request.
 - [The chat client](../bench/chat.py): the chat call the quality and many-users tests use.
+- [The helper id reader](../bench/helper_id.py): prints the Spark id your server keeps for a model.
 - [The helper fields](../bench/helper.py): what the runner reads from the helper, and the wait rule.
 - [The server log reader](../bench/collect.py): reads the benchmark sections of the oMLX server log.
 - [The quality questions](../bench/qa.py): the passkey, GSM8K and MMLU questions and their scoring.

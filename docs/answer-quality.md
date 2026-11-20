@@ -18,9 +18,10 @@ Words on this page:
 
 ## The questions
 
-700 questions, asked the same way under every setting, at temperature 0: 200 from GSM8K, 500 from
-MMLU, and 6 passkey prompts (a 7-digit number planted halfway into 32K, 64K and 128K tokens of
-filler). Mac A made 3,530 requests and Mac B 2,824, with 0 errors.
+700 maths and general-knowledge questions (200 GSM8K + 500 MMLU) plus 6 long passkey prompts, 706 in
+all. Every question was asked the same way under every setting, at temperature 0. A passkey prompt
+hides a 7-digit number halfway into 32K, 64K or 128K tokens of filler. Mac A made 3,530 requests and
+Mac B 2,824, with 0 errors.
 
 <!-- BEGIN GENERATED: quality m3-ultra-a -->
 <picture>

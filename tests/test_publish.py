@@ -471,17 +471,18 @@ class RequestStudyTest(unittest.TestCase):
         _, blocks = publish.build(self.ws.root)
         block = blocks["helper-ready box"].body
         self.assertIn(
-            "2 requests in speed test / Started at once are marked not valid by a check on the "
-            "helper state when they started",
+            "These 2 requests do not count: the helper was still starting when they began. "
+            "They are the speed test / Started at once rows",
             block,
         )
         self.assertNotIn("helper_ready_at_start", block)
 
     def test_the_not_valid_line_says_what_the_waits_measured(self):
         _, blocks = publish.build(self.ws.root)
-        line = next(l for l in blocks["helper-ready box"].body.splitlines() if "marked not valid" in l)
-        # These rows began at `starting` and still came back in about 30 s: helper speed, not Mac alone.
-        self.assertIn("began at helper state not ready yet, still starting (2 of 2)", line)
+        line = next(l for l in blocks["helper-ready box"].body.splitlines() if "do not count" in l)
+        # These rows began while the helper was starting and still came back in about 30 s: helper
+        # speed, not the Mac alone.
+        self.assertIn("the helper was still starting when they began", line)
         self.assertIn("ran at helper speed (29.50 to 30.00 s)", line)
         self.assertNotIn("Mac alone", line)
         self.assertNotIn("read the whole prompt", line)

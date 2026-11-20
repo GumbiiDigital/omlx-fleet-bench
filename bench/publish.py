@@ -562,6 +562,9 @@ def _not_valid_line(path: str, arm: str, flagged: "latency.Waits", alone: Dict[i
     The helper state at the start alone does not say who served the request: a request that goes
     out while the session is still starting can be read by the Mac alone or by the helper. The
     measured wait is what tells them apart, so the sentence is built from it, never from the state.
+
+    The reader meets these rows first as "do not count", so the sentence says that in plain words
+    and then names the table line they sit on and the wait they got.
     """
     on_the_helper = flagged.at_helper_speed(alone)
     waits = f"{flagged.low_ttft_s:.2f} to {flagged.high_ttft_s:.2f} s"
@@ -572,8 +575,8 @@ def _not_valid_line(path: str, arm: str, flagged: "latency.Waits", alone: Dict[i
     else:
         ran = f"{on_the_helper} of {flagged.requests} ran at helper speed"
     return (
-        f"{flagged.requests} requests in {path} / {arm} are marked not valid by a check on the "
-        f"helper state when they started: they began at helper state {flagged.state_text} and {ran}."
+        f"These {flagged.requests} requests do not count: the helper was still starting when they "
+        f"began. They are the {path} / {arm} rows, and they {ran}."
     )
 
 

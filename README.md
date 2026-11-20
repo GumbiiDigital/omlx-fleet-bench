@@ -1,7 +1,7 @@
 # Does a DGX Spark make a Mac faster?
 
-Yes, for long prompts. On Mac A a 128K-token prompt (about 100,000 words) waits 10.6 min on the Mac
-alone and 3.2 min with the Spark. On Mac B the same prompt waits 2.3 min alone and 58.8 s with the
+Yes, for long prompts. Take the wait for the first word at 128K tokens (about 100,000 words): on Mac A
+10.6 min on the Mac alone and 3.2 min with the Spark; on Mac B 2.3 min alone and 58.8 s with the
 Spark.
 
 ## The two test setups
@@ -48,15 +48,16 @@ Spark.
 - **Short prompts gain little.** At 1K tokens Mac B gains 1.1 times, and 1.4 times at 8K.
 - **The faster Mac gains less.** Mac B reads a prompt fast on its own, so the Spark takes off less
   there: 1.4 to 2.3 times, against 2.8 to 3.4 times on Mac A.
-- **Many people at once still helps.** On Mac B at 32K, eight users at the same moment wait 5.4 min
-  alone and 2.5 min with the Spark. See [many users](docs/many-users.md).
+- **Many people at once still helps.** On Mac B at 32K, eight users at once: the whole group finishes
+  in 5.4 min alone, 2.5 min with the Spark. See [many users](docs/many-users.md).
 
 ## Does it change the answers?
 
-Mostly no, and the test shows less than it seems. The Spark and the Apple Neural Engine only act on
-long prompts. The grade-school maths questions (GSM8K) and general-knowledge questions (MMLU) are
-about 150 tokens, too short for the Spark or the Neural Engine to do any work, so their rows show no
-change because nothing happened. We checked this from the times. We did not check the server log.
+For short questions the Spark and the Neural Engine do nothing, so those rows say nothing about them.
+The test asks 700 maths and general-knowledge questions (200 GSM8K + 500 MMLU) plus 6 long passkey
+prompts, 706 in all. The maths and general-knowledge questions are about 150 tokens, too short for
+either add-on to do work on, and the answers came back the same with and without them. We checked that
+from the times. We did not check the server log.
 
 The Spark was tested on the 6 long passkey prompts only (find a hidden number in a long text), and
 got all 6 right. On Mac A, 10 or 11 of 700 answers changed against Mac alone even where the add-on did
@@ -72,13 +73,13 @@ no work, so changes that small happen on their own. On Mac B no setting changed 
 - A fast network link between the two. Tested: a 10 gigabit link.
 - oMLX 0.8.0rc1 on the Mac: the server that runs the model and answers each prompt, from
   [the oMLX project](https://github.com/jundot/omlx).
-- The oMLX CUDA helper 0.1.4 on the Spark. This repository does not cover setting up the helper; see
-  the oMLX helper's own guide.
+- The oMLX CUDA helper 0.1.4 on the Spark. This repo does not cover setting up the helper.
 - One language model on the Mac. Tested: the Qwen 27B model, an open language model, stored as
   `Jundot/Qwen3.8-27B-oQ4e-mtp` (4-bit, 16 GB on disk); and the Flash-Next model, a second open
   language model, stored as `Qwen3.8-Flash-Next-oQ4e-mtp`.
-- One fix the helper still needs: the 128K prompt fails on the stock helper. The fix is in
+- One fix the helper still needs: without it, 128K prompts fail on the helper. The fix is in
   [pull request 5271](https://github.com/jundot/omlx/pull/5271), and it is not in a release yet.
+  Applying it is not covered here.
 
 ## Try it on your Mac
 
@@ -123,14 +124,20 @@ Adding your own results: [Contributing](CONTRIBUTING.md).
 
 ## Words used here
 
+The two computers:
+
 - **helper**: the DGX Spark that reads long prompts for the Mac.
+- **paired**: the Mac and the Spark are linked in oMLX, so the Spark can work for the Mac.
+- **add-on**: the Spark or the Apple Neural Engine; each of them reads part of a long prompt.
+- **Apple Neural Engine**: a part of the Apple chip that can also read part of the prompt.
+- **KV cache**: the memory that holds the prompt while the model answers.
+
+A test:
+
 - **token**: about 3/4 of a word.
 - **prompt**: the text you send to the model.
 - **first word**: the first token the model sends back; this repo times the wait before it.
 - **cold cache**: the server holds nothing of the prompt, so it reads all of it.
-- **KV cache**: the memory that holds the prompt while the model answers.
-- **Apple Neural Engine**: a part of the Apple chip that can also read part of the prompt.
-- **add-on**: the Spark or the Apple Neural Engine; each of them reads part of a long prompt.
 
 ## Credits and license
 

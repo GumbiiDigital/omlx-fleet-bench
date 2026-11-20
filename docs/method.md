@@ -136,7 +136,7 @@ exactly the same as a copy taken before it.
   change, not enough to rank two setups that are 2% apart.
 - The size of the prompt memory is not measured. The peak memory the whole run used is reported
   instead.
-- Helper memory and temperature are not recorded.
+- This repo has no record of the helper's memory use or of the temperature.
 - The speed after the first word varies with the model's own habit of proposing several words at
   once, and is not studied.
 - The quality question sets are small: about 3 points of sampling error for GSM8K 200 and about 4 for

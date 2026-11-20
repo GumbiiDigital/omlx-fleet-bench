@@ -17,13 +17,13 @@ Results from other machines are the most useful thing you can add. Code fixes ar
    macOS:
 
    ```bash
-   sed -i '' 's/YOUR-NODE-ID/redacted-helper-node/g' results/your-name/*.jsonl
+   sed -i '' 's/YOUR_HELPER_NODE_ID/redacted-helper-node/g' results/your-name/*.jsonl
    ```
 
    Linux:
 
    ```bash
-   sed -i 's/YOUR-NODE-ID/redacted-helper-node/g' results/your-name/*.jsonl
+   sed -i 's/YOUR_HELPER_NODE_ID/redacted-helper-node/g' results/your-name/*.jsonl
    ```
 
 5. Add your machine to the published results list, `results/published.json`: its name, its display

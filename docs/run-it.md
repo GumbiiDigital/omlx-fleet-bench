@@ -11,6 +11,7 @@ server that other people use.
 Words on this page:
 
 - **helper**: the DGX Spark that reads long prompts for the Mac.
+- **paired**: the Mac and the Spark are linked in oMLX, so the Spark can work for the Mac.
 - **settings file**: the file your oMLX server reads when it starts.
 - **server log**: the file the server writes while it runs; the runner reads it to prove a run was cold.
 - **row file**: the file a run writes, one line per request.
@@ -20,19 +21,33 @@ Words on this page:
 
 - oMLX running on your Mac, answering at an address such as `http://127.0.0.1:8004`.
 - The settings file the server reads, normally `$HOME/.omlx/settings.json`, and its server log.
-- Your Spark paired as the helper, and its node id.
+- Your Spark paired as the helper; the command below reads its node id for you.
 - A run file from `matrices/` to say which prompt sizes and setups to run, and a name of your own for
   your machine, passed as `--machine`.
 
 ## Where the helper's node id comes from
 
-The server keeps its Spark id in a model setting named `prefill_helper_node_id`, and the runner sends
-that same id when you pass it as `--helper-node`. If your Spark is already paired, the value is there
-to copy: it is in the model settings your server holds, and the file you pass to `--settings`
-(normally `$HOME/.omlx/settings.json`) is where oMLX keeps its own copy. An empty value means the
-Spark is not paired yet, and this repository does not cover pairing it.
+The server keeps the id of its paired Spark in a per-model setting named `prefill_helper_node_id`, and
+the runner sends that same id when you pass it as `--helper-node`. Find your helper id with this
+command, and copy the value it prints into `YOUR_HELPER_NODE_ID`:
 
-In every command below, `YOUR_HELPER_NODE_ID` is the placeholder you replace with that value.
+```bash
+python3 bench/helper_id.py \
+  --base-url http://127.0.0.1:8004 \
+  --settings "$HOME/.omlx/settings.json" \
+  --model YOUR-MODEL-ID
+```
+
+`--model` takes your model's id, the name your server lists it under. With no `--model`, the same
+command lists every model and says whether it has a helper id.
+
+The settings file is read for the API key only. It is not where the id lives.
+
+If it prints no id, it says `no helper id set for <model>: pair the Spark in oMLX first` and stops
+with an error. That means the Spark is not paired with that model yet. This repository does not cover
+pairing: do that in oMLX first.
+
+In every command below, `YOUR_HELPER_NODE_ID` is the placeholder you replace with that id.
 
 ## Which run file fits which Mac
 
@@ -40,7 +55,7 @@ In every command below, `YOUR_HELPER_NODE_ID` is the placeholder you replace wit
 |---|---|---|
 | `matrices/m3-ultra-spark.json` | Mac A | speed, four setups at four prompt sizes |
 | `matrices/kv-cache.json`, `matrices/m3-ultra-b-kv-cache.json` | Mac A, Mac B | the prompt memory settings, alone on the Mac |
-| `matrices/quality.json`, `matrices/m3-ultra-b-quality.json` | Mac A, Mac B | answers, 700 questions (five settings on Mac A, four on Mac B) |
+| `matrices/quality.json`, `matrices/m3-ultra-b-quality.json` | Mac A, Mac B | answers to 700 questions plus 6 passkey prompts, 706 in all (five settings on Mac A, four on Mac B) |
 | `matrices/m3-ultra-a-helper-ready.json`, `matrices/m3-ultra-a-helper-ready-chat.json` | Mac A | the helper start-up wait |
 | `matrices/m3-ultra-a-helper-layers-chat-32k.json`, `matrices/m3-ultra-a-helper-layers-chat-128k.json` | Mac A | how many layers the Spark holds |
 | `matrices/m3-ultra-b-speed.json` | Mac B | speed, two setups at four prompt sizes |
@@ -76,8 +91,8 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
    cd omlx-fleet-bench
    ```
 
-1. Start with the two-run check that the runner can talk to your server. It makes two rows and its
-   time is not recorded:
+1. Start with the short check that the runner can talk to your server: two prompts. This repo has no
+   record of how long this step takes.
 
    ```bash
    python3 bench/run.py \
@@ -91,7 +106,7 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
    ```
 
 2. Look at what the speed run would do, and touch nothing. This one sends no request, so it makes no
-   rows and its time is not recorded:
+   rows. This repo has no record of how long this step takes.
 
    ```bash
    python3 bench/run.py \
@@ -106,8 +121,10 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
    ```
 
 3. Run the speed test: the wait for the first word at 8K, 32K, 64K and 128K tokens, for each setup in
-   the run file. This is the same command as step 2, without `--dry-run`. It took about 2 hours 23
-   minutes on Mac A (48 runs) and about 1 hour 40 minutes on Mac B (24 runs):
+   the run file. This is the same command as step 2, without `--dry-run`. With
+   `matrices/m3-ultra-spark.json` (Mac A, 48 runs) it took about 2 hours 23 minutes. With
+   `matrices/m3-ultra-b-speed.json` (Mac B, 24 runs) it took about 1 hour 40 minutes: put that file
+   in the `--matrix` line for a Mac B run.
 
    ```bash
    python3 bench/run.py \
@@ -120,7 +137,8 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
      --out results/your-name/speed-DATE.jsonl
    ```
 
-4. Build a summary of your own speed rows. It only reads the row file, so its time is not recorded:
+4. Build a summary of your own speed rows. It only reads the row file. This repo has no record of how
+   long this step takes.
 
    ```bash
    python3 bench/report.py results/your-name/speed-DATE.jsonl --report-dir report
@@ -159,8 +177,8 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
    groups speed rows only. The group tables and charts come from `python3 bench/publish.py`, which
    reads the file listed for your machine in the published results list.
 
-7. Check the numbers in this repository before you trust them. These read the files only, so their
-   time is not recorded:
+7. Check the numbers in this repository before you trust them. These read the files only. This repo
+   has no record of how long this step takes.
 
    ```bash
    python3 -m unittest discover -s tests
