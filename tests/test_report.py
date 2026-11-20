@@ -134,15 +134,15 @@ class TestPanels(unittest.TestCase):
         (panel,) = ttft_panels(self._cells(), "gpu")
         self.assertEqual(panel.title, "32K prompt")
         by_label = {row.label: row for row in panel.rows}
-        self.assertEqual(by_label["GPU only"].note, "baseline")
+        self.assertEqual(by_label["Mac alone"].note, "baseline")
         self.assertEqual(by_label["+ Spark helper"].value_text, "25.0 s")
         self.assertEqual(by_label["+ Spark helper"].note, "4.0× faster")
 
     def test_memory_panel_notes_change_against_baseline(self) -> None:
         (panel,) = memory_panels(self._cells(), "gpu")
         by_label = {row.label: row for row in panel.rows}
-        self.assertEqual(by_label["Affine4 KV"].value_text, "15.0 GB")
-        self.assertEqual(by_label["Affine4 KV"].note, "−25.0%")
+        self.assertEqual(by_label["Affine4 KV cache"].value_text, "15.0 GB")
+        self.assertEqual(by_label["Affine4 KV cache"].note, "−25.0%")
 
     def test_rows_without_a_prompt_size_are_not_speed_rows(self) -> None:
         rows = [_row("m1", "gpu", 8192, i, 300.0, 50000.0, True) for i in range(3)]
@@ -151,7 +151,7 @@ class TestPanels(unittest.TestCase):
 
     def test_summary_lists_peak_memory_and_flags(self) -> None:
         text = summary_markdown(self._cells())
-        self.assertIn("| m1 | Qwen3.8-27B-oQ4e-mtp | affine4 | 32768 | 3/3 |", text)
+        self.assertIn("| m1 | Qwen3.8-27B-oQ4e-mtp | Affine4 KV cache | 32768 | 3/3 |", text)
         self.assertIn("| 15.0 | - |", text)
 
     def test_report_writes_light_and_dark_charts(self) -> None:
@@ -179,7 +179,7 @@ class TestTtftLines(unittest.TestCase):
 
     def test_one_line_per_variant_in_the_fixed_order(self) -> None:
         panel = ttft_lines(self._cells())
-        self.assertEqual([line.label for line in panel.series], ["GPU only", "+ Spark helper"])
+        self.assertEqual([line.label for line in panel.series], ["Mac alone", "+ Spark helper"])
 
     def test_points_carry_the_size_and_the_wait(self) -> None:
         panel = ttft_lines(self._cells())
@@ -203,7 +203,7 @@ class TestTtftLines(unittest.TestCase):
             _row("m1", "spark", 8192, 0, 900.0, 6000.0, True),
         ]
         panel = ttft_lines(list(group_rows(rows).values()))
-        self.assertEqual([line.label for line in panel.series], ["GPU only", "+ Spark helper"])
+        self.assertEqual([line.label for line in panel.series], ["Mac alone", "+ Spark helper"])
         self.assertEqual([p.x for p in panel.series[1].points], [8192])
 
 
@@ -336,14 +336,14 @@ class TestWaveViews(unittest.TestCase):
         text = wave_markdown(self._cells())
         self.assertIn("| Mac alone | 4K | 1 | 0 | 1 | 1 |", text)
         self.assertIn("| 8.00 |", text)
-        self.assertIn("| With helper | 32K | 2 | 1 | 2 | 2 |", text)
+        self.assertIn("| Mac + Spark | 32K | 2 | 1 | 2 | 2 |", text)
         # Two sizes, two arms, two user counts, two waves each.
-        self.assertEqual(sum(1 for line in text.splitlines() if line.startswith("| Mac") or line.startswith("| With")), 16)
+        self.assertEqual(sum(1 for line in text.splitlines() if line.startswith("| Mac")), 16)
 
     def test_the_chart_has_one_panel_per_prompt_size_and_one_line_per_arm(self):
         panels = wave_lines(self._cells())
         self.assertEqual([panel.title for panel in panels], ["4K prompt", "32K prompt"])
-        self.assertEqual([series.label for series in panels[0].series], ["Mac alone", "With helper"])
+        self.assertEqual([series.label for series in panels[0].series], ["Mac alone", "Mac + Spark"])
         self.assertEqual([point.x for point in panels[0].series[0].points], [1, 2])
 
     def test_the_chart_points_are_the_mean_wave_times(self):

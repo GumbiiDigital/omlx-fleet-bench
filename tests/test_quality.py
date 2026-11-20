@@ -211,7 +211,7 @@ class SummaryTest(unittest.TestCase):
              "usage": {"prompt_tokens": 33000}},
         ]
         text = quality_report_summary(rows)
-        self.assertIn("| gpu | gsm8k | 1 | 2 | 50.0% |", text)
+        self.assertIn("| Mac alone | gsm8k | 1 | 2 | 50.0% |", text)
         self.assertIn("101%", text)
 
     def test_empty_rows(self):
@@ -227,8 +227,8 @@ class SummaryTest(unittest.TestCase):
              "finish_reason": "length", "content": "Answer: C"},
         ]
         text = quality_report_summary(rows)
-        self.assertIn("| Capped |", text)
-        self.assertIn("| gpu | mmlu | 2 | 3 | 66.7% | 0 | - | 2 |", text)
+        self.assertIn("| Cut off at the cap |", text)
+        self.assertIn("| Mac alone | mmlu | 2 | 3 | 66.7% | 0 | - | 2 |", text)
 
 
 class ReplacementTest(unittest.TestCase):

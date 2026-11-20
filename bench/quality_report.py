@@ -15,6 +15,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from bench.labels import variant_label  # noqa: E402
+
 
 def load_rows(paths: List[Path]) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
@@ -117,12 +123,31 @@ def prompt_fit(items: List[Dict[str, Any]]) -> Optional[str]:
     return f"{min(fits) * 100:.0f}-{max(fits) * 100:.0f}%"
 
 
+QUALITY_COLUMNS = [
+    ("Setting", "the server setting these answers were given under"),
+    ("Question set", "GSM8K, MMLU or Passkey"),
+    ("Right", "answers that passed their check"),
+    ("Scored", "answers that could be scored"),
+    ("Right (%)", "Right / Scored, in percent"),
+    ("Errors", "requests the server answered with an error"),
+    ("Prompt size against target", "the real prompt size as a share of the size asked for (passkey rows only)"),
+    ("Cut off at the cap", "answers that ran out of tokens while the model was still thinking"),
+]
+
+
 def write_summary(rows: List[Dict[str, Any]]) -> str:
     groups = group(rows)
     lines = [
         "# Answer quality summary",
         "",
-        "| Setting | Task | Correct | Scored | Accuracy | Errors | Real/target prompt | Capped |",
+        "What each column means:",
+        "",
+    ]
+    lines += [f"- **{name}**: {meaning}." for name, meaning in QUALITY_COLUMNS]
+    lines += [
+        "",
+        "| Setting | Question set | Right | Scored | Right (%) | Errors | Prompt size against target "
+        "| Cut off at the cap |",
         "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: |",
     ]
     for (variant, task) in sorted(groups):
@@ -133,7 +158,7 @@ def write_summary(rows: List[Dict[str, Any]]) -> str:
         pct = f"{correct / scored * 100:.1f}%" if scored else "-"
         fit = prompt_fit(items) or "-"
         lines.append(
-            f"| {variant} | {task} | {correct} | {scored} | {pct} | {errors} | {fit} | {n_capped} |"
+            f"| {variant_label(variant)} | {task} | {correct} | {scored} | {pct} | {errors} | {fit} | {n_capped} |"
         )
     empty = sum(1 for r in rows if not (r.get("content") or "").strip())
     lines += ["", f"Rows: {len(rows)}. Rows with empty answer text: {empty}."]

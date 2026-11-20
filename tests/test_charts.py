@@ -318,7 +318,7 @@ class LabelsTest(unittest.TestCase):
 
     def test_arms_run_mac_alone_then_helper_and_keep_their_colours(self):
         self.assertEqual(labels.ordered_arms(["helper", "mac-alone"]), ["mac-alone", "helper"])
-        self.assertEqual([labels.arm_label(arm) for arm in ("mac-alone", "helper")], ["Mac alone", "With helper"])
+        self.assertEqual([labels.arm_label(arm) for arm in ("mac-alone", "helper")], ["Mac alone", "Mac + Spark"])
         for colour in labels.arm_series(["mac-alone", "helper"]).values():
             self.assertIn(colour, LIGHT.series)
             self.assertIn(colour, DARK.series)

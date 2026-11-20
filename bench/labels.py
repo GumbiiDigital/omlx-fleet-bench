@@ -9,13 +9,13 @@ from __future__ import annotations
 from typing import Dict, Iterable, List, Optional
 
 VARIANT_LABELS: Dict[str, str] = {
-    "gpu": "GPU only",
-    "native": "Native KV",
-    "affine4": "Affine4 KV",
-    "affine8": "Affine8 KV",
-    "ane": "+ ANE prefill",
+    "gpu": "Mac alone",
+    "native": "Native KV cache",
+    "affine4": "Affine4 KV cache",
+    "affine8": "Affine8 KV cache",
+    "ane": "+ ANE (Apple chip)",
     "spark": "+ Spark helper",
-    "ane_spark": "+ ANE + Spark",
+    "ane_spark": "+ ANE + Spark helper",
 }
 
 # Colour follows the variant, not its position in a chart. "gpu" and "native" are the
@@ -47,7 +47,7 @@ LAYER_SETTING_PREFIX = "layers-"
 ARM_ALONE = "mac-alone"
 ARM_HELPER = "helper"
 
-ARM_LABELS: Dict[str, str] = {ARM_ALONE: "Mac alone", ARM_HELPER: "With helper"}
+ARM_LABELS: Dict[str, str] = {ARM_ALONE: "Mac alone", ARM_HELPER: "Mac + Spark"}
 
 # The Mac alone keeps the baseline blue; the helper keeps the aqua it has in every other chart.
 ARM_ORDER: List[str] = [ARM_ALONE, ARM_HELPER]

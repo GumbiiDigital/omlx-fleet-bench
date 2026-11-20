@@ -190,12 +190,15 @@ class Canvas:
         fill: Optional[str] = None,
         anchor: str = "start",
         weight: Optional[int] = None,
+        rotate: Optional[float] = None,
     ) -> None:
         attrs = f'x="{num(x)}" y="{num(y)}" font-size="{num(size)}" fill="{fill or self.theme.ink}"'
         if anchor != "start":
             attrs += f' text-anchor="{anchor}"'
         if weight:
             attrs += f' font-weight="{weight}"'
+        if rotate:
+            attrs += f' transform="rotate({num(rotate)} {num(x)} {num(y)})"'
         self._parts.append(f"<text {attrs}>{escape(content)}</text>")
 
     def render(self) -> str:

@@ -1,4 +1,4 @@
-"""Tests for the publish step: manifest -> tables, reports, charts and README blocks."""
+"""Tests for the publish step: manifest -> page blocks, reports and charts."""
 
 import contextlib
 import io
@@ -40,7 +40,7 @@ def _quality_row(variant, task, sample, correct, content="answer", finish="stop"
 
 
 def _wave_row(size, users, wave, index, helper, wall, machine="box"):
-    """One many-users row: a request of a wave, with the wave's own figures beside it."""
+    """One many-users row: a request of a group, with the group's own figures beside it."""
     return {
         "machine": machine,
         "helper_on": helper,
@@ -79,14 +79,38 @@ def _marker(block_id):
     return f"<!-- BEGIN GENERATED: {block_id} -->\n<!-- END GENERATED: {block_id} -->\n"
 
 
+def _study_of(block_id):
+    """The manifest key a block id belongs to: 'many-users box' -> 'many_users'."""
+    return block_id.split(" ")[0].replace("-", "_")
+
+
+def _write_pages(root, block_ids, readme_text="# Title\n\ntext\n"):
+    """Write a page for every target in publish's own layout, with the markers of its blocks.
+
+    The fixture asks publish where each block belongs instead of naming a page itself, so a change
+    to the layout cannot leave the fixture checking a page the real tree does not have.
+    """
+    pages = {}
+    for block_id in block_ids:
+        pages.setdefault(publish.PAGES[_study_of(block_id)], []).append(block_id)
+    for page, ids in pages.items():
+        path = root / page
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = readme_text if page == publish.README else f"# {Path(page).stem}\n\nTODO(stage B): page text\n\n"
+        path.write_text(text + "\n".join(_marker(block_id) for block_id in ids), encoding="utf-8")
+
+
 class Workspace:
-    """A small repository on disk: rows, a manifest and a README with markers."""
+    """A small repository on disk: rows, a manifest and the pages that hold the blocks."""
+
+    BLOCKS = ["headline", "speed box", "speed-sweep box", "kv-cache box", "quality box"]
 
     def __init__(self, tmp):
         self.root = Path(tmp)
         speed = [
-            _speed_row(variant, 8192, repeat, tps + repeat, ttft)
+            _speed_row(variant, size, repeat, tps + repeat, ttft)
             for variant, tps, ttft in (("gpu", 300.0, 24000.0), ("spark", 900.0, 8000.0))
+            for size in (8192, 32768)
             for repeat in range(3)
         ]
         # Seven prompt sizes would be a long fixture; three carry the same shape.
@@ -123,6 +147,7 @@ class Workspace:
             "machines": [
                 {
                     "label": "box",
+                    "display_name": "Test Mac",
                     "hardware": "Test Mac",
                     "helper": "Test helper",
                     "model": MODEL,
@@ -136,7 +161,7 @@ class Workspace:
                         "files": ["results/box/sweep.jsonl", "results/box/sweep-rerun.jsonl"],
                         "kind": "speed",
                         "baseline": "gpu",
-                        "conditions": "cold, 2 runs per cell",
+                        "conditions": "cold, 2 runs per row",
                     },
                     "kv_cache": {
                         "files": ["results/box/kv.jsonl"],
@@ -155,15 +180,7 @@ class Workspace:
             ]
         }
         self.save_manifest()
-        (self.root / "README.md").write_text(
-            "# Title\n\n"
-            + _marker("speed box")
-            + "\ntext\n\n"
-            + _marker("speed-sweep box")
-            + _marker("kv-cache box")
-            + _marker("quality box"),
-            encoding="utf-8",
-        )
+        _write_pages(self.root, self.BLOCKS)
 
     def save_manifest(self):
         (self.root / publish.MANIFEST).write_text(json.dumps(self.manifest), encoding="utf-8")
@@ -181,38 +198,58 @@ class PublishTest(unittest.TestCase):
 
     def test_blocks_carry_the_numbers_from_the_rows(self):
         _, blocks = publish.build(self.ws.root)
-        self.assertEqual(set(blocks), {"speed box", "speed-sweep box", "kv-cache box", "quality box"})
-        self.assertIn("| GPU only | 24.0 s |", blocks["speed box"])
-        self.assertIn("| + Spark helper | 8.0 s · 3.0× |", blocks["speed box"])
-        self.assertIn("| + Spark helper | 901 |", blocks["speed box"])
-        self.assertIn("| Affine4 KV | 15.0 GB · −25.0% | 100.0 s · +0.0% |", blocks["kv-cache box"])
+        self.assertEqual(set(blocks), set(self.ws.BLOCKS))
+        speed = blocks["speed box"].body
+        self.assertIn("### Test Mac", speed)
+        self.assertIn("| Mac alone | 24.0 s | 24.0 s |", speed)
+        self.assertIn("| + Spark helper | 8.0 s · 3.0× | 8.0 s · 3.0× |", speed)
+        self.assertIn("| + Spark helper | 901 | 901 |", speed)
+        self.assertIn("| Affine4 KV cache | 15.0 GB · −25.0% | 100.0 s · +0.0% |", blocks["kv-cache box"].body)
         # gpu: g0 wrong, then re-asked right -> 40 of 40. affine4: g1 wrong -> 39 of 40, one answer lost.
-        self.assertIn("| GPU only | 40 · 100.0% | 1 | baseline | 0 |", blocks["quality box"])
-        self.assertIn("| Affine4 KV | 39 · 97.5% | 1 | 1 lost, 0 gained (of 40) | 0 |", blocks["quality box"])
+        self.assertIn("| Mac alone | 40 · 100.0% | 1 | baseline |", blocks["quality box"].body)
+        self.assertIn(
+            "| Affine4 KV cache | 39 · 97.5% | 1 | 1 lost, 0 gained (of 40) |", blocks["quality box"].body
+        )
+
+    def test_each_block_goes_to_the_page_the_layout_names(self):
+        _, blocks = publish.build(self.ws.root)
+        self.assertEqual(blocks["speed box"].page, "docs/speed.md")
+        self.assertEqual(blocks["speed-sweep box"].page, "docs/speed.md")
+        self.assertEqual(blocks["kv-cache box"].page, "docs/memory.md")
+        self.assertEqual(blocks["quality box"].page, "docs/answer-quality.md")
+        self.assertEqual(blocks["headline"].page, "README.md")
+
+    def test_the_headline_block_holds_both_setups_and_the_speed_up(self):
+        _, blocks = publish.build(self.ws.root)
+        body = blocks["headline"].body
+        self.assertIn("| Prompt size | Mac alone | Mac + Spark | Faster by |", body)
+        self.assertIn("| 8K | 24.0 s | 8.0 s | 3.0× |", body)
+        self.assertIn('src="charts/headline-light.svg"', body)
 
     def test_the_sweep_table_has_one_line_per_prompt_size(self):
         _, blocks = publish.build(self.ws.root)
-        sweep = blocks["speed-sweep box"]
+        sweep = blocks["speed-sweep box"].body
         for row in ("| 1K | 24.0 s | 8.0 s | 3.0× |", "| 8K | 24.0 s | 8.0 s | 3.0× |", "| 32K | 24.0 s | 8.0 s | 3.0× |"):
             self.assertIn(row, sweep)
-        self.assertIn("Mean of 2 valid runs per cell.", sweep)
-        self.assertNotIn("Prefill speed", sweep)
+        self.assertIn("the mean of 2 valid runs", sweep)
+        self.assertNotIn("Reading the prompt, in tokens per second", sweep)
 
-    def test_outputs_cover_reports_and_both_chart_themes(self):
+    def test_outputs_cover_reports_pages_and_both_chart_themes(self):
         outputs, _ = publish.build(self.ws.root)
-        self.assertEqual(
-            sorted(outputs),
-            sorted(
-                [f"charts/box-{name}-{theme}.svg" for name in ("ttft", "ttft-sweep", "kv-memory", "quality") for theme in ("light", "dark")]
-                + [f"reports/box/{name}.md" for name in ("speed", "speed-sweep", "kv-cache", "quality")]
-            ),
+        expected = (
+            [f"charts/box-{name}-{theme}.svg" for name in ("ttft", "ttft-sweep", "kv-memory", "quality") for theme in ("light", "dark")]
+            + [f"charts/headline-{theme}.svg" for theme in ("light", "dark")]
+            + [f"reports/box/{name}.md" for name in ("speed", "speed-sweep", "kv-cache", "quality")]
         )
+        self.assertEqual(sorted(outputs), sorted(expected))
 
     def test_write_then_check_passes_and_a_changed_row_fails(self):
         self.assertEqual(self.ws.run("--check"), 1)
         self.assertEqual(self.ws.run(), 0)
         self.assertEqual(self.ws.run("--check"), 0)
-        self.assertIn("| GPU only | 24.0 s |", (self.ws.root / "README.md").read_text(encoding="utf-8"))
+        page = (self.ws.root / "docs/speed.md").read_text(encoding="utf-8")
+        self.assertIn("| Mac alone | 24.0 s | 24.0 s |", page)
+        self.assertTrue((self.ws.root / "docs/memory.md").is_file())
 
         rows = report.load_rows([self.ws.root / "results/box/speed.jsonl"])
         rows[0]["metrics"]["ttft_ms"] = 30000.0
@@ -234,6 +271,30 @@ class PublishTest(unittest.TestCase):
         readme.write_text(readme.read_text(encoding="utf-8") + _marker("speed other-box"), encoding="utf-8")
         self.assertEqual(self.ws.run(), 2)
 
+    def test_a_page_that_holds_a_block_and_is_missing_is_an_error(self):
+        (self.ws.root / "docs/memory.md").unlink()
+        self.assertEqual(self.ws.run(), 2)
+
+    def test_a_marker_on_a_page_the_layout_does_not_name_for_it_is_an_error(self):
+        # The speed block belongs on docs/speed.md; the same markers on another page must not pass.
+        memory = self.ws.root / "docs/memory.md"
+        memory.write_text(memory.read_text(encoding="utf-8") + _marker("speed box"), encoding="utf-8")
+        self.assertEqual(self.ws.run("--check"), 2)
+        self.assertEqual(self.ws.run(), 2)
+
+    def test_a_marker_on_a_page_with_no_block_at_all_is_an_error(self):
+        page = self.ws.root / "docs/run-it.md"
+        page.write_text("# Run it\n\n" + _marker("speed box"), encoding="utf-8")
+        self.assertEqual(self.ws.run(), 2)
+
+    def test_a_page_with_no_block_and_no_marker_is_left_alone(self):
+        page = self.ws.root / "docs/method.md"
+        page.write_text("# Method\n\nHow it was measured.\n", encoding="utf-8")
+        self.assertEqual(self.ws.run(), 0)
+        _, blocks = publish.build(self.ws.root)
+        self.assertNotIn("docs/method.md", publish.splice_pages(self.ws.root, blocks))
+        self.assertEqual(page.read_text(encoding="utf-8"), "# Method\n\nHow it was measured.\n")
+
     def test_missing_result_file_is_an_error(self):
         self.ws.manifest["machines"][0]["speed"]["files"] = ["results/box/absent.jsonl"]
         self.ws.save_manifest()
@@ -249,7 +310,7 @@ class PublishTest(unittest.TestCase):
         # sweep.jsonl alone gives spark at 32K one valid run of two.
         outputs, _ = publish.build(self.ws.root)
         report_text = outputs["reports/box/speed-sweep.md"]
-        self.assertIn("| box | test-model | spark | 32768 | 2/2 |", report_text)
+        self.assertIn("| box | test-model | + Spark helper | 32768 | 2/2 |", report_text)
 
         self.ws.manifest["machines"][0]["speed_sweep"]["files"] = ["results/box/sweep.jsonl"]
         self.ws.save_manifest()
@@ -270,11 +331,18 @@ class PublishTest(unittest.TestCase):
         del self.ws.manifest["machines"][0]["kv_cache"]
         self.ws.save_manifest()
         _, blocks = publish.build(self.ws.root)
-        self.assertEqual(set(blocks), {"speed box", "speed-sweep box", "quality box"})
+        self.assertEqual(set(blocks), {"headline", "speed box", "speed-sweep box", "quality box"})
+
+    def test_a_machine_without_a_display_name_is_an_error(self):
+        del self.ws.manifest["machines"][0]["display_name"]
+        self.ws.save_manifest()
+        self.assertEqual(self.ws.run(), 2)
 
 
 class RequestWorkspace:
-    """A repository that holds the two request studies: what a request waited, in which arm."""
+    """A repository that holds the two request studies: what a request waited, in which round."""
+
+    BLOCKS = ["helper-ready box", "helper-layers box"]
 
     def __init__(self, tmp):
         self.root = Path(tmp)
@@ -336,6 +404,7 @@ class RequestWorkspace:
             "machines": [
                 {
                     "label": "box",
+                    "display_name": "Test Mac",
                     "hardware": "Test Mac",
                     "helper": "Test helper",
                     "model": MODEL,
@@ -357,10 +426,7 @@ class RequestWorkspace:
             ]
         }
         (self.root / publish.MANIFEST).write_text(json.dumps(self.manifest), encoding="utf-8")
-        (self.root / "README.md").write_text(
-            "# Title\n\n" + _marker("helper-ready box") + _marker("helper-layers box"),
-            encoding="utf-8",
-        )
+        _write_pages(self.root, self.BLOCKS)
 
     def save_manifest(self):
         (self.root / publish.MANIFEST).write_text(json.dumps(self.manifest), encoding="utf-8")
@@ -376,33 +442,37 @@ class RequestStudyTest(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.ws = RequestWorkspace(self._tmp.name)
 
-    def test_the_helper_ready_table_has_one_line_per_arm(self):
+    def test_the_helper_ready_table_has_one_line_per_path_and_round(self):
         _, blocks = publish.build(self.ws.root)
-        block = blocks["helper-ready box"]
-        self.assertIn("| chat | no wait | 2 | connecting (2 of 2) | no validity marks | 0.0 s | 109.70 to 109.76 s | 0 of 2 |", block)
-        self.assertIn("| chat | wait | 2 | ready (2 of 2) | no validity marks | 20.1 s | 29.31 to 29.93 s | 2 of 2 |", block)
-        self.assertIn("| speed test | no wait | 2 | starting (2 of 2) |", block)
+        block = blocks["helper-ready box"].body
+        self.assertIn("| chat | Started at once | 0.0 | 109.70 to 109.76 s | 0 of 2 |", block)
+        self.assertIn("| chat | Waited for the helper | 20.1 | 29.31 to 29.93 s | 2 of 2 |", block)
+        self.assertIn("| speed test | Started at once | 0.0 | 29.50 to 30.00 s | 2 of 2 |", block)
 
-    def test_the_rows_a_flag_marks_not_valid_are_named_in_the_table(self):
+    def test_the_block_says_which_round_ran_on_the_mac_alone(self):
         _, blocks = publish.build(self.ws.root)
-        block = blocks["helper-ready box"]
-        self.assertIn("| speed test | no wait | 2 | starting (2 of 2) | 2 · helper_ready_at_start |", block)
-        # The chat rows carry no validity block, so the cell says that instead of a zero a reader
-        # would take for "every row passed".
-        self.assertIn("| chat | no wait | 2 | connecting (2 of 2) | no validity marks |", block)
-        self.assertNotIn("| chat | no wait | 2 | connecting (2 of 2) | 0 |", block)
-
-    def test_the_helper_ready_block_says_which_arm_ran_on_the_mac_alone(self):
-        _, blocks = publish.build(self.ws.root)
-        block = blocks["helper-ready box"]
-        self.assertIn("chat, no wait: 2 of 2 requests ran at the speed of the Mac alone.", block)
-        self.assertNotIn("chat, wait: 2 of 2 requests ran at the speed of the Mac alone.", block)
+        block = blocks["helper-ready box"].body
+        # Only the chat round that started at once ran at the speed of the Mac alone: 0 of 2 on the helper.
+        self.assertIn("| chat | Started at once | 0.0 | 109.70 to 109.76 s | 0 of 2 |", block)
+        self.assertNotIn("| chat | Waited for the helper | 20.1 | 29.31 to 29.93 s | 0 of 2 |", block)
         # The speed-test row has no answer of its own, so answers are counted where they exist.
         self.assertIn("Every request read its prompt cold; 4 of 4 answers were correct.", block)
 
+    def test_the_state_at_the_start_is_named_for_every_round(self):
+        _, blocks = publish.build(self.ws.root)
+        block = blocks["helper-ready box"].body
+        self.assertIn("chat, Started at once: connecting (2 of 2)", block)
+        self.assertIn("speed test, Started at once: starting (2 of 2)", block)
+        self.assertIn("chat, Waited for the helper: ready (2 of 2)", block)
+
+    def test_the_rows_a_flag_marks_not_valid_are_named_in_the_block(self):
+        _, blocks = publish.build(self.ws.root)
+        block = blocks["helper-ready box"].body
+        self.assertIn("2 requests in speed test / Started at once are marked not valid by `helper_ready_at_start`", block)
+
     def test_the_not_valid_line_says_what_the_waits_measured(self):
         _, blocks = publish.build(self.ws.root)
-        line = next(l for l in blocks["helper-ready box"].splitlines() if "helper_ready_at_start" in l and "marked" in l)
+        line = next(l for l in blocks["helper-ready box"].body.splitlines() if "helper_ready_at_start" in l and "marked" in l)
         # These rows began at `starting` and still came back in about 30 s: helper speed, not Mac alone.
         self.assertIn("began at helper state starting (2 of 2)", line)
         self.assertIn("ran at helper speed (29.50 to 30.00 s)", line)
@@ -411,24 +481,22 @@ class RequestStudyTest(unittest.TestCase):
 
     def test_the_layer_table_gives_a_mean_and_a_range_for_each_prompt_size(self):
         _, blocks = publish.build(self.ws.root)
-        block = blocks["helper-layers box"]
-        self.assertIn("| Mac alone | 109.7 s (109.69 to 109.73) | not run | none | baseline |", block)
-        self.assertIn("| Automatic | 31.5 s (29.42 to 33.62) | 178.7 s (177.96 to 179.42) |", block)
-        self.assertIn("| 49 layers | 29.7 s (29.50 to 29.91) | 166.1 s (165.71 to 166.41) | 49 | 3.7× |", block)
+        block = blocks["helper-layers box"].body
+        self.assertIn("| Mac alone | 109.7 s, 109.69 to 109.73 s | not run | none | baseline |", block)
+        self.assertIn("| Automatic | 31.5 s, 29.42 to 33.62 s | 178.7 s (3.0 min), 177.96 to 179.42 s |", block)
+        self.assertIn("| 49 layers | 29.7 s, 29.50 to 29.91 s | 166.1 s (2.8 min), 165.71 to 166.41 s | 49 | 3.7× |", block)
 
     def test_the_layer_table_names_every_layer_count_the_helper_took(self):
         _, blocks = publish.build(self.ws.root)
-        self.assertIn("32K: 49; 128K: 50, 49", blocks["helper-layers box"])
+        self.assertIn("32K: 49; 128K: 50, 49", blocks["helper-layers box"].body)
 
     def test_outputs_cover_both_reports_and_one_chart_pair(self):
         outputs, _ = publish.build(self.ws.root)
-        self.assertEqual(
-            sorted(outputs),
-            sorted(
-                [f"charts/box-helper-layers-{theme}.svg" for theme in ("light", "dark")]
-                + ["reports/box/helper-ready.md", "reports/box/helper-layers.md"]
-            ),
+        expected = (
+            [f"charts/box-helper-layers-{theme}.svg" for theme in ("light", "dark")]
+            + ["reports/box/helper-ready.md", "reports/box/helper-layers.md"]
         )
+        self.assertEqual(sorted(outputs), sorted(expected))
 
     def test_write_then_check_passes(self):
         self.assertEqual(self.ws.run(), 0)
@@ -500,6 +568,11 @@ class SpliceTest(unittest.TestCase):
         once = publish.splice(text, {"x": "| a |\n| b |"})
         self.assertEqual(publish.splice(once, {"x": "| a |\n| b |"}), once)
 
+    def test_a_block_with_no_marker_pair_names_the_page(self):
+        with self.assertRaises(publish.PublishError) as caught:
+            publish.splice("no markers here\n", {"x": "body"}, "docs/speed.md")
+        self.assertIn("docs/speed.md", str(caught.exception))
+
 
 class ChangesAgainstTest(unittest.TestCase):
     def test_counts_lost_gained_and_different_text(self):
@@ -518,7 +591,7 @@ class ChangesAgainstTest(unittest.TestCase):
 
 
 class CommittedResultsTest(unittest.TestCase):
-    """The tables, reports and charts in this repository match its raw rows."""
+    """The pages, tables, reports and charts in this repository match its raw rows."""
 
     def test_publish_check_passes_on_the_repository(self):
         out = io.StringIO()
@@ -528,7 +601,9 @@ class CommittedResultsTest(unittest.TestCase):
 
 
 class ManyUsersWorkspace:
-    """A repository that holds a many-users study: waves of requests in two arms."""
+    """A repository that holds a many-users study: groups of requests in two setups."""
+
+    BLOCKS = ["many-users box"]
 
     def __init__(self, tmp):
         self.root = Path(tmp)
@@ -545,19 +620,20 @@ class ManyUsersWorkspace:
             "machines": [
                 {
                     "label": "box",
+                    "display_name": "Test Mac",
                     "hardware": "Test Mac",
                     "helper": "Test helper",
                     "model": MODEL,
                     "many_users": {
                         "kind": "request",
                         "files": ["results/box/waves.jsonl"],
-                        "conditions": "cold, every user of a wave sends at the same moment",
+                        "conditions": "cold, every user of a group sends at the same moment",
                     },
                 }
             ]
         }
         (self.root / publish.MANIFEST).write_text(json.dumps(self.manifest), encoding="utf-8")
-        (self.root / "README.md").write_text("# Title\n\n" + _marker("many-users box"), encoding="utf-8")
+        _write_pages(self.root, self.BLOCKS)
 
     def rewrite(self, rows):
         _write(self.root / "results/box/waves.jsonl", rows)
@@ -576,28 +652,18 @@ class ManyUsersStudyTest(unittest.TestCase):
         self.addCleanup(self._tmp.cleanup)
         self.ws = ManyUsersWorkspace(self._tmp.name)
 
-    def test_the_table_has_one_line_per_prompt_size_user_count_and_arm(self):
+    def test_the_table_has_one_line_per_prompt_size_and_user_count(self):
         _, blocks = publish.build(self.ws.root)
-        block = blocks["many-users box"]
-        self.assertIn(
-            "| 4K | 1 | Mac alone | 2 | 2 | 2 of 2 | 5.25 s (5.00 to 5.50) | 10.5 s | 382 | baseline |", block
-        )
-        self.assertIn("| 4K | 1 | With helper | 2 | 2 | 2 of 2 |", block)
-        self.assertIn("| Waves in the means |", block)
-        self.assertIn("Mean of 2 waves per cell, at 1 and 2 users per wave.", block)
-        self.assertEqual(sum(1 for line in block.splitlines() if line.startswith("| 4K") or line.startswith("| 32K")), 8)
+        block = blocks["many-users box"].body
+        self.assertIn("| Prompt size | Users | Mac alone | Mac + Spark | Faster by |", block)
+        self.assertIn("| 4K | 1 | 10.5 s | 8.5 s | 1.24× |", block)
+        self.assertIn("Mean of 2 groups per case, at 1 and 2 users per group.", block)
+        self.assertEqual(sum(1 for line in block.splitlines() if line.startswith("| 4K") or line.startswith("| 32K")), 4)
 
-    def test_the_block_says_which_waves_a_mean_rests_on_and_why_one_is_left_out(self):
+    def test_the_block_says_why_a_group_is_left_out_of_a_mean(self):
         _, blocks = publish.build(self.ws.root)
-        block = blocks["many-users box"]
-        self.assertIn("A wave with a request a check marks not valid is left out of the wave means as a whole", block)
-
-    def test_the_speed_up_is_the_mac_alone_wave_over_the_helper_wave(self):
-        _, blocks = publish.build(self.ws.root)
-        self.assertIn(
-            "| 4K | 1 | With helper | 2 | 2 | 2 of 2 | 4.25 s (4.00 to 4.50) | 8.5 s | 472 | 1.24× |",
-            blocks["many-users box"],
-        )
+        block = blocks["many-users box"].body
+        self.assertIn("A group with a request a check marks not valid is left out of the group means as a whole", block)
 
     def test_a_flagged_row_is_counted_and_named_and_left_out_of_the_means(self):
         rows = [dict(row) for row in self.ws.rows]
@@ -606,11 +672,10 @@ class ManyUsersStudyTest(unittest.TestCase):
                 row["validity"] = {**row["validity"], "valid": False, "helper_served_proven": False}
         self.ws.rewrite(rows)
         _, blocks = publish.build(self.ws.root)
-        block = blocks["many-users box"]
-        # The wave that holds the flagged request has no whole-wave figure: the mean is wave 0 alone,
-        # and the column says the mean rests on 1 wave of the cell's 2.
-        self.assertIn("| 32K | 2 | With helper | 4 | 2 | 1 of 2 | 8.00 s (8.00 to 8.00) | 16.0 s | 500 |", block)
-        self.assertIn("A mean rests on 1 to 2 waves per cell, at 1 and 2 users per wave", block)
+        block = blocks["many-users box"].body
+        # The group that holds the flagged request has no whole-group figure: the mean is round 0 alone.
+        self.assertIn("| 32K | 2 | 20.5 s | 16.0 s | 1.28× |", block)
+        self.assertIn("A mean rests on 1 to 2 groups per case, at 1 and 2 users per group", block)
         self.assertIn("Requests marked not valid by a check", block)
         self.assertIn("2 · helper_served_proven", block)
         self.assertIn("All 24 requests read their prompt cold and got a correct answer.", block)
@@ -625,39 +690,15 @@ class ManyUsersStudyTest(unittest.TestCase):
             rows.append(row)
         self.ws.rewrite(rows)
 
-    def test_a_cell_without_a_fully_valid_wave_prints_dashes_and_the_publish_goes_on(self):
+    def test_a_group_without_a_fully_valid_round_prints_dashes_and_the_publish_goes_on(self):
         self._break({"wave_answered": False}, target_tokens=4096, users=2, helper_on=True)
         outputs, blocks = publish.build(self.ws.root)
-        block = blocks["many-users box"]
-        # No request of the cell is valid, so nothing in the row can be worked out but its counts.
-        self.assertIn("| 4K | 2 | With helper | 4 | 0 | 0 of 2 | - | - | - | - |", block)
+        block = blocks["many-users box"].body
+        # No request of the case is valid, so nothing in the row can be worked out but its counts.
+        self.assertIn("| 4K | 2 | 20.5 s | - | - |", block)
         # The rest of the study is untouched, table and chart alike.
-        self.assertIn("| 4K | 2 | Mac alone | 4 | 4 | 2 of 2 | 10.25 s (10.00 to 10.50) | 20.5 s | 390 | baseline |", block)
-        self.assertIn("A mean rests on 0 to 2 waves per cell", block)
-        self.assertEqual(sorted(outputs), sorted(
-            [f"charts/box-many-users-{theme}.svg" for theme in ("light", "dark")] + ["reports/box/many-users.md"]
-        ))
-
-    def test_a_helper_cell_whose_mac_alone_cell_has_no_valid_wave_has_no_speed_up(self):
-        self._break({"wave_answered": False}, target_tokens=4096, users=2, helper_on=False)
-        _, blocks = publish.build(self.ws.root)
-        block = blocks["many-users box"]
-        self.assertIn("| 4K | 2 | Mac alone | 4 | 0 | 0 of 2 | - | - | - | baseline |", block)
-        # The helper cell itself is intact, so its own figures stand and only the speed-up is missing.
-        self.assertIn("| 4K | 2 | With helper | 4 | 4 | 2 of 2 | 8.25 s (8.00 to 8.50) | 16.5 s | 485 | - |", block)
-
-    def test_a_study_with_no_valid_wave_at_all_still_builds_its_table_and_report(self):
-        self._break({"wave_answered": False})
-        outputs, blocks = publish.build(self.ws.root)
-        block = blocks["many-users box"]
-        self.assertIn("| 4K | 1 | Mac alone | 2 | 0 | 0 of 2 | - | - | - | baseline |", block)
-        self.assertIn("No cell has a fully valid wave, so every mean in the table is `-`.", block)
-        self.assertEqual(sorted(outputs), ["reports/box/many-users.md"])
-        self.assertEqual(self.ws.run(), 0)
-        self.assertEqual(self.ws.run("--check"), 0)
-
-    def test_outputs_cover_the_report_and_one_chart_pair(self):
-        outputs, _ = publish.build(self.ws.root)
+        self.assertIn("| 4K | 1 | 10.5 s | 8.5 s | 1.24× |", block)
+        self.assertIn("A mean rests on 0 to 2 groups per case", block)
         self.assertEqual(
             sorted(outputs),
             sorted(
@@ -665,6 +706,32 @@ class ManyUsersStudyTest(unittest.TestCase):
                 + ["reports/box/many-users.md"]
             ),
         )
+
+    def test_a_helper_case_whose_mac_alone_case_has_no_valid_round_has_no_speed_up(self):
+        self._break({"wave_answered": False}, target_tokens=4096, users=2, helper_on=False)
+        _, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"].body
+        self.assertIn("| 4K | 2 | - | 16.5 s | - |", block)
+        # The helper case itself is intact, so its own figures stand and only the speed-up is missing.
+        self.assertIn("| 4K | 1 | 10.5 s | 8.5 s | 1.24× |", block)
+
+    def test_a_study_with_no_valid_group_at_all_still_builds_its_table_and_report(self):
+        self._break({"wave_answered": False})
+        outputs, blocks = publish.build(self.ws.root)
+        block = blocks["many-users box"].body
+        self.assertIn("| 4K | 1 | - | - | - |", block)
+        self.assertIn("No cell has a fully valid group, so every mean in the table is `-`.", block)
+        self.assertEqual(sorted(outputs), ["reports/box/many-users.md"])
+        self.assertEqual(self.ws.run(), 0)
+        self.assertEqual(self.ws.run("--check"), 0)
+
+    def test_outputs_cover_the_report_and_one_chart_pair(self):
+        outputs, _ = publish.build(self.ws.root)
+        expected = (
+            [f"charts/box-many-users-{theme}.svg" for theme in ("light", "dark")]
+            + ["reports/box/many-users.md"]
+        )
+        self.assertEqual(sorted(outputs), sorted(expected))
         report_text = outputs["reports/box/many-users.md"]
         self.assertIn("| Mac alone | 4K | 1 | 0 | 1 | 1 |", report_text)
 
@@ -677,11 +744,11 @@ class ManyUsersStudyTest(unittest.TestCase):
         self.ws.save_manifest()
         self.assertEqual(self.ws.run(), 2)
 
-    def test_a_study_with_one_arm_is_an_error(self):
+    def test_a_study_with_one_setup_is_an_error(self):
         self.ws.rewrite([row for row in self.ws.rows if not row["helper_on"]])
         self.assertEqual(self.ws.run(), 2)
 
-    def test_a_cell_without_a_wave_is_an_error(self):
+    def test_a_case_without_a_group_is_an_error(self):
         self.ws.rewrite(
             [row for row in self.ws.rows if not (row["target_tokens"] == 4096 and row["users"] == 2 and row["helper_on"])]
         )

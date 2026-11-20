@@ -94,7 +94,8 @@ class LinePanel:
     """A value against another on log axes, one line per series.
 
     `x_ticks` and `y_ticks` are (value, label) pairs, so the caller owns the wording and
-    the axis spans exactly the range it states.
+    the axis spans exactly the range it states. `x_label` and `y_label` name the two axes;
+    they carry no numbers, so they can be left empty.
     """
 
     title: str
@@ -105,6 +106,8 @@ class LinePanel:
     x_ticks: Sequence[Tuple[float, str]]
     y_ticks: Sequence[Tuple[float, str]]
     series: Sequence[LineSeries]
+    x_label: str = ""
+    y_label: str = ""
 
 
 @dataclass(frozen=True)
@@ -359,6 +362,46 @@ def _draw_plot(canvas: Canvas, panel: LinePanel, left: float, top: float, right:
             )
 
 
+AXIS_LABEL_ROOM = 30
+
+
+def _axis_room(panel: LinePanel) -> float:
+    """Left margin a rotated y-axis name needs, or none when the panel has no y name."""
+    return 18.0 if panel.y_label else 0.0
+
+
+def _axis_labels(
+    canvas: Canvas,
+    panel: LinePanel,
+    x_centre: float,
+    y_centre: float,
+    plot_bottom: float,
+    left_edge: float,
+    *,
+    draw_y: bool = True,
+) -> None:
+    """The two axis names: one turned on its side at the left, one under the x ticks."""
+    if panel.y_label and draw_y:
+        canvas.text(
+            left_edge + 4,
+            y_centre,
+            panel.y_label,
+            size=NOTE_SIZE,
+            fill=canvas.theme.muted,
+            anchor="middle",
+            rotate=-90,
+        )
+    if panel.x_label:
+        canvas.text(
+            x_centre,
+            plot_bottom + 28,
+            panel.x_label,
+            size=NOTE_SIZE,
+            fill=canvas.theme.muted,
+            anchor="middle",
+        )
+
+
 def line_panel(caption: Caption, panel: LinePanel, theme: Theme) -> str:
     """One line per series, against a value that runs across decades, on log axes.
 
@@ -368,14 +411,16 @@ def line_panel(caption: Caption, panel: LinePanel, theme: Theme) -> str:
     """
     _check_log_panel(panel)
     gutter = max([text_width(label, NOTE_SIZE) for _, label in panel.y_ticks] + [24.0]) + 12
-    left, right = PAD + gutter, WIDTH - PAD - 24
+    left, right = PAD + gutter + _axis_room(panel), WIDTH - PAD - 24
     top = _header_height(caption) + LEGEND_ROW_HEIGHT + 4
     bottom = top + LINE_PLOT_HEIGHT
+    room = AXIS_LABEL_HEIGHT if panel.x_label else 0
 
-    canvas = _open(caption, theme, bottom + LEGEND_ROW_HEIGHT + _footer_height(caption))
+    canvas = _open(caption, theme, bottom + LEGEND_ROW_HEIGHT + room + _footer_height(caption))
     _legend(canvas, panel.series, top - LEGEND_ROW_HEIGHT + 4)
     _draw_plot(canvas, panel, left, top, right, bottom)
-    return _close(canvas, caption, bottom + LEGEND_ROW_HEIGHT - 6)
+    _axis_labels(canvas, panel, (left + right) / 2, (top + bottom) / 2, bottom, PAD)
+    return _close(canvas, caption, bottom + LEGEND_ROW_HEIGHT + room - 6)
 
 
 def line_panels(caption: Caption, panels: Sequence[LinePanel], theme: Theme, *, columns: int = 2) -> str:
@@ -392,6 +437,7 @@ def line_panels(caption: Caption, panels: Sequence[LinePanel], theme: Theme, *, 
     gutter = max(
         [text_width(label, NOTE_SIZE) for panel in panels for _, label in panel.y_ticks] + [24.0]
     ) + 12
+    gutter += max(_axis_room(panel) for panel in panels)
     panel_height = PANEL_TITLE_HEIGHT + PANEL_PLOT_HEIGHT + AXIS_LABEL_HEIGHT
     top = _header_height(caption) + LEGEND_ROW_HEIGHT + 4
     origins, panel_width, bottom = _grid(len(panels), columns, panel_height, top)
@@ -404,11 +450,24 @@ def line_panels(caption: Caption, panels: Sequence[LinePanel], theme: Theme, *, 
             if line.label not in [known.label for known in series]:
                 series.append(line)
 
-    canvas = _open(caption, theme, bottom + _footer_height(caption))
+    room = AXIS_LABEL_HEIGHT if any(panel.x_label for panel in panels) else 0
+    canvas = _open(caption, theme, bottom + room + _footer_height(caption))
     _legend(canvas, series, top - LEGEND_ROW_HEIGHT + 4)
-    for panel, (px, py) in zip(panels, origins):
+    for index, (panel, (px, py)) in enumerate(zip(panels, origins)):
         canvas.text(px, py + PANEL_TITLE_SIZE, panel.title, size=PANEL_TITLE_SIZE, weight=600)
         plot_top = py + PANEL_TITLE_HEIGHT
-        _draw_plot(canvas, panel, px + gutter, plot_top, px + panel_width, plot_top + PANEL_PLOT_HEIGHT)
-    return _close(canvas, caption, bottom)
+        plot_bottom = plot_top + PANEL_PLOT_HEIGHT
+        left, right = px + gutter, px + panel_width
+        _draw_plot(canvas, panel, left, plot_top, right, plot_bottom)
+        # One name for the shared y axis, on the first panel only, so it is not repeated.
+        _axis_labels(
+            canvas,
+            panel,
+            (left + right) / 2,
+            (plot_top + plot_bottom) / 2,
+            plot_bottom,
+            PAD,
+            draw_y=index == 0,
+        )
+    return _close(canvas, caption, bottom + room)
 

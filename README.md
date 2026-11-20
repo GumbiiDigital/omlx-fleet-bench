@@ -15,6 +15,44 @@ This repository holds the harness, every raw row, and one script that rebuilds e
 below from those rows. It is two Macs, each with a DGX Spark helper, and one model on each. It is not
 a leaderboard, and it is not an official oMLX result.
 
+## The answer in one picture
+
+<!-- BEGIN GENERATED: headline -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="charts/headline-dark.svg">
+  <img alt="Wait for the first word at 8K, 32K, 64K, 128K prompt tokens on 2 Macs, alone and with the Spark helper" src="charts/headline-light.svg">
+</picture>
+
+#### Mac A (Qwen 27B)
+
+| Prompt size | Mac alone | Mac + Spark | Faster by |
+|---|---:|---:|---:|
+| 8K | 24.5 s | 8.6 s | 2.8× |
+| 32K | 109.8 s | 35.1 s | 3.1× |
+| 64K | 252.8 s (4.2 min) | 76.9 s | 3.3× |
+| 128K | 638.1 s (10.6 min) | 189.8 s (3.2 min) | 3.4× |
+
+#### Mac B (Flash-Next)
+
+| Prompt size | Mac alone | Mac + Spark | Faster by |
+|---|---:|---:|---:|
+| 8K | 8.5 s | 6.1 s | 1.4× |
+| 32K | 33.3 s | 16.1 s | 2.1× |
+| 64K | 68.0 s | 30.0 s | 2.3× |
+| 128K | 137.2 s (2.3 min) | 58.8 s | 2.3× |
+
+- Mac alone is the Mac on its own; Mac + Spark is the same Mac with the Spark helper reading the prompt at the same time.
+- Every figure is the mean of the valid runs of that Mac's speed study, each run with a cold cache (the server held none of the prompt).
+<!-- END GENERATED: headline -->
+
+## The pages
+
+- [Speed: how long the Mac makes you wait](docs/speed.md)
+- [Many people sending prompts at once](docs/many-users.md)
+- [Memory: what the KV cache costs](docs/memory.md)
+- [Answer quality: does the helper change the answers?](docs/answer-quality.md)
+- [Helper start-up and how many layers it holds](docs/helper-setup.md)
+
 ## Short version
 
 The first four bullets are the 27B machine; the last one is the Flash-Next machine.
@@ -38,29 +76,6 @@ The first four bullets are the 27B machine; the last one is the Flash-Next machi
   <img alt="Time to first token at 8K, 32K, 64K and 128K prompt tokens for four setups" src="charts/m3-ultra-a-ttft-light.svg">
 </picture>
 
-<!-- BEGIN GENERATED: speed m3-ultra-a -->
-Time to first token, and how many times shorter the wait is than GPU only:
-
-| Setup | 8K | 32K | 64K | 128K |
-|---|---:|---:|---:|---:|
-| GPU only | 24.5 s | 109.8 s | 252.8 s | 638.1 s |
-| + ANE prefill | 18.8 s · 1.3× | 87.2 s · 1.3× | 207.5 s · 1.2× | 548.3 s · 1.2× |
-| + Spark helper | 8.6 s · 2.8× | 35.1 s · 3.1× | 76.9 s · 3.3× | 189.8 s · 3.4× |
-| + ANE + Spark | 7.8 s · 3.1× | 29.6 s · 3.7× | 66.4 s · 3.8× | 166.1 s · 3.8× |
-
-Prefill speed in tokens per second:
-
-| Setup | 8K | 32K | 64K | 128K |
-|---|---:|---:|---:|---:|
-| GPU only | 335 | 298 | 259 | 205 |
-| + ANE prefill | 435 | 376 | 316 | 239 |
-| + Spark helper | 955 | 933 | 852 | 691 |
-| + ANE + Spark | 1,052 | 1,106 | 987 | 789 |
-
-Run-to-run spread of prefill speed is at most 2.9% in every cell except + Spark helper at 8K (7.5%), + Spark helper at 32K (4.3%).
-Re-run back to back, 3 runs each: + Spark helper at 8K: 1,004 tok/s (955 in the first pass), + Spark helper at 32K: 1,094 tok/s (933 in the first pass).
-<!-- END GENERATED: speed m3-ultra-a -->
-
 How to read it:
 
 - Each cell is the mean of 3 valid runs with a cold cache (0 cached tokens) and 128 output tokens.
@@ -78,16 +93,6 @@ How to read it:
   <img alt="Peak memory at 32K and 128K prompt tokens for native, Affine4 and Affine8 KV cache" src="charts/m3-ultra-a-kv-memory-light.svg">
 </picture>
 
-<!-- BEGIN GENERATED: kv-cache m3-ultra-a -->
-| Scheme | 32K peak memory | 32K time to first token | 128K peak memory | 128K time to first token |
-|---|---:|---:|---:|---:|
-| Native KV | 21.5 GB | 109.9 s | 29.1 GB | 638.2 s |
-| Affine4 KV | 19.6 GB · −8.6% | 109.0 s · −0.7% | 21.9 GB · −24.6% | 621.0 s · −2.7% |
-| Affine8 KV | 20.1 GB · −6.3% | 109.0 s · −0.8% | 23.9 GB · −17.7% | 621.4 s · −2.6% |
-
-Run-to-run spread of prefill speed is at most 0.07% in every cell.
-<!-- END GENERATED: kv-cache m3-ultra-a -->
-
 How to read it:
 
 - GPU only: ANE prefill and the helper are off, so the KV scheme is the only thing that changes.
@@ -104,16 +109,6 @@ How to read it:
   <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-a-quality-dark.svg">
   <img alt="Accuracy on GSM8K and MMLU for five settings, each with a 95 percent interval" src="charts/m3-ultra-a-quality-light.svg">
 </picture>
-
-<!-- BEGIN GENERATED: quality m3-ultra-a -->
-| Setting | GSM8K (of 200) | MMLU (of 500) | Passkey (of 6) | Answers changed against GPU only | Still cut off |
-|---|---:|---:|---:|---:|---:|
-| GPU only | 195 · 97.5% | 454 · 90.8% | 6 | baseline | 16 |
-| Affine4 KV | 196 · 98.0% | 459 · 91.8% | 6 | 7 lost, 13 gained (of 700) | 17 |
-| Affine8 KV | 195 · 97.5% | 458 · 91.6% | 6 | 2 lost, 6 gained (of 700) | 12 |
-| + ANE prefill | 195 · 97.5% | 456 · 91.2% | 6 | 4 lost, 6 gained (of 700) | 17 |
-| + Spark helper | 195 · 97.5% | 459 · 91.8% | 6 | 3 lost, 8 gained (of 700) | 12 |
-<!-- END GENERATED: quality m3-ultra-a -->
 
 Same questions under every setting: 200 from GSM8K, 500 from MMLU (25 from each of 20 subjects), and
 6 passkey prompts (a 7-digit number planted halfway into 32K, 64K and 128K tokens of filler).
@@ -164,21 +159,6 @@ model the helper holds.
 
 ### What the first helper request waits
 
-<!-- BEGIN GENERATED: helper-ready m3-ultra-a -->
-Time to first token of a helper-on request at 32K, after a switch from helper off to helper on:
-
-| Path | Arm | Helper-on requests | Helper state at start | Not valid | Waited (mean) | Time to first token | Ran at helper speed |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| chat | no wait | 6 | connecting (6 of 6) | no validity marks | 0.0 s | 109.70 to 109.76 s | 0 of 6 |
-| chat | wait | 6 | ready (6 of 6) | no validity marks | 20.1 s | 29.31 to 29.93 s | 6 of 6 |
-| speed test | no wait | 6 | starting (6 of 6) | 6 · helper_ready_at_start | 0.0 s | 29.52 to 30.04 s | 6 of 6 |
-| speed test | wait | 6 | ready (6 of 6) | 0 | 17.5 s | 29.87 to 30.17 s | 6 of 6 |
-
-chat, no wait: 6 of 6 requests ran at the speed of the Mac alone.
-6 requests in speed test / no wait are marked not valid by `helper_ready_at_start`: they began at helper state starting (6 of 6) and ran at helper speed (29.52 to 30.04 s).
-Every request read its prompt cold; 12 of 12 answers were correct.
-<!-- END GENERATED: helper-ready m3-ultra-a -->
-
 How to read it:
 
 - One round is a request with the helper off, then a request at 32K with the helper on, so every
@@ -201,21 +181,6 @@ How to read it:
   <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-a-helper-layers-dark.svg">
   <img alt="Time to first token at 32K for the Mac alone and four layer settings, and at 128K for the four settings" src="charts/m3-ultra-a-helper-layers-light.svg">
 </picture>
-
-<!-- BEGIN GENERATED: helper-layers m3-ultra-a -->
-Time to first token per helper layer count, and how many times faster than the Mac alone at 32K:
-
-| Setting | 32K time to first token | 128K time to first token | Helper layers | Faster than Mac alone at 32K |
-|---|---:|---:|---:|---:|
-| Mac alone | 109.7 s (109.69 to 109.72) | not run | none | baseline |
-| Automatic | 32.1 s (29.42 to 33.62) | 178.7 s (177.96 to 179.42) | 32K: 49; 128K: 50, 49, 49 | 3.4× |
-| 32 layers | 56.8 s (56.77 to 56.91) | 321.6 s (321.54 to 321.69) | 32 | 1.9× |
-| 49 layers | 29.8 s (29.50 to 29.91) | 166.0 s (165.71 to 166.40) | 49 | 3.7× |
-| 63 layers | 35.9 s (35.43 to 36.23) | 208.2 s (207.43 to 209.25) | 63 | 3.1× |
-
-Mean of 3 requests per cell.
-All 27 requests read their prompt cold and got a correct answer.
-<!-- END GENERATED: helper-layers m3-ultra-a -->
 
 How to read it:
 
@@ -250,24 +215,6 @@ the 27B dense model. Two things differ from the first machine.
   <img alt="Time to first token at 8K, 32K, 64K and 128K prompt tokens, Mac alone and with the Spark helper" src="charts/m3-ultra-b-ttft-light.svg">
 </picture>
 
-<!-- BEGIN GENERATED: speed m3-ultra-b -->
-Time to first token, and how many times shorter the wait is than GPU only:
-
-| Setup | 8K | 32K | 64K | 128K |
-|---|---:|---:|---:|---:|
-| GPU only | 8.5 s | 33.3 s | 68.0 s | 137.2 s |
-| + Spark helper | 6.1 s · 1.4× | 16.1 s · 2.1× | 30.0 s · 2.3× | 58.8 s · 2.3× |
-
-Prefill speed in tokens per second:
-
-| Setup | 8K | 32K | 64K | 128K |
-|---|---:|---:|---:|---:|
-| GPU only | 966 | 983 | 963 | 955 |
-| + Spark helper | 1,353 | 2,030 | 2,185 | 2,230 |
-
-Run-to-run spread of prefill speed is at most 2.9% in every cell except + Spark helper at 32K (4.1%).
-<!-- END GENERATED: speed m3-ultra-b -->
-
 How to read it:
 
 - Two setups, not four: GPU only, and the same Mac with the Spark helper.
@@ -282,22 +229,6 @@ How to read it:
   <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-ttft-sweep-dark.svg">
   <img alt="Time to first token from 1K to 128K prompt tokens for the Flash-Next machine, Mac alone and with the Spark helper, on log scales" src="charts/m3-ultra-b-ttft-sweep-light.svg">
 </picture>
-
-<!-- BEGIN GENERATED: speed-sweep m3-ultra-b -->
-Time to first token at each prompt size, and how many times shorter the wait is with the helper:
-
-| Prompt | GPU only | + Spark helper | Speed-up |
-|---|---:|---:|---:|
-| 1K | 1.7 s | 1.5 s | 1.1× |
-| 4K | 5.8 s | 4.2 s | 1.4× |
-| 8K | 8.7 s | 6.0 s | 1.5× |
-| 16K | 16.6 s | 9.5 s | 1.8× |
-| 32K | 33.4 s | 15.9 s | 2.1× |
-| 64K | 67.8 s | 30.5 s | 2.2× |
-| 128K | 137.1 s | 58.4 s | 2.3× |
-
-Mean of 2 valid runs per cell.
-<!-- END GENERATED: speed-sweep m3-ultra-b -->
 
 How to read it:
 
@@ -324,33 +255,6 @@ How to read it:
   <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-many-users-dark.svg">
   <img alt="Time for a wave of 1, 2, 4 and 8 requests to finish at 4K and 32K prompt tokens, Mac alone and with the Spark helper, on log scales" src="charts/m3-ultra-b-many-users-light.svg">
 </picture>
-
-<!-- BEGIN GENERATED: many-users m3-ultra-b -->
-Time for the whole wave to finish, at each prompt size, user count and arm:
-
-| Prompt | Users | Arm | Requests | Valid | Waves in the means | Time to first token | Wave time | Wave prompt tokens/s | Wave speed-up |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 4K | 1 | Mac alone | 3 | 3 | 3 of 3 | 4.98 s (4.91 to 5.03) | 7.9 s | 527 | baseline |
-| 4K | 1 | With helper | 3 | 3 | 3 of 3 | 4.17 s (4.05 to 4.30) | 7.2 s | 578 | 1.10× |
-| 4K | 2 | Mac alone | 6 | 6 | 3 of 3 | 10.32 s (4.92 to 16.93) | 19.2 s | 433 | baseline |
-| 4K | 2 | With helper | 6 | 6 | 3 of 3 | 6.67 s (5.85 to 7.49) | 14.2 s | 583 | 1.35× |
-| 4K | 4 | Mac alone | 12 | 12 | 3 of 3 | 19.23 s (4.91 to 24.48) | 33.2 s | 499 | baseline |
-| 4K | 4 | With helper | 12 | 12 | 3 of 3 | 10.93 s (6.02 to 15.55) | 23.1 s | 718 | 1.44× |
-| 4K | 8 | Mac alone | 24 | 24 | 3 of 3 | 38.43 s (4.96 to 74.27) | 65.5 s | 520 | baseline |
-| 4K | 8 | With helper | 24 | 24 | 3 of 3 | 19.21 s (6.18 to 33.03) | 42.0 s | 789 | 1.56× |
-| 32K | 1 | Mac alone | 3 | 3 | 3 of 3 | 34.36 s (33.77 to 34.65) | 38.7 s | 846 | baseline |
-| 32K | 1 | With helper | 3 | 3 | 3 of 3 | 16.77 s (16.29 to 17.05) | 20.4 s | 1,605 | 1.90× |
-| 32K | 2 | Mac alone | 6 | 6 | 3 of 3 | 55.02 s (35.08 to 75.30) | 79.2 s | 826 | baseline |
-| 32K | 2 | With helper | 6 | 6 | 3 of 3 | 26.87 s (18.21 to 36.14) | 38.7 s | 1,693 | 2.05× |
-| 32K | 4 | Mac alone | 12 | 12 | 3 of 3 | 115.48 s (35.69 to 157.94) | 161.3 s | 811 | baseline |
-| 32K | 4 | With helper | 12 | 12 | 3 of 3 | 45.91 s (19.46 to 72.76) | 75.6 s | 1,731 | 2.13× |
-| 32K | 8 | Mac alone | 24 | 24 | 3 of 3 | 245.48 s (37.28 to 322.50) | 324.7 s | 806 | baseline |
-| 32K | 8 | With helper | 24 | 24 | 3 of 3 | 84.50 s (20.22 to 147.46) | 149.5 s | 1,751 | 2.17× |
-
-Mean of 3 waves per cell, at 1, 2, 4 and 8 users per wave.
-A wave with a request a check marks not valid is left out of the wave means as a whole: its own wall time and prompt tokens are not used in any mean.
-All 180 requests read their prompt cold and got a correct answer.
-<!-- END GENERATED: many-users m3-ultra-b -->
 
 How to read it:
 
@@ -381,16 +285,6 @@ How to read it:
   <img alt="Peak memory at 32K and 128K prompt tokens for native, Affine4 and Affine8 KV cache on the Flash-Next machine" src="charts/m3-ultra-b-kv-memory-light.svg">
 </picture>
 
-<!-- BEGIN GENERATED: kv-cache m3-ultra-b -->
-| Scheme | 32K peak memory | 32K time to first token | 128K peak memory | 128K time to first token |
-|---|---:|---:|---:|---:|
-| Native KV | 105.1 GB | 33.5 s | 108.5 GB | 137.7 s |
-| Affine4 KV | 105.1 GB · +0.0% | 33.6 s · +0.4% | 108.5 GB · −0.0% | 137.6 s · −0.1% |
-| Affine8 KV | 105.1 GB · +0.0% | 33.6 s · +0.3% | 108.5 GB · −0.0% | 137.9 s · +0.1% |
-
-Run-to-run spread of prefill speed is at most 1.47% in every cell.
-<!-- END GENERATED: kv-cache m3-ultra-b -->
-
 How to read it:
 
 - GPU only, as in the first machine's table: ANE prefill and the helper are off.
@@ -407,15 +301,6 @@ How to read it:
   <source media="(prefers-color-scheme: dark)" srcset="charts/m3-ultra-b-quality-dark.svg">
   <img alt="Accuracy on GSM8K and MMLU for four settings on the Flash-Next machine, each with a 95 percent interval" src="charts/m3-ultra-b-quality-light.svg">
 </picture>
-
-<!-- BEGIN GENERATED: quality m3-ultra-b -->
-| Setting | GSM8K (of 200) | MMLU (of 500) | Passkey (of 6) | Answers changed against GPU only | Still cut off |
-|---|---:|---:|---:|---:|---:|
-| GPU only | 194 · 97.0% | 433 · 86.6% | 6 | baseline | 57 |
-| Affine4 KV | 194 · 97.0% | 433 · 86.6% | 6 | 0 lost, 0 gained (of 700) | 57 |
-| Affine8 KV | 194 · 97.0% | 433 · 86.6% | 6 | 0 lost, 0 gained (of 700) | 57 |
-| + Spark helper | 194 · 97.0% | 433 · 86.6% | 6 | 0 lost, 0 gained (of 700) | 57 |
-<!-- END GENERATED: quality m3-ultra-b -->
 
 Same questions under all four settings: 200 from GSM8K, 500 from MMLU and the same 6 passkey prompts.
 2,824 requests, 0 errors.
