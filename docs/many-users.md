@@ -37,7 +37,7 @@ Time for a whole group of requests to finish, at each prompt size and user count
 | 32K | 8 | 324.7 s (5.4 min) | 149.5 s (2.5 min) | 2.17× |
 
 - Mean of 3 groups per case, at 1, 2, 4 and 8 users per group.
-- A group with a request a check marks not valid is left out of the group means as a whole: its own time and prompt tokens are not used in any mean.
+- If one request in a group fails our checks, we leave out the whole group.
 - All 180 requests read their prompt cold and got a correct answer.
 <!-- END GENERATED: many-users m3-ultra-b -->
 

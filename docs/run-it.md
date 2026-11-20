@@ -13,6 +13,7 @@ Words on this page:
 - **helper**: the DGX Spark that reads long prompts for the Mac.
 - **paired**: the Mac and the Spark are linked in oMLX, so the Spark can work for the Mac.
 - **settings file**: the file your oMLX server reads when it starts.
+- **runner**: the script in this repo that sends the prompts and records the times.
 - **server log**: the file the server writes while it runs; the runner reads it to prove a run was cold.
 - **row file**: the file a run writes, one line per request.
 - **dry run**: a command that prints the plan and touches nothing.
@@ -35,11 +36,12 @@ command, and copy the value it prints into `YOUR_HELPER_NODE_ID`:
 python3 bench/helper_id.py \
   --base-url http://127.0.0.1:8004 \
   --settings "$HOME/.omlx/settings.json" \
-  --model YOUR-MODEL-ID
+  --model Qwen3.8-27B-oQ4e-mtp
 ```
 
-`--model` takes your model's id, the name your server lists it under. With no `--model`, the same
-command lists every model and says whether it has a helper id.
+`--model` takes your model's id, the name your server lists it under; the example uses the Qwen model
+that `matrices/m3-ultra-spark.json` names. With no `--model`, the same command lists every model and
+says whether it has a helper id.
 
 The settings file is read for the API key only. It is not where the id lives.
 
@@ -84,6 +86,9 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
 
 ## Steps
 
+Each run file tests one named model, in its `model` line. Load that model in oMLX, or copy the run
+file and change its `model` line to your model.
+
 0. Get the code:
 
    ```bash
@@ -91,8 +96,10 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
    cd omlx-fleet-bench
    ```
 
-1. Start with the short check that the runner can talk to your server: two prompts. This repo has no
-   record of how long this step takes.
+1. Start with the short check that the runner can talk to your server. `matrices/smoke.json` asks for
+   two prompts at 8K, one run each: one on the Mac alone, one with the Apple Neural Engine. The helper
+   is off in both, so this check does not test the Spark. This repo has no record of how long it
+   takes.
 
    ```bash
    python3 bench/run.py \
@@ -119,6 +126,14 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
      --out results/your-name/speed-DATE.jsonl \
      --dry-run
    ```
+
+**128K prompts need the fix from [pull request 5271](https://github.com/jundot/omlx/pull/5271).**
+The run files in steps 3 and 5 hold a 128K prompt size. In a speed file it is `131072` in the top-level
+`prompt_sizes` list: `matrices/m3-ultra-spark.json` and `matrices/m3-ultra-b-speed.json` (step 3). In a
+quality file it is `131072` in the `sizes` list of the `passkey` task, under `tasks`:
+`matrices/quality.json` and `matrices/m3-ultra-b-quality.json` (step 5). Without that fix the 128K part
+fails on the helper, after hours of running. To skip it, copy the run file and remove `131072` from
+that list.
 
 3. Run the speed test: the wait for the first word at 8K, 32K, 64K and 128K tokens, for each setup in
    the run file. This is the same command as step 2, without `--dry-run`. With
@@ -175,7 +190,7 @@ sent, the layer pair by prompt size, and the rest one file for each Mac.
 
    `bench/report.py` on a many-users file writes a speed summary with an empty table, because it
    groups speed rows only. The group tables and charts come from `python3 bench/publish.py`, which
-   reads the file listed for your machine in the published results list.
+   reads the file listed for your machine in `results/published.json`.
 
 7. Check the numbers in this repository before you trust them. These read the files only. This repo
    has no record of how long this step takes.

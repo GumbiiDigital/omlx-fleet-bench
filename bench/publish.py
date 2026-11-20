@@ -563,8 +563,8 @@ def _not_valid_line(path: str, arm: str, flagged: "latency.Waits", alone: Dict[i
     out while the session is still starting can be read by the Mac alone or by the helper. The
     measured wait is what tells them apart, so the sentence is built from it, never from the state.
 
-    The reader meets these rows first as "do not count", so the sentence says that in plain words
-    and then names the table line they sit on and the wait they got.
+    The reader meets these rows first as "do not count", so the sentence says why in plain words,
+    then names the table line they sit on and the wait they got.
     """
     on_the_helper = flagged.at_helper_speed(alone)
     waits = f"{flagged.low_ttft_s:.2f} to {flagged.high_ttft_s:.2f} s"
@@ -575,8 +575,8 @@ def _not_valid_line(path: str, arm: str, flagged: "latency.Waits", alone: Dict[i
     else:
         ran = f"{on_the_helper} of {flagged.requests} ran at helper speed"
     return (
-        f"These {flagged.requests} requests do not count: the helper was still starting when they "
-        f"began. They are the {path} / {arm} rows, and they {ran}."
+        f"These {flagged.requests} started before the helper was ready, so we do not count them. "
+        f"They are the {path} / {arm} rows, and they {ran}."
     )
 
 
@@ -847,8 +847,7 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
 
     notes = [
         _groups_in_means(cells, counts),
-        "A group with a request a check marks not valid is left out of the group means as a whole: "
-        "its own time and prompt tokens are not used in any mean.",
+        "If one request in a group fails our checks, we leave out the whole group.",
     ]
     members = [member for cell in cells for member in cell.members]
     marked = waves.failed_marks(members)

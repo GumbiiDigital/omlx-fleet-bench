@@ -471,7 +471,7 @@ class RequestStudyTest(unittest.TestCase):
         _, blocks = publish.build(self.ws.root)
         block = blocks["helper-ready box"].body
         self.assertIn(
-            "These 2 requests do not count: the helper was still starting when they began. "
+            "These 2 started before the helper was ready, so we do not count them. "
             "They are the speed test / Started at once rows",
             block,
         )
@@ -482,7 +482,7 @@ class RequestStudyTest(unittest.TestCase):
         line = next(l for l in blocks["helper-ready box"].body.splitlines() if "do not count" in l)
         # These rows began while the helper was starting and still came back in about 30 s: helper
         # speed, not the Mac alone.
-        self.assertIn("the helper was still starting when they began", line)
+        self.assertIn("started before the helper was ready", line)
         self.assertIn("ran at helper speed (29.50 to 30.00 s)", line)
         self.assertNotIn("Mac alone", line)
         self.assertNotIn("read the whole prompt", line)
@@ -671,7 +671,8 @@ class ManyUsersStudyTest(unittest.TestCase):
     def test_the_block_says_why_a_group_is_left_out_of_a_mean(self):
         _, blocks = publish.build(self.ws.root)
         block = blocks["many-users box"].body
-        self.assertIn("A group with a request a check marks not valid is left out of the group means as a whole", block)
+        self.assertIn("If one request in a group fails our checks, we leave out the whole group.", block)
+        self.assertNotIn("left out of the group means as a whole", block)
 
     def test_a_flagged_row_is_counted_and_named_and_left_out_of_the_means(self):
         rows = [dict(row) for row in self.ws.rows]

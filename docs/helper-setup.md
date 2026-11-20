@@ -38,7 +38,7 @@ The wait for the first word of a request at 32K with the helper on, sent straigh
 
 - 6 requests in every line of the table. Each line is one request with the helper off and then one at 32K with the helper on, so every helper request starts straight after a switch.
 - The helper state at the start of the request: chat, Started at once: not ready yet, still connecting (6 of 6); chat, Waited for the helper: ready (6 of 6); speed test, Started at once: not ready yet, still starting (6 of 6); speed test, Waited for the helper: ready (6 of 6).
-- These 6 requests do not count: the helper was still starting when they began. They are the speed test / Started at once rows, and they ran at helper speed (29.52 to 30.04 s).
+- These 6 started before the helper was ready, so we do not count them. They are the speed test / Started at once rows, and they ran at helper speed (29.52 to 30.04 s).
 - Every request read its prompt cold; 12 of 12 answers were correct.
 <!-- END GENERATED: helper-ready m3-ultra-a -->
 

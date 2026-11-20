@@ -11,7 +11,8 @@ Spark.
   each word, so it is faster on its own.
 - **The Spark** is an NVIDIA DGX Spark, a small computer that reads long prompts for the Mac.
 - **oMLX** is the server that runs the model on the Mac. It is the work of its own authors: see
-  [the oMLX project](https://github.com/jundot/omlx). The Spark runs the oMLX CUDA helper.
+  [the oMLX project](https://github.com/jundot/omlx). The Spark runs the oMLX helper, a small program
+  that runs on the Spark's NVIDIA chip.
 
 <!-- BEGIN GENERATED: headline -->
 <picture>
@@ -53,16 +54,17 @@ Spark.
 
 ## Does it change the answers?
 
-For short questions the Spark and the Neural Engine do nothing, so those rows say nothing about them.
-The test asks 700 maths and general-knowledge questions (200 GSM8K + 500 MMLU) plus 6 long passkey
-prompts, 706 in all. The maths and general-knowledge questions are about 150 tokens, too short for
-either add-on to do work on, and the answers came back the same with and without them. We checked that
-from the times. We did not check the server log.
+The Spark and Apple's Neural Engine, a part of the Mac's chip that can also read the prompt, do
+nothing on short questions, so those rows say nothing about them. The test asks 700 maths and
+general-knowledge questions (200 GSM8K + 500 MMLU) plus 6 long passkey prompts, 706 in all. The maths
+and general-knowledge questions are about 150 tokens, too short for either of them to do work on, and
+the answers came back the same with and without them. We checked that from the times. We did not check
+the server log.
 
 The Spark was tested on the 6 long passkey prompts only (find a hidden number in a long text), and
-got all 6 right. On Mac A, 10 or 11 of 700 answers changed against Mac alone even where the add-on did
-no work, so changes that small happen on their own. On Mac B no setting changed an answer on this run
-(0 of 700 answers); that is not a measured safety margin. The numbers are in
+got all 6 right. On Mac A, 10 or 11 of 700 answers changed against Mac alone even where neither of
+them did any work, so changes that small happen on their own. On Mac B no setting changed an answer on
+this run (0 of 700 answers); that is not a measured safety margin. The numbers are in
 [answer quality](docs/answer-quality.md).
 
 ## What you need
@@ -73,7 +75,8 @@ no work, so changes that small happen on their own. On Mac B no setting changed 
 - A fast network link between the two. Tested: a 10 gigabit link.
 - oMLX 0.8.0rc1 on the Mac: the server that runs the model and answers each prompt, from
   [the oMLX project](https://github.com/jundot/omlx).
-- The oMLX CUDA helper 0.1.4 on the Spark. This repo does not cover setting up the helper.
+- The oMLX helper 0.1.4 on the Spark. This repo does not say where to get the helper or how to set it
+  up.
 - One language model on the Mac. Tested: the Qwen 27B model, an open language model, stored as
   `Jundot/Qwen3.8-27B-oQ4e-mtp` (4-bit, 16 GB on disk); and the Flash-Next model, a second open
   language model, stored as `Qwen3.8-Flash-Next-oQ4e-mtp`.

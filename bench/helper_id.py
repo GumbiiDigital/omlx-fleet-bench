@@ -126,18 +126,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    # Every call to the server sits inside this block: the model reads fail the same way login
+    # does (no connection, an error answer, a body that is not JSON), and a traceback would read as
+    # "the model has no helper id" to anyone who only looks at the exit code. The reason printed is
+    # the exception's own text: the API key is never in it.
     try:
         client = build_client(args.base_url, args.settings)
-    except ValueError as exc:
-        print(f"could not read the API key: {exc}", file=sys.stderr)
+        if args.model:
+            return print_helper_id(client, args.model, sys.stdout)
+        return print_model_list(client, sys.stdout)
+    except (OSError, ValueError) as exc:
+        print(f"could not read the server: {exc}", file=sys.stderr)
         return 2
-    except OSError as exc:
-        print(f"could not reach {args.base_url}: {exc}", file=sys.stderr)
-        return 2
-
-    if args.model:
-        return print_helper_id(client, args.model, sys.stdout)
-    return print_model_list(client, sys.stdout)
 
 
 if __name__ == "__main__":
