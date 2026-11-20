@@ -20,18 +20,38 @@ Words on this page:
 
 - oMLX running on your Mac, answering at an address such as `http://127.0.0.1:8004`.
 - The settings file the server reads, normally `$HOME/.omlx/settings.json`, and its server log.
-- Your Spark paired as the helper. You also need the helper's own name, the node id, which goes in
-  `--helper-node`; this repository does not cover finding it, so see the oMLX helper's own guide.
+- Your Spark paired as the helper, and its node id.
 - A run file from `matrices/` to say which prompt sizes and setups to run, and a name of your own for
   your machine, passed as `--machine`.
 
+## Where the helper's node id comes from
+
+The server keeps its Spark id in a model setting named `prefill_helper_node_id`, and the runner sends
+that same id when you pass it as `--helper-node`. If your Spark is already paired, the value is there
+to copy: it is in the model settings your server holds, and the file you pass to `--settings`
+(normally `$HOME/.omlx/settings.json`) is where oMLX keeps its own copy. An empty value means the
+Spark is not paired yet, and this repository does not cover pairing it.
+
+In every command below, `YOUR_HELPER_NODE_ID` is the placeholder you replace with that value.
+
 ## Which run file fits which Mac
 
-- The files whose names start with `m3-ultra-b` were run on Mac B, the Flash-Next machine.
-- The other files were run on Mac A, the Qwen 27B machine.
+| Run file | Mac | What it tests |
+|---|---|---|
+| `matrices/m3-ultra-spark.json` | Mac A | speed, four setups at four prompt sizes |
+| `matrices/kv-cache.json`, `matrices/m3-ultra-b-kv-cache.json` | Mac A, Mac B | the prompt memory settings, alone on the Mac |
+| `matrices/quality.json`, `matrices/m3-ultra-b-quality.json` | Mac A, Mac B | answers, 700 questions (five settings on Mac A, four on Mac B) |
+| `matrices/m3-ultra-a-helper-ready.json`, `matrices/m3-ultra-a-helper-ready-chat.json` | Mac A | the helper start-up wait |
+| `matrices/m3-ultra-a-helper-layers-chat-32k.json`, `matrices/m3-ultra-a-helper-layers-chat-128k.json` | Mac A | how many layers the Spark holds |
+| `matrices/m3-ultra-b-speed.json` | Mac B | speed, two setups at four prompt sizes |
+| `matrices/m3-ultra-b-speed-sweep.json` | Mac B | the wait at seven prompt sizes, 1K to 128K |
+| `matrices/m3-ultra-b-many-users.json` | Mac B | groups of users sending at the same moment |
+| `matrices/m3-ultra-b-256k.json` | Mac B | the 256K attempt, which the server refused |
+| `matrices/smoke.json` | both | a two-run check that the runner can talk to your server |
+| `matrices/flash-next-moe.json` | both | a model that uses only part of itself for each word; no published results |
 
-Pick the one that matches your model, or start with `matrices/smoke.json`, a two-run check that the
-runner can talk to your server.
+Where a row names two files, they are one test split in two: the start-up pair by the way a prompt is
+sent, the layer pair by prompt size, and the rest one file for each Mac.
 
 ## What a run does to your server
 
@@ -40,7 +60,7 @@ runner can talk to your server.
   exactly the same as a copy taken before it.
 - **Seven settings, and only while the run lasts.** Which Spark the Mac sends long prompts to. How
   many model layers the Spark holds. Whether the Apple Neural Engine helps read the prompt. And four
-  settings for the 4-bit prompt memory: on or off, which scheme, how many bits, and whether the last
+  settings for the 4-bit prompt memory: on or off, which setting, how many bits, and whether the last
   layers are left as they are.
 - **Nothing is uploaded.** Every speed run ends by confirming that it uploaded nothing, and the
   runner refuses to start a run with that turned off. The quality test uses plain chat requests, which
@@ -56,7 +76,22 @@ runner can talk to your server.
    cd omlx-fleet-bench
    ```
 
-1. Look at what a run would do, and touch nothing:
+1. Start with the two-run check that the runner can talk to your server. It makes two rows and its
+   time is not recorded:
+
+   ```bash
+   python3 bench/run.py \
+     --matrix matrices/smoke.json \
+     --base-url http://127.0.0.1:8004 \
+     --settings "$HOME/.omlx/settings.json" \
+     --server-log "$HOME/.omlx/logs/server.log" \
+     --helper-node YOUR_HELPER_NODE_ID \
+     --machine your-name \
+     --out results/your-name/smoke-DATE.jsonl
+   ```
+
+2. Look at what the speed run would do, and touch nothing. This one sends no request, so it makes no
+   rows and its time is not recorded:
 
    ```bash
    python3 bench/run.py \
@@ -65,13 +100,14 @@ runner can talk to your server.
      --settings "$HOME/.omlx/settings.json" \
      --server-log "$HOME/.omlx/logs/server.log" \
      --helper-node YOUR_HELPER_NODE_ID \
-     --machine your-label \
-     --out results/your-label/speed-DATE.jsonl \
+     --machine your-name \
+     --out results/your-name/speed-DATE.jsonl \
      --dry-run
    ```
 
-2. Run the speed test: the wait for the first word at 8K, 32K, 64K and 128K tokens, for each setup in
-   the run file. This is the same command as step 1, without `--dry-run`:
+3. Run the speed test: the wait for the first word at 8K, 32K, 64K and 128K tokens, for each setup in
+   the run file. This is the same command as step 2, without `--dry-run`. It took about 2 hours 23
+   minutes on Mac A (48 runs) and about 1 hour 40 minutes on Mac B (24 runs):
 
    ```bash
    python3 bench/run.py \
@@ -80,18 +116,19 @@ runner can talk to your server.
      --settings "$HOME/.omlx/settings.json" \
      --server-log "$HOME/.omlx/logs/server.log" \
      --helper-node YOUR_HELPER_NODE_ID \
-     --machine your-label \
-     --out results/your-label/speed-DATE.jsonl
+     --machine your-name \
+     --out results/your-name/speed-DATE.jsonl
    ```
 
-3. Build a summary of your own speed rows:
+4. Build a summary of your own speed rows. It only reads the row file, so its time is not recorded:
 
    ```bash
-   python3 bench/report.py results/your-label/speed-DATE.jsonl --report-dir report
+   python3 bench/report.py results/your-name/speed-DATE.jsonl --report-dir report
    ```
 
-4. Run the answer-quality test. It takes about 85 minutes per setting on the hardware here, so about
-   7 hours for all five settings in `matrices/quality.json`:
+5. Run the answer-quality test. On Mac A the five settings took about 1 hour 16 minutes for the 706
+   answers with the Mac alone and about 5 hours 42 minutes for the 2,824 answers with the add-ons. On
+   Mac B the four settings took about 7 hours 43 minutes (2,824 answers):
 
    ```bash
    python3 bench/quality.py \
@@ -99,13 +136,14 @@ runner can talk to your server.
      --base-url http://127.0.0.1:8004 \
      --settings "$HOME/.omlx/settings.json" \
      --helper-node YOUR_HELPER_NODE_ID \
-     --machine your-label \
-     --out results/your-label/quality-DATE.jsonl
+     --machine your-name \
+     --out results/your-name/quality-DATE.jsonl
 
-   python3 bench/quality_report.py results/your-label/quality-DATE.jsonl --out report/quality.md
+   python3 bench/quality_report.py results/your-name/quality-DATE.jsonl --out report/quality.md
    ```
 
-5. Run a many-users test: N requests that start at the same moment, called one group here.
+6. Run a many-users test: N requests that start at the same moment, called one group here. It took
+   about 56 minutes on Mac B (180 requests):
 
    ```bash
    python3 bench/concurrency.py \
@@ -113,15 +151,16 @@ runner can talk to your server.
      --base-url http://127.0.0.1:8004 \
      --settings "$HOME/.omlx/settings.json" \
      --helper-node YOUR_HELPER_NODE_ID \
-     --machine your-label \
-     --out results/your-label/many-users-DATE.jsonl
+     --machine your-name \
+     --out results/your-name/many-users-DATE.jsonl
    ```
 
    `bench/report.py` on a many-users file writes a speed summary with an empty table, because it
    groups speed rows only. The group tables and charts come from `python3 bench/publish.py`, which
    reads the file listed for your machine in the published results list.
 
-6. Check the numbers in this repository before you trust them:
+7. Check the numbers in this repository before you trust them. These read the files only, so their
+   time is not recorded:
 
    ```bash
    python3 -m unittest discover -s tests
@@ -134,14 +173,17 @@ runner can talk to your server.
 
 ## Useful options
 
-- `--only-cells gpu:32768` (speed) and `--only-variants`, `--only-tasks`, `--limit N` (quality)
-  narrow a run to one setup or a few questions.
-- `--users 1,2,4` and `--waves 3` (many users) set the user counts and the number of groups.
-- `--retry-capped FILE --max-tokens-scale 8` asks the cut-off answers in `FILE` again with a larger
-  cap, and `quality_report.py --replace` merges them in.
-- Leave the helper wait on. `--helper-ready-timeout` (seconds, default 120) limits the wait, and
-  `--helper-stable-s` (default 5) says how long the helper must stay ready. `--no-helper-wait` is only
-  for replaying an older run.
+- `--dry-run` prints the plan and sends nothing.
+- `--only-cells gpu:32768` (speed) runs one setup at one prompt size.
+- `--only-variants`, `--only-tasks` and `--limit N` (quality) run some settings, some question sets, or
+  the first N questions of each set.
+- `--users 1,2,4` and `--waves 3` (many users) set how many users a group holds and how many groups to
+  run.
+- `--retry-capped FILE --max-tokens-scale 8` asks the answers that ran out of tokens again with a
+  bigger cap, and `quality_report.py --replace` puts the new answers in place of the old ones.
+- `--helper-ready-timeout` (seconds, default 120) is how long the run waits for the Spark to be ready.
+- `--helper-stable-s` (default 5) is how long the Spark must stay ready before the run trusts it.
+- `--no-helper-wait` skips that wait; use it only to replay an older run.
 
 ## Add your machine
 

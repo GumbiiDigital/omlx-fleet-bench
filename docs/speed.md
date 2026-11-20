@@ -95,6 +95,11 @@ The wait for the first word at each prompt size, and how many times shorter it i
 - Each figure is the mean of 2 valid runs. Every run read its prompt with a cold cache (0 cached tokens).
 <!-- END GENERATED: speed-sweep m3-ultra-b -->
 
+## In what order the runs went
+
+Every setup ran once at every prompt size, then every setup again, then a third time. Heat, and any
+slowing during the run, land on every setup alike.
+
 ## What this means
 
 - The Spark pays best on long prompts, because reading the prompt is what takes the time.

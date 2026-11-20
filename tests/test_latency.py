@@ -155,13 +155,13 @@ class GroupTest(unittest.TestCase):
 
     def test_the_help_text_names_each_state_and_its_share(self):
         groups = latency.group_requests(self._requests(), lambda r: r.arm)
-        self.assertEqual(groups["no wait"].state_text, "connecting (2 of 2)")
+        self.assertEqual(groups["no wait"].state_text, "not ready yet, still connecting (2 of 2)")
         self.assertEqual(groups["wait"].state_text, "ready (2 of 2)")
 
     def test_a_group_of_mixed_states_names_both(self):
         rows = [_chat_row(ttft=1.0, state="ready"), _chat_row(ttft=1.0, state="starting")]
         groups = latency.group_requests([latency.from_row(r, path="chat", arm="a") for r in rows], lambda r: r.arm)
-        self.assertEqual(groups["a"].state_text, "ready (1 of 2) · starting (1 of 2)")
+        self.assertEqual(groups["a"].state_text, "ready (1 of 2) · not ready yet, still starting (1 of 2)")
 
     def test_the_layers_taken_are_listed_one_by_one_when_they_differ(self):
         rows = [_chat_row(ttft=1.0, layers=50), _chat_row(ttft=1.0, layers=49), _chat_row(ttft=1.0, layers=49)]

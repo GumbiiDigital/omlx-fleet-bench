@@ -54,14 +54,14 @@ Spark.
 ## Does it change the answers?
 
 Mostly no, and the test shows less than it seems. The Spark and the Apple Neural Engine only act on
-long prompts. The grade-school maths and general-knowledge questions are about 150 tokens, too short
-for either add-on to do any work, so their rows show no change because nothing happened. That is read
-from equal times and reading speeds, not confirmed in the server log.
+long prompts. The grade-school maths questions (GSM8K) and general-knowledge questions (MMLU) are
+about 150 tokens, too short for the Spark or the Neural Engine to do any work, so their rows show no
+change because nothing happened. We checked this from the times. We did not check the server log.
 
 The Spark was tested on the 6 long passkey prompts only (find a hidden number in a long text), and
-got all 6 right. On Mac A, 10 or 11 of 700 answers changed between two runs of the same setting
-anyway, about 1 answer in 70, so a small change is noise. On Mac B no setting changed an answer on
-this run (0 of 700 answers); that is not a measured safety margin. The numbers are in
+got all 6 right. On Mac A, 10 or 11 of 700 answers changed against Mac alone even where the add-on did
+no work, so changes that small happen on their own. On Mac B no setting changed an answer on this run
+(0 of 700 answers); that is not a measured safety margin. The numbers are in
 [answer quality](docs/answer-quality.md).
 
 ## What you need
@@ -70,15 +70,20 @@ this run (0 of 700 answers); that is not a measured safety margin. The numbers a
   29.1 GB at 128K on Mac A, and 108.5 GB at 128K on Mac B. Both Macs here have 256 GB.
 - An NVIDIA DGX Spark as the helper. Tested: the 128 GB model.
 - A fast network link between the two. Tested: a 10 gigabit link.
-- oMLX 0.8.0rc1 on the Mac, from [the oMLX project](https://github.com/jundot/omlx).
+- oMLX 0.8.0rc1 on the Mac: the server that runs the model and answers each prompt, from
+  [the oMLX project](https://github.com/jundot/omlx).
 - The oMLX CUDA helper 0.1.4 on the Spark. This repository does not cover setting up the helper; see
   the oMLX helper's own guide.
-- The model on the Mac. Tested: the Qwen 27B model, `Jundot/Qwen3.8-27B-oQ4e-mtp` (4-bit, 16 GB on
-  disk), and the Flash-Next model, `Qwen3.8-Flash-Next-oQ4e-mtp`.
+- One language model on the Mac. Tested: the Qwen 27B model, an open language model, stored as
+  `Jundot/Qwen3.8-27B-oQ4e-mtp` (4-bit, 16 GB on disk); and the Flash-Next model, a second open
+  language model, stored as `Qwen3.8-Flash-Next-oQ4e-mtp`.
 - One fix the helper still needs: the 128K prompt fails on the stock helper. The fix is in
   [pull request 5271](https://github.com/jundot/omlx/pull/5271), and it is not in a release yet.
 
 ## Try it on your Mac
+
+The repository is called omlx-fleet-bench:
+[github.com/GumbiiDigital/omlx-fleet-bench](https://github.com/GumbiiDigital/omlx-fleet-bench).
 
 Python 3.9 or newer, and no extra Python packages to install. One command runs a whole test file on
 your own server, and a second builds a summary from the rows. A settings change makes your server
@@ -91,10 +96,10 @@ The run puts your settings back, uploads nothing and never prints your key. Ever
 
 - Two Macs only, one model on each, on a pre-release build of oMLX. We do not know how far these
   numbers carry to other Macs, other models or other builds.
-- Every run started with a cold cache: the server held nothing of the prompt. There is no warm-cache
-  test.
-- Each figure in the picture is the mean of 3 runs. The prompt-size test on Mac B has 2 runs per
-  size.
+- Every run read its prompt with a cold cache: the server held nothing of the prompt. There is no
+  warm-cache test. The only warm result is two helper runs, at 8K and 32K, run again back to back.
+- Each figure in the picture is the mean of 3 runs; the prompt-size test on Mac B has 2 runs per size.
+  Three runs are enough to see a 3 times change, not enough to rank two setups that are 2% apart.
 - One test sends many requests at once. Every other test sends one request at a time.
 - Each Mac had its own Spark beside it. The prompt-size test used a second Spark of the same type, a
   day earlier.
@@ -124,6 +129,8 @@ Adding your own results: [Contributing](CONTRIBUTING.md).
 - **first word**: the first token the model sends back; this repo times the wait before it.
 - **cold cache**: the server holds nothing of the prompt, so it reads all of it.
 - **KV cache**: the memory that holds the prompt while the model answers.
+- **Apple Neural Engine**: a part of the Apple chip that can also read part of the prompt.
+- **add-on**: the Spark or the Apple Neural Engine; each of them reads part of a long prompt.
 
 ## Credits and license
 

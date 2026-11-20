@@ -194,6 +194,13 @@ class LinePanelTest(unittest.TestCase):
         self.assertIn(DARK.series["blue"], strokes)
         self.assertIn(DARK.series["aqua"], strokes)
 
+    def test_the_file_says_which_axes_multiply(self):
+        root = ET.fromstring(self._svg())
+        self.assertEqual(root.get("data-x-scale"), "log")
+        self.assertEqual(root.get("data-y-scale"), "log")
+        bars = ET.fromstring(charts.bar_panels(self.caption, _bar_panels(), LIGHT))
+        self.assertEqual(bars.get("data-y-scale"), "linear")
+
     def test_same_input_gives_the_same_bytes(self):
         self.assertEqual(self._svg(), self._svg())
 

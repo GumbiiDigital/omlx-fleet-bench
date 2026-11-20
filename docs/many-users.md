@@ -53,8 +53,8 @@ Time for a whole group of requests to finish, at each prompt size and user count
 ## Limits
 
 - One model, one machine pair, 3 groups per case, 128 output tokens, a cold cache in every request.
-- The second, fourth and eighth user send at the same instant as the first, so this is a burst, not
-  people typing at their own pace.
+- The second, fourth and eighth user send at the same instant as the first; real users send at
+  different times.
 - The rows were made on 2026-11-18 with the Spark that was paired with that Mac that day, not the
   second Spark of the same type used for the prompt-size test.
 

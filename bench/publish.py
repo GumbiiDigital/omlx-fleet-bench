@@ -500,7 +500,8 @@ def build_speed_sweep(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str
         title="Wait for the first word by prompt size (seconds)",
         subtitle=[
             f"{_display(machine)} · {study['conditions']}",
-            "Both axes are a log scale: each step up of the same size is 10 times more.",
+            "Both axes multiply: 10 s to 100 s takes the same space as 100 s to 1,000 s, and 8K tokens "
+            "to 80K the same as 80K to 800K.",
         ],
         footnotes=["One line per setup; every point carries its value."],
     )
@@ -592,7 +593,7 @@ def build_helper_ready(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, st
 
     header = [
         "Path",
-        "Round",
+        "When the prompt was sent",
         "Waited for the helper (s)",
         "Wait for the first word (s)",
         "Ran at helper speed",
@@ -625,7 +626,7 @@ def build_helper_ready(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, st
     )
     notes = [
         count_text
-        + " Each round is one request with the helper off and then one at 32K with the helper on, "
+        + " Each line is one request with the helper off and then one at 32K with the helper on, "
         "so every helper request starts straight after a switch.",
         f"The helper state at the start of the request: {states}.",
     ]
@@ -881,8 +882,8 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
             title="Time for a whole group of requests to finish (seconds)",
             subtitle=[
                 f"{_display(machine)} · {study['conditions']}",
-                "Both axes are a log scale, shared by both panels: each step up of the same size is "
-                "10 times more.",
+                "Both axes multiply: 10 s to 100 s takes the same space as 100 s to 1,000 s, and 1 user "
+                "to 4 the same as 4 to 16.",
             ],
             footnotes=[
                 "Every point carries its value.",
@@ -1006,8 +1007,8 @@ def build_headline(root: Path, manifest: Dict[str, Any]) -> Optional[Tuple[Outpu
         subtitle=[
             " · ".join(entry.display for entry in lines),
             "Mean of the valid runs, cold cache.",
-            "Both axes are a log scale, shared by both panels: each step up of the same size is "
-            "10 times more.",
+            "Both axes multiply: 10 s to 100 s takes the same space as 100 s to 1,000 s, and 8K tokens "
+            "to 80K the same as 80K to 800K.",
         ],
         footnotes=[
             "Every point carries its value.",

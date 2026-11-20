@@ -362,6 +362,19 @@ class ChartTextTest(unittest.TestCase):
         ]
         self.assertEqual(problems, [], "\n".join(problems))
 
+    def test_every_chart_with_a_log_axis_says_what_a_step_means(self):
+        # A multiplying axis is only readable if the picture says so in words a person can hold.
+        log_charts, missing = [], []
+        for path in self.CHARTS:
+            root = ET.fromstring(path.read_text(encoding="utf-8"))
+            if "log" not in (root.get("data-x-scale"), root.get("data-y-scale")):
+                continue
+            log_charts.append(path.name)
+            if not any("multiply" in word.lower() for word in self._words(path)):
+                missing.append(path.name)
+        self.assertGreaterEqual(len(log_charts), 3, log_charts)
+        self.assertEqual(missing, [])
+
     def test_every_bar_chart_names_its_axis_and_unit(self):
         for name in ("m3-ultra-a-ttft", "m3-ultra-a-kv-memory", "m3-ultra-a-helper-layers", "m3-ultra-a-quality"):
             words = self._words(REPO_ROOT / f"charts/{name}-light.svg")

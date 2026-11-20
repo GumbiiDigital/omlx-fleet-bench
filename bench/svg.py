@@ -94,11 +94,24 @@ def text_width(text: str, size: float, *, bold: bool = False) -> float:
 class Canvas:
     """Collects SVG elements and renders one document."""
 
-    def __init__(self, width: float, height: float, theme: Theme, *, label: str) -> None:
+    def __init__(
+        self,
+        width: float,
+        height: float,
+        theme: Theme,
+        *,
+        label: str,
+        x_scale: str = "linear",
+        y_scale: str = "linear",
+    ) -> None:
         self.width = width
         self.height = height
         self.theme = theme
         self.label = label
+        # What a step on each axis means, written into the file so a reader (and a test) can tell a
+        # multiplying axis from a plain one.
+        self.x_scale = x_scale
+        self.y_scale = y_scale
         self._parts: List[str] = []
 
     def _tooltip(self, tooltip: Optional[str]) -> str:
@@ -206,6 +219,6 @@ class Canvas:
         head = (
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
             f'viewBox="0 0 {width} {height}" role="img" aria-label={quoteattr(self.label)} '
-            f'font-family="{FONT_FAMILY}">'
+            f'font-family="{FONT_FAMILY}" data-x-scale="{self.x_scale}" data-y-scale="{self.y_scale}">'
         )
         return "\n".join([head, f"<title>{escape(self.label)}</title>", *self._parts, "</svg>"]) + "\n"

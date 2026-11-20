@@ -463,8 +463,8 @@ class RequestStudyTest(unittest.TestCase):
     def test_the_state_at_the_start_is_named_for_every_round(self):
         _, blocks = publish.build(self.ws.root)
         block = blocks["helper-ready box"].body
-        self.assertIn("chat, Started at once: connecting (2 of 2)", block)
-        self.assertIn("speed test, Started at once: starting (2 of 2)", block)
+        self.assertIn("chat, Started at once: not ready yet, still connecting (2 of 2)", block)
+        self.assertIn("speed test, Started at once: not ready yet, still starting (2 of 2)", block)
         self.assertIn("chat, Waited for the helper: ready (2 of 2)", block)
 
     def test_the_rows_a_flag_marks_not_valid_are_named_in_the_block(self):
@@ -481,7 +481,7 @@ class RequestStudyTest(unittest.TestCase):
         _, blocks = publish.build(self.ws.root)
         line = next(l for l in blocks["helper-ready box"].body.splitlines() if "marked not valid" in l)
         # These rows began at `starting` and still came back in about 30 s: helper speed, not Mac alone.
-        self.assertIn("began at helper state starting (2 of 2)", line)
+        self.assertIn("began at helper state not ready yet, still starting (2 of 2)", line)
         self.assertIn("ran at helper speed (29.50 to 30.00 s)", line)
         self.assertNotIn("Mac alone", line)
         self.assertNotIn("read the whole prompt", line)

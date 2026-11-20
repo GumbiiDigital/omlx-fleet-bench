@@ -4,7 +4,7 @@ Question: do the settings and the Spark change what the model answers?
 
 Short answer: not in a way these 700 questions can see. On Mac B every answer came out the same under
 all four settings, and that is not a measured safety margin. On Mac A 10 or 11 of 700 answers changed
-between runs even where the add-on did no work, so a change of that size is run-to-run noise.
+against Mac alone even where the add-on did no work, so changes that small happen on their own.
 
 Words on this page:
 
@@ -74,18 +74,20 @@ Answers right, per question set and setting. The second figure in a row is the s
   here", not "safe on short prompts". That is read from equal times and reading speeds; it was not
   confirmed from the server log.
 - The Spark answered all 6 passkey prompts right, at 32K, 64K and 128K tokens.
-- 8-bit sits inside that noise. 4-bit flipped about twice as many answers, in both directions (7
-  right answers became wrong, 13 wrong answers became right), so read its row as unchanged rather
-  than as a gain.
+- 8-bit moved 8 answers, and 4-bit moved 20, about twice as many, in both directions (7 right
+  answers became wrong, 13 wrong answers became right). Read both rows as unchanged rather than as
+  a gain.
 
 ## Limits
 
-- The 95% range is about ±2 to ±3 points. A setting that costs one point of accuracy would not show.
+- Scores could be off by 2 to 3 points by chance. A setting that costs one point of accuracy would
+  not show.
 - The 20-subject MMLU subset is easier than the full test, so compare settings inside one table, not
   against published scores.
 - 304 answers on Mac A ran out of tokens while the model was still thinking. They were asked again
   with a cap 8 times larger; the ones still cut off count as wrong. On Mac B 57 answers per setting
-  were cut off and not asked again, so the Mac B MMLU figure is a floor.
+  were cut off and not asked again, so the Mac B MMLU score could be a little better than it reads,
+  never worse.
 - The passkey numbers come from a second run on 2026-11-17, with a unique first line in every prompt
   so that each was read cold. All 30 rows on Mac A and all 24 on Mac B read 0 cached tokens, and
   every answer was right.

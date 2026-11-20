@@ -188,8 +188,15 @@ def _grid(count: int, columns: int, panel_height: float, top: float) -> Tuple[Li
     return origins, panel_width, bottom
 
 
-def _open(caption: Caption, theme: Theme, height: float) -> Canvas:
-    canvas = Canvas(WIDTH, height, theme, label=caption.label)
+def _open(
+    caption: Caption,
+    theme: Theme,
+    height: float,
+    *,
+    x_scale: str = "linear",
+    y_scale: str = "linear",
+) -> Canvas:
+    canvas = Canvas(WIDTH, height, theme, label=caption.label, x_scale=x_scale, y_scale=y_scale)
     canvas.rect(0.5, 0.5, WIDTH - 1, height - 1, theme.surface, radius=8, stroke=theme.border)
     y = PAD + TITLE_SIZE
     canvas.text(PAD, y, caption.title, size=TITLE_SIZE, weight=600)
@@ -244,7 +251,7 @@ def bar_panels(
     """Horizontal bars, one panel per group. Each panel has its own scale, so compare
     bars inside a panel; the printed values carry the comparison across panels.
 
-    `axis_label` names the quantity and its unit under the whole picture, so a bar has a
+    `axis_label` names the quantity and its unit under each column of panels, so a bar has a
     scale a reader can hold, not only a number at its tip. Every bar also carries its own
     setup name and value, so no legend is needed to read it.
     """
@@ -284,7 +291,10 @@ def bar_panels(
             _value_label(canvas, x0 + width + 8, baseline, row)
         canvas.line(x0, rows_top - 4, x0, rows_top + len(panel.rows) * ROW_PITCH - 8, theme.axis)
     if axis_label:
-        canvas.text(WIDTH / 2, bottom + 16, axis_label, size=NOTE_SIZE, fill=theme.muted, anchor="middle")
+        # One title under each column of panels: every panel has its own scale, so each needs its own
+        # axis name, and a single column needs the name only once.
+        for left in sorted({px for px, _ in origins}):
+            canvas.text(left + panel_width / 2, bottom + 16, axis_label, size=NOTE_SIZE, fill=theme.muted, anchor="middle")
     return _close(canvas, caption, bottom + room)
 
 
@@ -398,6 +408,7 @@ def _place_value(
     x: float,
     y: float,
     plot_left: float,
+    plot_right: float,
     plot_bottom: float,
     placed: List[Tuple[float, float, float, float]],
 ) -> None:
@@ -418,7 +429,7 @@ def _place_value(
         left = cx if anchor == "start" else cx - wide
         right = left + wide
         top, bottom = cy - NOTE_SIZE, cy + 2
-        if left < plot_left or right > WIDTH - 2 or bottom > plot_bottom - 2:
+        if left < plot_left or right > plot_right or bottom > plot_bottom - 2:
             continue
         if any(not (right < held_left or left > held_right or bottom < held_top or top > held_bottom)
                for held_left, held_top, held_right, held_bottom in placed):
@@ -427,16 +438,25 @@ def _place_value(
         canvas.text(cx, cy, text, size=NOTE_SIZE, fill=canvas.theme.muted, anchor=anchor)
         return
     # Every spot near the point is taken: keep the value beside it all the same, inside the picture.
-    cx = min(max(x + 8, plot_left), WIDTH - 4 - wide)
+    cx = min(max(x + 8, plot_left), plot_right - 4 - wide)
     placed.append((cx, y - 8 - NOTE_SIZE, cx + wide, y - 6))
     canvas.text(cx, y - 8, text, size=NOTE_SIZE, fill=canvas.theme.muted)
 
 
-def _draw_plot(canvas: Canvas, panel: LinePanel, left: float, top: float, right: float, bottom: float) -> None:
+def _draw_plot(
+    canvas: Canvas,
+    panel: LinePanel,
+    left: float,
+    top: float,
+    right: float,
+    bottom: float,
+    reserved: Sequence[Tuple[float, float, float, float]] = (),
+) -> None:
     """Both log axes, their grids and ticks, and every series of one panel, inside a box.
 
     The caller owns the box, so the same marks serve a chart that fills the figure and one that
-    shares it with other panels.
+    shares it with other panels. `reserved` holds the boxes already spoken for (a panel title), so
+    a value label does not land on one.
     """
     across, down = _log_span(panel.x_min, panel.x_max), _log_span(panel.y_min, panel.y_max)
 
@@ -457,7 +477,7 @@ def _draw_plot(canvas: Canvas, panel: LinePanel, left: float, top: float, right:
     canvas.line(left, top, left, bottom, canvas.theme.axis)
     canvas.line(left, bottom, right, bottom, canvas.theme.axis)
 
-    placed: List[Tuple[float, float, float, float]] = []
+    placed: List[Tuple[float, float, float, float]] = list(reserved)
     for series in panel.series:
         colour = canvas.theme.series[series.series]
         placed_points = [(x_of(point.x), y_of(point.y)) for point in series.points]
@@ -474,7 +494,7 @@ def _draw_plot(canvas: Canvas, panel: LinePanel, left: float, top: float, right:
             )
     for series in panel.series:
         for point in series.points:
-            _place_value(canvas, point.y_text, x_of(point.x), y_of(point.y), left, bottom, placed)
+            _place_value(canvas, point.y_text, x_of(point.x), y_of(point.y), left, right, bottom, placed)
 
 
 AXIS_LABEL_ROOM = 30
@@ -531,7 +551,9 @@ def line_panel(caption: Caption, panel: LinePanel, theme: Theme) -> str:
     bottom = top + LINE_PLOT_HEIGHT
     room = AXIS_LABEL_HEIGHT if panel.x_label else 0
 
-    canvas = _open(caption, theme, bottom + LEGEND_ROW_HEIGHT + room + _footer_height(caption))
+    canvas = _open(
+        caption, theme, bottom + LEGEND_ROW_HEIGHT + room + _footer_height(caption), x_scale="log", y_scale="log"
+    )
     _legend(canvas, panel.series, top - LEGEND_ROW_HEIGHT + 4)
     _draw_plot(canvas, panel, left, top, right, bottom)
     _axis_labels(canvas, panel, (left + right) / 2, (top + bottom) / 2, bottom, PAD)
@@ -566,14 +588,20 @@ def line_panels(caption: Caption, panels: Sequence[LinePanel], theme: Theme, *, 
                 series.append(line)
 
     room = AXIS_LABEL_HEIGHT if any(panel.x_label for panel in panels) else 0
-    canvas = _open(caption, theme, bottom + room + _footer_height(caption))
+    canvas = _open(caption, theme, bottom + room + _footer_height(caption), x_scale="log", y_scale="log")
     _legend(canvas, series, top - LEGEND_ROW_HEIGHT + 4)
     for index, (panel, (px, py)) in enumerate(zip(panels, origins)):
         canvas.text(px, py + PANEL_TITLE_SIZE, panel.title, size=PANEL_TITLE_SIZE, weight=600)
         plot_top = py + PANEL_TITLE_HEIGHT
         plot_bottom = plot_top + PANEL_PLOT_HEIGHT
         left, right = px + gutter, px + panel_width
-        _draw_plot(canvas, panel, left, plot_top, right, plot_bottom)
+        title_box = (
+            px,
+            py - 2.0,
+            px + text_width(panel.title, PANEL_TITLE_SIZE, bold=True),
+            py + PANEL_TITLE_SIZE + 3,
+        )
+        _draw_plot(canvas, panel, left, plot_top, right, plot_bottom, reserved=(title_box,))
         # One name for the shared y axis, on the first panel only, so it is not repeated.
         _axis_labels(
             canvas,

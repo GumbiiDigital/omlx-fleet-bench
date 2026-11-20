@@ -16,21 +16,29 @@ Words on this page:
 - **first word**: the first token the model sends back. Every time here is the wait before it.
 - **cold cache**: the server holds nothing of the prompt, so it reads all of it.
 
+## How the two tests send a prompt
+
+- **chat**: the same kind of call a chat page makes.
+- **speed test**: the server's own built-in test call.
+
+The first table puts each of those beside two ways of starting: at once after the switch, or after
+waiting for the Spark to report ready.
+
 <!-- BEGIN GENERATED: helper-ready m3-ultra-a -->
 ### Mac A (Qwen 27B)
 
 The wait for the first word of a request at 32K with the helper on, sent straight after a switch from helper off to helper on. One line per path and per way of starting.
 
-| Path | Round | Waited for the helper (s) | Wait for the first word (s) | Ran at helper speed |
+| Path | When the prompt was sent | Waited for the helper (s) | Wait for the first word (s) | Ran at helper speed |
 |---|---:|---:|---:|---:|
 | chat | Started at once | 0.0 | 109.70 to 109.76 s | 0 of 6 |
 | chat | Waited for the helper | 20.1 | 29.31 to 29.93 s | 6 of 6 |
 | speed test | Started at once | 0.0 | 29.52 to 30.04 s | 6 of 6 |
 | speed test | Waited for the helper | 17.5 | 29.87 to 30.17 s | 6 of 6 |
 
-- 6 requests in every line of the table. Each round is one request with the helper off and then one at 32K with the helper on, so every helper request starts straight after a switch.
-- The helper state at the start of the request: chat, Started at once: connecting (6 of 6); chat, Waited for the helper: ready (6 of 6); speed test, Started at once: starting (6 of 6); speed test, Waited for the helper: ready (6 of 6).
-- 6 requests in speed test / Started at once are marked not valid by a check on the helper state when they started: they began at helper state starting (6 of 6) and ran at helper speed (29.52 to 30.04 s).
+- 6 requests in every line of the table. Each line is one request with the helper off and then one at 32K with the helper on, so every helper request starts straight after a switch.
+- The helper state at the start of the request: chat, Started at once: not ready yet, still connecting (6 of 6); chat, Waited for the helper: ready (6 of 6); speed test, Started at once: not ready yet, still starting (6 of 6); speed test, Waited for the helper: ready (6 of 6).
+- 6 requests in speed test / Started at once are marked not valid by a check on the helper state when they started: they began at helper state not ready yet, still starting (6 of 6) and ran at helper speed (29.52 to 30.04 s).
 - Every request read its prompt cold; 12 of 12 answers were correct.
 <!-- END GENERATED: helper-ready m3-ultra-a -->
 
@@ -66,12 +74,12 @@ The wait for the first word per helper layer count, and how many times faster th
 
 ## The cause of the slow first request
 
-A settings change unloads the model and loads it again, and the helper then starts a new session that
-attaches to the loaded model. On the chat path a request that begins before that session is ready is
-served by the Mac alone, with no error and no warning. The runner now asks the model for one token,
-waits until the helper reports `ready` and holds it, and records the state in every row. The server's
-own speed-test call did not show the fault: its requests began while the helper was starting and still
-came back at helper speed.
+A settings change unloads the model and loads it again, and the Spark then starts a new session that
+attaches to the loaded model. If you send a prompt right after a settings change, the Spark is not
+ready yet, so the Mac reads it alone and shows no error. The runner now asks the model for one token,
+waits until the Spark reports ready and holds it, and records the state in every row. The server's
+own speed-test call did not show the fault: its requests began while the Spark was starting and still
+came back at Spark speed.
 
 ## Limits
 

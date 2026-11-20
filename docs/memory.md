@@ -3,7 +3,7 @@
 Question: does a smaller prompt memory save memory, and what does it cost in speed?
 
 Short answer: on Mac A, storing the prompt memory in 4 bits saves 24.6% of peak memory at 128K tokens
-and costs no speed. On Mac B neither scheme moved memory or speed in a way this test can see.
+and costs no speed. Neither setting changed memory or speed on Mac B.
 
 Words on this page:
 
@@ -13,7 +13,7 @@ Words on this page:
 - **4-bit prompt memory (Affine4)**: the same memory stored in 4 bits instead of 16, so it is smaller.
 - **8-bit prompt memory (Affine8)**: the same idea, stored in 8 bits.
 - **peak memory**: the most memory the whole run used, not the size of the KV cache alone.
-- **layer**: the model is a stack of layers, and a scheme may compress only some of them.
+- **layer**: the model is a stack of layers, and a setting may compress only some of them.
 
 <!-- BEGIN GENERATED: kv-cache m3-ultra-a -->
 <picture>
@@ -57,15 +57,15 @@ The KV cache is the memory that holds the prompt. The second figure in a row is 
 
 ## What this means
 
-- On Mac A, 4-bit is the better of the two schemes: less memory at both sizes, and the same speed.
+- On Mac A, 4-bit is the better of the two settings: less memory at both sizes, and the same speed.
 - 8-bit saves less memory than 4-bit on that Mac, and equals it on speed.
-- On Mac B neither scheme changed peak memory (105.1 GB at 32K, 108.5 GB at 128K) or the wait.
+- On Mac B neither setting changed peak memory (105.1 GB at 32K, 108.5 GB at 128K) or the wait.
 - The memory figure is the peak of the whole run, not the size of the KV cache, so no KV cache size is
   claimed here.
 
 ## One thing not explained
 
-On Mac A both schemes convert 16 of the model's 64 layers, and each row records it. On Mac B no row
+On Mac A both settings convert 16 of the model's 64 layers, and each row records it. On Mac B no row
 records a conversion, though the server accepted the setting. From these rows it is not possible to
 say whether that model does not convert or the server log does not show it.
 
