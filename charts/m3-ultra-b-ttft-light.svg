@@ -1,48 +1,48 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="840" height="308" viewBox="0 0 840 308" role="img" aria-label="Wait for the first word (seconds) Mac B (Flash-Next) · Qwen3.8-Flash-Next-oQ4e-mtp Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-<title>Wait for the first word (seconds) Mac B (Flash-Next) · Qwen3.8-Flash-Next-oQ4e-mtp Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</title>
-<rect x="0.5" y="0.5" width="839" height="307" fill="#fcfcfb" rx="8" stroke="#e1e0d9" stroke-width="1"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="311" viewBox="0 0 840 311" role="img" aria-label="Wait for the first word (seconds) Mac B (Flash-Next) · Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Wait for the first word (seconds) Mac B (Flash-Next) · Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</title>
+<rect x="0.5" y="0.5" width="839" height="310" fill="#fcfcfb" rx="8" stroke="#e1e0d9" stroke-width="1"/>
 <text x="24" y="40" font-size="16" fill="#0b0b0b" font-weight="600">Wait for the first word (seconds)</text>
-<text x="24" y="57" font-size="12" fill="#52514e">Mac B (Flash-Next) · Qwen3.8-Flash-Next-oQ4e-mtp</text>
-<text x="24" y="74" font-size="12" fill="#52514e">Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</text>
-<text x="24" y="105" font-size="13" fill="#0b0b0b" font-weight="600">8K prompt</text>
-<text x="24" y="129.5" font-size="12" fill="#52514e">Mac alone</text>
-<path d="M132.08,118 H265.6 Q269.6,118 269.6,122 V128 Q269.6,132 265.6,132 H132.08 Z" fill="#2a78d6"><title>8K prompt · Mac alone: 8.48 s baseline</title></path>
-<text x="277.6" y="129.5" font-size="12" fill="#0b0b0b" font-weight="600">8.48 s</text>
-<text x="330.24" y="129.5" font-size="11" fill="#898781">baseline</text>
-<text x="24" y="155.5" font-size="12" fill="#52514e">+ Spark helper</text>
-<path d="M132.08,144 H226.28 Q230.28,144 230.28,148 V154 Q230.28,158 226.28,158 H132.08 Z" fill="#1baf7a"><title>8K prompt · + Spark helper: 6.06 s 1.4× faster</title></path>
-<text x="238.28" y="155.5" font-size="12" fill="#0b0b0b" font-weight="600">6.06 s</text>
-<text x="290.92" y="155.5" font-size="11" fill="#898781">1.4× faster</text>
-<line x1="132.08" y1="114" x2="132.08" y2="162" stroke="#c3c2b7" stroke-width="1"/>
-<text x="436" y="105" font-size="13" fill="#0b0b0b" font-weight="600">32K prompt</text>
-<text x="436" y="129.5" font-size="12" fill="#52514e">Mac alone</text>
-<path d="M544.08,118 H677.6 Q681.6,118 681.6,122 V128 Q681.6,132 677.6,132 H544.08 Z" fill="#2a78d6"><title>32K prompt · Mac alone: 33.3 s baseline</title></path>
-<text x="689.6" y="129.5" font-size="12" fill="#0b0b0b" font-weight="600">33.3 s</text>
-<text x="742.24" y="129.5" font-size="11" fill="#898781">baseline</text>
-<text x="436" y="155.5" font-size="12" fill="#52514e">+ Spark helper</text>
-<path d="M544.08,144 H606.73 Q610.73,144 610.73,148 V154 Q610.73,158 606.73,158 H544.08 Z" fill="#1baf7a"><title>32K prompt · + Spark helper: 16.1 s 2.1× faster</title></path>
-<text x="618.73" y="155.5" font-size="12" fill="#0b0b0b" font-weight="600">16.1 s</text>
-<text x="671.37" y="155.5" font-size="11" fill="#898781">2.1× faster</text>
-<line x1="544.08" y1="114" x2="544.08" y2="162" stroke="#c3c2b7" stroke-width="1"/>
-<text x="24" y="205" font-size="13" fill="#0b0b0b" font-weight="600">64K prompt</text>
-<text x="24" y="229.5" font-size="12" fill="#52514e">Mac alone</text>
-<path d="M132.08,218 H265.6 Q269.6,218 269.6,222 V228 Q269.6,232 265.6,232 H132.08 Z" fill="#2a78d6"><title>64K prompt · Mac alone: 68.0 s baseline</title></path>
-<text x="277.6" y="229.5" font-size="12" fill="#0b0b0b" font-weight="600">68.0 s</text>
-<text x="330.24" y="229.5" font-size="11" fill="#898781">baseline</text>
-<text x="24" y="255.5" font-size="12" fill="#52514e">+ Spark helper</text>
-<path d="M132.08,244 H188.71 Q192.71,244 192.71,248 V254 Q192.71,258 188.71,258 H132.08 Z" fill="#1baf7a"><title>64K prompt · + Spark helper: 30.0 s 2.3× faster</title></path>
-<text x="200.71" y="255.5" font-size="12" fill="#0b0b0b" font-weight="600">30.0 s</text>
-<text x="253.35" y="255.5" font-size="11" fill="#898781">2.3× faster</text>
-<line x1="132.08" y1="214" x2="132.08" y2="262" stroke="#c3c2b7" stroke-width="1"/>
-<text x="436" y="205" font-size="13" fill="#0b0b0b" font-weight="600">128K prompt</text>
-<text x="436" y="229.5" font-size="12" fill="#52514e">Mac alone</text>
-<path d="M544.08,218 H677.6 Q681.6,218 681.6,222 V228 Q681.6,232 677.6,232 H544.08 Z" fill="#2a78d6"><title>128K prompt · Mac alone: 137 s baseline</title></path>
-<text x="689.6" y="229.5" font-size="12" fill="#0b0b0b" font-weight="600">137 s</text>
-<text x="734.8" y="229.5" font-size="11" fill="#898781">baseline</text>
-<text x="436" y="255.5" font-size="12" fill="#52514e">+ Spark helper</text>
-<path d="M544.08,244 H598.98 Q602.98,244 602.98,248 V254 Q602.98,258 598.98,258 H544.08 Z" fill="#1baf7a"><title>128K prompt · + Spark helper: 58.8 s 2.3× faster</title></path>
-<text x="610.98" y="255.5" font-size="12" fill="#0b0b0b" font-weight="600">58.8 s</text>
-<text x="663.62" y="255.5" font-size="11" fill="#898781">2.3× faster</text>
-<line x1="544.08" y1="214" x2="544.08" y2="262" stroke="#c3c2b7" stroke-width="1"/>
-<text x="24" y="292" font-size="11" fill="#898781">Each panel has its own scale. “× faster” compares with Mac alone at the same prompt size.</text>
+<text x="24" y="57" font-size="12" fill="#52514e">Mac B (Flash-Next) · Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</text>
+<text x="24" y="88" font-size="13" fill="#0b0b0b" font-weight="600">8K prompt</text>
+<text x="24" y="112.5" font-size="12" fill="#52514e">Mac alone</text>
+<path d="M132.08,101 H265.6 Q269.6,101 269.6,105 V111 Q269.6,115 265.6,115 H132.08 Z" fill="#2a78d6"><title>8K prompt · Mac alone: 8.48 s baseline</title></path>
+<text x="277.6" y="112.5" font-size="12" fill="#0b0b0b" font-weight="600">8.48 s</text>
+<text x="330.24" y="112.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="138.5" font-size="12" fill="#52514e">+ Spark helper</text>
+<path d="M132.08,127 H226.28 Q230.28,127 230.28,131 V137 Q230.28,141 226.28,141 H132.08 Z" fill="#1baf7a"><title>8K prompt · + Spark helper: 6.06 s 1.4× faster</title></path>
+<text x="238.28" y="138.5" font-size="12" fill="#0b0b0b" font-weight="600">6.06 s</text>
+<text x="290.92" y="138.5" font-size="11" fill="#898781">1.4× faster</text>
+<line x1="132.08" y1="97" x2="132.08" y2="145" stroke="#c3c2b7" stroke-width="1"/>
+<text x="436" y="88" font-size="13" fill="#0b0b0b" font-weight="600">32K prompt</text>
+<text x="436" y="112.5" font-size="12" fill="#52514e">Mac alone</text>
+<path d="M544.08,101 H677.6 Q681.6,101 681.6,105 V111 Q681.6,115 677.6,115 H544.08 Z" fill="#2a78d6"><title>32K prompt · Mac alone: 33.3 s baseline</title></path>
+<text x="689.6" y="112.5" font-size="12" fill="#0b0b0b" font-weight="600">33.3 s</text>
+<text x="742.24" y="112.5" font-size="11" fill="#898781">baseline</text>
+<text x="436" y="138.5" font-size="12" fill="#52514e">+ Spark helper</text>
+<path d="M544.08,127 H606.73 Q610.73,127 610.73,131 V137 Q610.73,141 606.73,141 H544.08 Z" fill="#1baf7a"><title>32K prompt · + Spark helper: 16.1 s 2.1× faster</title></path>
+<text x="618.73" y="138.5" font-size="12" fill="#0b0b0b" font-weight="600">16.1 s</text>
+<text x="671.37" y="138.5" font-size="11" fill="#898781">2.1× faster</text>
+<line x1="544.08" y1="97" x2="544.08" y2="145" stroke="#c3c2b7" stroke-width="1"/>
+<text x="24" y="188" font-size="13" fill="#0b0b0b" font-weight="600">64K prompt</text>
+<text x="24" y="212.5" font-size="12" fill="#52514e">Mac alone</text>
+<path d="M132.08,201 H265.6 Q269.6,201 269.6,205 V211 Q269.6,215 265.6,215 H132.08 Z" fill="#2a78d6"><title>64K prompt · Mac alone: 68.0 s baseline</title></path>
+<text x="277.6" y="212.5" font-size="12" fill="#0b0b0b" font-weight="600">68.0 s</text>
+<text x="330.24" y="212.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="238.5" font-size="12" fill="#52514e">+ Spark helper</text>
+<path d="M132.08,227 H188.71 Q192.71,227 192.71,231 V237 Q192.71,241 188.71,241 H132.08 Z" fill="#1baf7a"><title>64K prompt · + Spark helper: 30.0 s 2.3× faster</title></path>
+<text x="200.71" y="238.5" font-size="12" fill="#0b0b0b" font-weight="600">30.0 s</text>
+<text x="253.35" y="238.5" font-size="11" fill="#898781">2.3× faster</text>
+<line x1="132.08" y1="197" x2="132.08" y2="245" stroke="#c3c2b7" stroke-width="1"/>
+<text x="436" y="188" font-size="13" fill="#0b0b0b" font-weight="600">128K prompt</text>
+<text x="436" y="212.5" font-size="12" fill="#52514e">Mac alone</text>
+<path d="M544.08,201 H677.6 Q681.6,201 681.6,205 V211 Q681.6,215 677.6,215 H544.08 Z" fill="#2a78d6"><title>128K prompt · Mac alone: 137 s baseline</title></path>
+<text x="689.6" y="212.5" font-size="12" fill="#0b0b0b" font-weight="600">137 s</text>
+<text x="734.8" y="212.5" font-size="11" fill="#898781">baseline</text>
+<text x="436" y="238.5" font-size="12" fill="#52514e">+ Spark helper</text>
+<path d="M544.08,227 H598.98 Q602.98,227 602.98,231 V237 Q602.98,241 598.98,241 H544.08 Z" fill="#1baf7a"><title>128K prompt · + Spark helper: 58.8 s 2.3× faster</title></path>
+<text x="610.98" y="238.5" font-size="12" fill="#0b0b0b" font-weight="600">58.8 s</text>
+<text x="663.62" y="238.5" font-size="11" fill="#898781">2.3× faster</text>
+<line x1="544.08" y1="197" x2="544.08" y2="245" stroke="#c3c2b7" stroke-width="1"/>
+<text x="420" y="269" font-size="11" fill="#898781" text-anchor="middle">Wait for the first word (seconds)</text>
+<text x="24" y="295" font-size="11" fill="#898781">Each panel has its own scale. “× faster” compares with Mac alone at the same prompt size.</text>
 </svg>

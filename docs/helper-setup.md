@@ -7,6 +7,15 @@ Short answer: a request sent before the helper is ready is read by the Mac alone
 6 took 109.7 s, where the same request took 29.3 s once the runner waited. The helper is fastest with
 49 of the model's layers.
 
+Words on this page:
+
+- **helper**: the DGX Spark that reads long prompts for the Mac.
+- **layer**: the model is a stack of layers, and the helper holds some of them.
+- **session**: the helper's link to the loaded model, which it opens again after every settings change.
+- **ready**: the state the helper reports when that session is up and stable.
+- **first word**: the first token the model sends back. Every time here is the wait before it.
+- **cold cache**: the server holds nothing of the prompt, so it reads all of it.
+
 <!-- BEGIN GENERATED: helper-ready m3-ultra-a -->
 ### Mac A (Qwen 27B)
 
@@ -21,11 +30,16 @@ The wait for the first word of a request at 32K with the helper on, sent straigh
 
 - 6 requests in every line of the table. Each round is one request with the helper off and then one at 32K with the helper on, so every helper request starts straight after a switch.
 - The helper state at the start of the request: chat, Started at once: connecting (6 of 6); chat, Waited for the helper: ready (6 of 6); speed test, Started at once: starting (6 of 6); speed test, Waited for the helper: ready (6 of 6).
-- 6 requests in speed test / Started at once are marked not valid by `helper_ready_at_start`: they began at helper state starting (6 of 6) and ran at helper speed (29.52 to 30.04 s).
+- 6 requests in speed test / Started at once are marked not valid by a check on the helper state when they started: they began at helper state starting (6 of 6) and ran at helper speed (29.52 to 30.04 s).
 - Every request read its prompt cold; 12 of 12 answers were correct.
 <!-- END GENERATED: helper-ready m3-ultra-a -->
 
 <!-- BEGIN GENERATED: helper-layers m3-ultra-a -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../charts/m3-ultra-a-helper-layers-dark.svg">
+  <img alt="Wait for the first word at 32K and 128K prompt tokens on Mac A (Qwen 27B), on the Mac alone and at each helper layer count" src="../charts/m3-ultra-a-helper-layers-light.svg">
+</picture>
+
 ### Mac A (Qwen 27B)
 
 The wait for the first word per helper layer count, and how many times faster than the Mac alone at 32K. A layer is a slice of the model the helper holds.
@@ -55,7 +69,7 @@ The wait for the first word per helper layer count, and how many times faster th
 A settings change unloads the model and loads it again, and the helper then starts a new session that
 attaches to the loaded model. On the chat path a request that begins before that session is ready is
 served by the Mac alone, with no error and no warning. The runner now asks the model for one token,
-waits until the helper reads `ready` and holds it, and records the state in every row. The server's
+waits until the helper reports `ready` and holds it, and records the state in every row. The server's
 own speed-test call did not show the fault: its requests began while the helper was starting and still
 came back at helper speed.
 
@@ -64,7 +78,7 @@ came back at helper speed.
 - One model on one machine pair, 3 requests per setting: enough to rank these five settings, not
   enough to separate two of them that differ by a few percent.
 - The layer count in the table is what the helper really held, read after the request. The count it
-  was asked for is in `desired_settings` in each row.
+  was asked for is recorded beside every request in the full table.
 
 Full tables: [helper start-up](../reports/m3-ultra-a/helper-ready.md) and
 [layers](../reports/m3-ultra-a/helper-layers.md). Back to [the front page](../README.md).

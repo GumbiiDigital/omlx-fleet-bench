@@ -121,6 +121,56 @@ class CheckTest(unittest.TestCase):
         # Two cells of prose, not a table: no separator line under it.
         self.assertEqual(readable.check("six | seven\n"), [])
 
+    def test_the_engine_names_and_status_words_are_banned(self):
+        problems = readable.check("The ANE ran, then HTTP said no and Wilson agreed; see the JSONL.\n")
+        words = sorted(problem.message.split("'")[1] for problem in problems)
+        self.assertEqual(words, ["ANE", "HTTP", "JSONL", "Wilson"])
+
+    def test_a_field_name_with_an_underscore_is_a_problem(self):
+        problems = readable.check("The helper state at the start is in helper_ready_at_start.\n")
+        self.assertEqual([problem.line for problem in problems], [1])
+        self.assertIn("helper_ready_at_start", problems[0].message)
+        self.assertIn("underscore", problems[0].message)
+
+    def test_an_underscore_inside_code_or_a_link_is_not_prose(self):
+        text = "Run `bench/quality_report.py` and see [it](bench/quality_report.py).\n"
+        self.assertEqual(readable.check(text), [])
+
+    def test_a_machine_label_in_prose_is_a_problem(self):
+        problems = readable.check("The rows from m3-ultra-a are in the report.\n")
+        self.assertEqual([problem.line for problem in problems], [1])
+        self.assertIn("m3-ultra-a", problems[0].message)
+
+    def test_a_machine_label_in_a_link_target_is_not_prose(self):
+        text = "See [the report](reports/m3-ultra-a/speed.md) for the rows.\n"
+        self.assertEqual(readable.check(text), [])
+
+    def test_the_engine_name_for_compressed_prompt_memory_is_allowed_once_in_brackets(self):
+        text = "# Page\n\nThe 4-bit prompt memory (Affine4) saves memory.\n\nIt is called Affine4 here.\n"
+        problems = readable.check(text)
+        self.assertEqual([problem.line for problem in problems], [5])
+        self.assertIn("already named", problems[0].message)
+        self.assertIn("4-bit prompt memory", problems[0].message)
+
+    def test_the_engine_name_without_the_plain_words_is_a_problem(self):
+        problems = readable.check("Affine8 stores the prompt memory in fewer bits.\n")
+        self.assertEqual([problem.line for problem in problems], [1])
+        self.assertIn("plain words", problems[0].message)
+
+    def test_a_list_of_nine_bullets_is_a_problem(self):
+        bullets = "".join(f"- bullet {number}\n" for number in range(1, 10))
+        problems = readable.check("# Page\n\n" + bullets)
+        self.assertEqual([problem.line for problem in problems], [3])
+        self.assertIn("8 bullets", problems[0].message)
+
+    def test_a_list_of_eight_bullets_is_allowed(self):
+        bullets = "".join(f"- bullet {number}\n" for number in range(1, 9))
+        self.assertEqual(readable.check("# Page\n\n" + bullets), [])
+
+    def test_a_wrapped_line_does_not_end_a_list(self):
+        bullets = "".join(f"- bullet {number}\n  and its second line\n" for number in range(1, 9))
+        self.assertEqual(readable.check("# Page\n\n" + bullets), [])
+
 
 class GeneratedBlocksTest(unittest.TestCase):
     """Every generated block in the reader pages follows the two rules a reader depends on."""
@@ -168,12 +218,18 @@ class GeneratedBlocksTest(unittest.TestCase):
                 self.assertLessEqual(len(notes), publish.MAX_NOTES, f"{page.name} block {block_id!r}")
 
     def test_a_block_shows_the_display_name_and_never_the_label(self):
+        # A chart file is named after the results label, so only the attribute values are skipped;
+        # everything a reader reads must use the display name.
         manifest = json.loads((REPO_ROOT / publish.MANIFEST).read_text(encoding="utf-8"))
         labels = [machine["label"] for machine in manifest["machines"]]
+        names = [machine["display_name"] for machine in manifest["machines"]]
+        attribute = re.compile(r"\b(?:src|srcset)\s*=\s*\"[^\"]*\"")
         for page in PAGES:
             for block_id, body in _blocks(page.read_text(encoding="utf-8")):
+                prose = attribute.sub("", body)
                 for label in labels:
-                    self.assertNotIn(label, body, f"{page.name} block {block_id!r} names the label {label!r}")
+                    self.assertNotIn(label, prose, f"{page.name} block {block_id!r} names the label {label!r}")
+                self.assertTrue(any(name in prose for name in names), f"{page.name} block {block_id!r}")
 
     def test_a_wait_over_two_minutes_is_also_given_in_minutes(self):
         self.assertEqual(publish.duration(24.5), "24.5 s")
@@ -183,6 +239,37 @@ class GeneratedBlocksTest(unittest.TestCase):
         body = dict(_blocks((REPO_ROOT / "README.md").read_text(encoding="utf-8")))["headline"]
         for name in re.findall(r'charts/[\w.-]+\.svg', body):
             self.assertTrue((REPO_ROOT / name).is_file(), f"{name} is not on disk")
+
+    def test_every_block_with_a_chart_shows_its_picture(self):
+        # A chart belongs beside the numbers it draws, so the block carries the picture itself.
+        chart_of_block = {
+            "speed": "-ttft-light.svg",
+            "speed-sweep": "-ttft-sweep-light.svg",
+            "kv-cache": "-kv-memory-light.svg",
+            "quality": "-quality-light.svg",
+            "helper-layers": "-helper-layers-light.svg",
+            "many-users": "-many-users-light.svg",
+            "headline": "headline-light.svg",
+        }
+        seen = []
+        for page in PAGES:
+            for block_id, body in _blocks(page.read_text(encoding="utf-8")):
+                suffix = chart_of_block.get(block_id.split(" ")[0])
+                if suffix is None:
+                    continue
+                self.assertIn("<picture>", body, f"{page.name} block {block_id!r} has no picture")
+                self.assertRegex(body, re.escape(suffix) + r'"')
+                self.assertRegex(body, re.escape(suffix.replace("-light", "-dark")))
+                seen.append(block_id)
+        self.assertEqual(len(seen), 10, seen)
+
+    def test_every_chart_file_is_shown_on_a_page(self):
+        names = {path.name for path in (REPO_ROOT / "charts").glob("*.svg")}
+        shown = set()
+        for page in PAGES:
+            for match in re.findall(r"charts/[\w.-]+\.svg", page.read_text(encoding="utf-8")):
+                shown.add(match.rsplit("/", 1)[-1])
+        self.assertEqual(sorted(names - shown), [])
 
 
 class ReaderPagesTextTest(unittest.TestCase):
@@ -244,6 +331,15 @@ class ChartTextTest(unittest.TestCase):
         root = ET.fromstring(path.read_text(encoding="utf-8"))
         return [node for node in root.iter(f"{SVG_NS}text")]
 
+    def _words(self, path):
+        """Every word inside the picture: its title, its subtitle and its labels.
+
+        The title and the subtitle are drawn as text, and the image's own title is read out by a
+        screen reader, so all of it is text a person meets.
+        """
+        root = ET.fromstring(path.read_text(encoding="utf-8"))
+        return [node.text or "" for node in root.iter() if node.tag in (f"{SVG_NS}text", f"{SVG_NS}title")]
+
     def test_there_is_a_chart_to_check(self):
         self.assertGreaterEqual(len(self.CHARTS), 20)
         self.assertIn(REPO_ROOT / "charts/headline-light.svg", self.CHARTS)
@@ -251,10 +347,30 @@ class ChartTextTest(unittest.TestCase):
     def test_no_chart_uses_a_hard_word(self):
         problems = []
         for path in self.CHARTS:
-            text = "\n".join(node.text or "" for node in self._texts(path))
-            for problem in readable.check(text):
-                problems.append(f"{path.name} {problem} in: {text.splitlines()[problem.line - 1]}")
+            words = self._words(path)
+            for problem in readable.check("\n".join(words)):
+                problems.append(f"{path.name} {problem} in: {words[problem.line - 1]}")
         self.assertEqual(problems, [], "\n".join(problems))
+
+    def test_no_chart_asks_the_reader_to_hover(self):
+        # A chart on a page is a still image: a hover tip is not there for the reader.
+        problems = [
+            f"{path.name}: {word!r}"
+            for path in self.CHARTS
+            for word in self._words(path)
+            if "hover" in word.lower()
+        ]
+        self.assertEqual(problems, [], "\n".join(problems))
+
+    def test_every_bar_chart_names_its_axis_and_unit(self):
+        for name in ("m3-ultra-a-ttft", "m3-ultra-a-kv-memory", "m3-ultra-a-helper-layers", "m3-ultra-a-quality"):
+            words = self._words(REPO_ROOT / f"charts/{name}-light.svg")
+            self.assertTrue(any("(" in word and ")" in word for word in words), f"{name} has no unit")
+            self.assertTrue(
+                any(word.startswith("Wait for the first word") or word.startswith("Peak memory")
+                    or word.startswith("Share of answers") for word in words),
+                f"{name} has no axis name",
+            )
 
     def test_no_chart_text_runs_off_the_picture(self):
         problems = []

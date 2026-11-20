@@ -1,36 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="840" height="234" viewBox="0 0 840 234" role="img" aria-label="Peak memory by KV cache scheme (GB) Mac A (Qwen 27B) · Qwen3.8-27B-oQ4e-mtp Mac alone, cold cache, mean of 3 runs per bar. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-<title>Peak memory by KV cache scheme (GB) Mac A (Qwen 27B) · Qwen3.8-27B-oQ4e-mtp Mac alone, cold cache, mean of 3 runs per bar. Lower is better.</title>
-<rect x="0.5" y="0.5" width="839" height="233" fill="#1a1a19" rx="8" stroke="#2c2c2a" stroke-width="1"/>
-<text x="24" y="40" font-size="16" fill="#f0efec" font-weight="600">Peak memory by KV cache scheme (GB)</text>
-<text x="24" y="57" font-size="12" fill="#c3c2b7">Mac A (Qwen 27B) · Qwen3.8-27B-oQ4e-mtp</text>
-<text x="24" y="74" font-size="12" fill="#c3c2b7">Mac alone, cold cache, mean of 3 runs per bar. Lower is better.</text>
-<text x="24" y="105" font-size="13" fill="#f0efec" font-weight="600">32K prompt</text>
-<text x="24" y="129.5" font-size="12" fill="#c3c2b7">Native KV cache</text>
-<path d="M145.52,118 H276.64 Q280.64,118 280.64,122 V128 Q280.64,132 276.64,132 H145.52 Z" fill="#3987e5"><title>32K prompt · Native KV cache: 21.5 GB baseline</title></path>
-<text x="288.64" y="129.5" font-size="12" fill="#f0efec" font-weight="600">21.5 GB</text>
-<text x="348.72" y="129.5" font-size="11" fill="#898781">baseline</text>
-<text x="24" y="155.5" font-size="12" fill="#c3c2b7">Affine4 KV cache</text>
-<path d="M145.52,144 H264.96 Q268.96,144 268.96,148 V154 Q268.96,158 264.96,158 H145.52 Z" fill="#d55181"><title>32K prompt · Affine4 KV cache: 19.6 GB −8.6%</title></path>
-<text x="276.96" y="155.5" font-size="12" fill="#f0efec" font-weight="600">19.6 GB</text>
-<text x="337.04" y="155.5" font-size="11" fill="#898781">−8.6%</text>
-<text x="24" y="181.5" font-size="12" fill="#c3c2b7">Affine8 KV cache</text>
-<path d="M145.52,170 H268.1 Q272.1,170 272.1,174 V180 Q272.1,184 268.1,184 H145.52 Z" fill="#9085e9"><title>32K prompt · Affine8 KV cache: 20.1 GB −6.3%</title></path>
-<text x="280.1" y="181.5" font-size="12" fill="#f0efec" font-weight="600">20.1 GB</text>
-<text x="340.18" y="181.5" font-size="11" fill="#898781">−6.3%</text>
-<line x1="145.52" y1="114" x2="145.52" y2="188" stroke="#383835" stroke-width="1"/>
-<text x="436" y="105" font-size="13" fill="#f0efec" font-weight="600">128K prompt</text>
-<text x="436" y="129.5" font-size="12" fill="#c3c2b7">Native KV cache</text>
-<path d="M557.52,118 H688.64 Q692.64,118 692.64,122 V128 Q692.64,132 688.64,132 H557.52 Z" fill="#3987e5"><title>128K prompt · Native KV cache: 29.1 GB baseline</title></path>
-<text x="700.64" y="129.5" font-size="12" fill="#f0efec" font-weight="600">29.1 GB</text>
-<text x="760.72" y="129.5" font-size="11" fill="#898781">baseline</text>
-<text x="436" y="155.5" font-size="12" fill="#c3c2b7">Affine4 KV cache</text>
-<path d="M557.52,144 H655.44 Q659.44,144 659.44,148 V154 Q659.44,158 655.44,158 H557.52 Z" fill="#d55181"><title>128K prompt · Affine4 KV cache: 21.9 GB −24.6%</title></path>
-<text x="667.44" y="155.5" font-size="12" fill="#f0efec" font-weight="600">21.9 GB</text>
-<text x="727.52" y="155.5" font-size="11" fill="#898781">−24.6%</text>
-<text x="436" y="181.5" font-size="12" fill="#c3c2b7">Affine8 KV cache</text>
-<path d="M557.52,170 H664.74 Q668.74,170 668.74,174 V180 Q668.74,184 664.74,184 H557.52 Z" fill="#9085e9"><title>128K prompt · Affine8 KV cache: 23.9 GB −17.7%</title></path>
-<text x="676.74" y="181.5" font-size="12" fill="#f0efec" font-weight="600">23.9 GB</text>
-<text x="736.82" y="181.5" font-size="11" fill="#898781">−17.7%</text>
-<line x1="557.52" y1="114" x2="557.52" y2="188" stroke="#383835" stroke-width="1"/>
-<text x="24" y="218" font-size="11" fill="#898781">Peak memory of the whole run, not the size of the KV cache alone. 1 GB = 2³⁰ bytes.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="237" viewBox="0 0 840 237" role="img" aria-label="Peak memory by prompt memory setting (GB) Mac A (Qwen 27B) · Mac alone, cold cache, mean of 3 runs per bar. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+<title>Peak memory by prompt memory setting (GB) Mac A (Qwen 27B) · Mac alone, cold cache, mean of 3 runs per bar. Lower is better.</title>
+<rect x="0.5" y="0.5" width="839" height="236" fill="#1a1a19" rx="8" stroke="#2c2c2a" stroke-width="1"/>
+<text x="24" y="40" font-size="16" fill="#f0efec" font-weight="600">Peak memory by prompt memory setting (GB)</text>
+<text x="24" y="57" font-size="12" fill="#c3c2b7">Mac A (Qwen 27B) · Mac alone, cold cache, mean of 3 runs per bar. Lower is better.</text>
+<text x="24" y="88" font-size="13" fill="#f0efec" font-weight="600">32K prompt</text>
+<text x="24" y="112.5" font-size="12" fill="#c3c2b7">Full-size KV cache</text>
+<path d="M165.68,101 H276.64 Q280.64,101 280.64,105 V111 Q280.64,115 276.64,115 H165.68 Z" fill="#3987e5"><title>32K prompt · Full-size KV cache: 21.5 GB baseline</title></path>
+<text x="288.64" y="112.5" font-size="12" fill="#f0efec" font-weight="600">21.5 GB</text>
+<text x="348.72" y="112.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="138.5" font-size="12" fill="#c3c2b7">4-bit prompt memory</text>
+<path d="M165.68,127 H266.7 Q270.7,127 270.7,131 V137 Q270.7,141 266.7,141 H165.68 Z" fill="#d55181"><title>32K prompt · 4-bit prompt memory: 19.6 GB −8.6%</title></path>
+<text x="278.7" y="138.5" font-size="12" fill="#f0efec" font-weight="600">19.6 GB</text>
+<text x="338.78" y="138.5" font-size="11" fill="#898781">−8.6%</text>
+<text x="24" y="164.5" font-size="12" fill="#c3c2b7">8-bit prompt memory</text>
+<path d="M165.68,153 H269.38 Q273.38,153 273.38,157 V163 Q273.38,167 269.38,167 H165.68 Z" fill="#9085e9"><title>32K prompt · 8-bit prompt memory: 20.1 GB −6.3%</title></path>
+<text x="281.38" y="164.5" font-size="12" fill="#f0efec" font-weight="600">20.1 GB</text>
+<text x="341.46" y="164.5" font-size="11" fill="#898781">−6.3%</text>
+<line x1="165.68" y1="97" x2="165.68" y2="171" stroke="#383835" stroke-width="1"/>
+<text x="436" y="88" font-size="13" fill="#f0efec" font-weight="600">128K prompt</text>
+<text x="436" y="112.5" font-size="12" fill="#c3c2b7">Full-size KV cache</text>
+<path d="M577.68,101 H688.64 Q692.64,101 692.64,105 V111 Q692.64,115 688.64,115 H577.68 Z" fill="#3987e5"><title>128K prompt · Full-size KV cache: 29.1 GB baseline</title></path>
+<text x="700.64" y="112.5" font-size="12" fill="#f0efec" font-weight="600">29.1 GB</text>
+<text x="760.72" y="112.5" font-size="11" fill="#898781">baseline</text>
+<text x="436" y="138.5" font-size="12" fill="#c3c2b7">4-bit prompt memory</text>
+<path d="M577.68,127 H660.4 Q664.4,127 664.4,131 V137 Q664.4,141 660.4,141 H577.68 Z" fill="#d55181"><title>128K prompt · 4-bit prompt memory: 21.9 GB −24.6%</title></path>
+<text x="672.4" y="138.5" font-size="12" fill="#f0efec" font-weight="600">21.9 GB</text>
+<text x="732.48" y="138.5" font-size="11" fill="#898781">−24.6%</text>
+<text x="436" y="164.5" font-size="12" fill="#c3c2b7">8-bit prompt memory</text>
+<path d="M577.68,153 H668.3 Q672.3,153 672.3,157 V163 Q672.3,167 668.3,167 H577.68 Z" fill="#9085e9"><title>128K prompt · 8-bit prompt memory: 23.9 GB −17.7%</title></path>
+<text x="680.3" y="164.5" font-size="12" fill="#f0efec" font-weight="600">23.9 GB</text>
+<text x="740.38" y="164.5" font-size="11" fill="#898781">−17.7%</text>
+<line x1="577.68" y1="97" x2="577.68" y2="171" stroke="#383835" stroke-width="1"/>
+<text x="420" y="195" font-size="11" fill="#898781" text-anchor="middle">Peak memory of the whole run (GB)</text>
+<text x="24" y="221" font-size="11" fill="#898781">Peak memory of the whole run, not the size of the KV cache alone. 1 GB = 2³⁰ bytes.</text>
 </svg>

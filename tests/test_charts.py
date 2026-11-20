@@ -168,9 +168,11 @@ class LinePanelTest(unittest.TestCase):
         for expected in ("GPU only", "+ Spark helper", "1K", "128K", "2 s", "100 s", "both axes are log"):
             self.assertIn(expected, texts)
 
-    def test_values_are_tooltips_not_drawn_labels(self):
+    def test_every_point_carries_its_value_as_drawn_text(self):
+        # A chart is read as a still image, so the value has to be in the picture, not in a hover tip.
         svg = self._svg()
-        self.assertNotIn("8.7 s", _texts(svg))
+        self.assertIn("8.7 s", _texts(svg))
+        self.assertIn("1.5 s", _texts(svg))
         titles = [node.text for node in ET.fromstring(svg).iter(f"{SVG_NS}title")]
         self.assertIn("Time to first token by prompt size · GPU only · 8K: 8.7 s", titles)
 
@@ -255,12 +257,13 @@ class LinePanelsTest(unittest.TestCase):
         self.assertEqual(texts.count("With helper"), 1)
         self.assertIn("a footnote", texts)
 
-    def test_every_point_keeps_its_value_in_a_tooltip(self):
+    def test_every_point_carries_its_value_as_drawn_text(self):
         svg = self._svg()
+        self.assertIn("42.0 s", _texts(svg))
+        self.assertIn("324.7 s", _texts(svg))
         titles = [node.text for node in ET.fromstring(svg).iter(f"{SVG_NS}title")]
         self.assertIn("4K prompt · With helper · 8 users: 42.0 s", titles)
         self.assertIn("32K prompt · Mac alone · 8 users: 324.7 s", titles)
-        self.assertNotIn("42.0 s", _texts(svg))
 
     def test_the_panels_share_one_scale(self):
         root = ET.fromstring(self._svg())

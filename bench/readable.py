@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""Check reader text for the two rules a person reading the pages depends on.
+"""Check reader text for the rules a person reading the pages depends on.
 
 Rule 1: a table in a reader page has five columns or fewer. Full tables live in `reports/`.
 Rule 2: the hard words of the engine are not used. Plain words instead: "arm" -> setup or round,
 "variant" -> setup, "wave" -> group, "cell" -> prompt size and user count, "matrix" -> what was run,
 "harness" -> the runner, "sweep" -> prompt-size test, "TTFT" -> wait for the first word,
-"prefill" -> reading the prompt, "quant" -> 4-bit.
+"prefill" -> reading the prompt, "quant" -> 4-bit, "ANE" -> Apple Neural Engine, "Wilson" -> 95% range.
+Rule 3: a word that carries an underscore is a machine name, not prose; say what it means instead.
+Rule 4: the results labels `m3-ultra-a` and `m3-ultra-b` never reach a reader; use the display name.
+Rule 5: a list holds eight bullets at most, so a page is not a wall of notes.
+
+Two engine names are allowed once per page, and only in brackets after the plain words: the first
+time a page says "4-bit prompt memory (Affine4)" it teaches the name, and after that the plain words
+alone. A second mention is a fault, because the page has already done that job.
 
 Word checks skip fenced code blocks, inline code and link targets, because a file name or a command
 is not prose. Usage:
@@ -22,19 +29,24 @@ import argparse
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 # The most columns a reader-page table may have.
 MAX_TABLE_COLUMNS = 5
+# The most bullets one list may hold before the page turns into a wall of notes.
+MAX_BULLETS = 8
 
 # Words the design bans from reader text, with the plain word to use instead. Whole word,
 # case-insensitive. The list is data, so a new word is one line here and nothing else changes.
 BANNED_WORDS: Tuple[Tuple[str, str], ...] = (
     ("ablation", "a plain comparison"),
+    ("ane", "Apple Neural Engine"),
     ("arm", "setup or round"),
     ("cell", "prompt size and user count"),
     ("ctx", "prompt size"),
     ("harness", "the runner"),
+    ("http", "say what happened, not a status code"),
+    ("jsonl", "row file"),
     ("matrix", "what was run"),
     ("p50", "the middle value"),
     ("p95", "the slow tail"),
@@ -44,10 +56,19 @@ BANNED_WORDS: Tuple[Tuple[str, str], ...] = (
     ("ttft", "wait for the first word"),
     ("variant", "setup"),
     ("wave", "group"),
+    ("wilson", "95% range"),
 )
 
 # The same word in the plural is a different whole word, so it needs its own line.
 PLURALS = {"arm": "arms", "cell": "cells", "variant": "variants", "wave": "waves"}
+
+# The engine's own name for a compressed prompt memory: allowed once per page, in brackets.
+BRACKETED_ONCE: Dict[str, str] = {
+    "affine4": "4-bit prompt memory",
+    "affine8": "8-bit prompt memory",
+}
+_BRACKETED_PATTERN = re.compile(r"\b(?P<word>" + "|".join(BRACKETED_ONCE) + r")\b", re.IGNORECASE)
+PARENTHESISED = re.compile(r"\([^()\n]*\)")
 
 _BANNED = {
     word: plain
@@ -59,6 +80,12 @@ _BANNED_PATTERN = re.compile(
     r"\b(?P<word>" + "|".join(sorted((re.escape(word) for word in _BANNED), key=len, reverse=True)) + r")\b",
     re.IGNORECASE,
 )
+
+# A field name or a results label is a machine's word, not a reader's: an underscore or one of the
+# two machine labels never belongs in prose.
+UNDERSCORE_WORD = re.compile(r"\b\w*_\w*\b")
+MACHINE_LABEL = re.compile(r"\bm3-ultra-[ab]\b", re.IGNORECASE)
+BULLET = re.compile(r"^\s*[-*+]\s+\S")
 
 FENCE = re.compile(r"^\s*(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 INLINE_CODE = re.compile(r"(?P<ticks>`+)(?:(?!`).)+?(?P=ticks)")
@@ -157,12 +184,84 @@ def _is_separator(line: str) -> bool:
     return "|" in line and bool(SEPARATOR.match(line))
 
 
+def _in_brackets(line: str, start: int, end: int) -> bool:
+    """True when the span sits inside a pair of brackets on this line."""
+    return any(match.start() < start and end <= match.end() for match in PARENTHESISED.finditer(line))
+
+
+def _bracketed_name(number: int, line: str, seen: Dict[str, int]) -> List[Problem]:
+    """The engine names that are allowed once per page, in brackets after the plain words.
+
+    The first mention has to teach the name; a later one has to leave it out. So one mention gets
+    one problem, not two.
+    """
+    problems: List[Problem] = []
+    for match in _BRACKETED_PATTERN.finditer(line):
+        word = match.group("word").lower()
+        first_use = seen.get(word, 0) == 0
+        seen[word] = seen.get(word, 0) + 1
+        if not first_use:
+            problems.append(
+                Problem(
+                    number,
+                    f"'{match.group('word')}' is already named on this page; write {BRACKETED_ONCE[word]}",
+                )
+            )
+        elif not _in_brackets(line, match.start(), match.end()):
+            problems.append(
+                Problem(
+                    number,
+                    f"'{match.group('word')}' needs the plain words first: write "
+                    f"{BRACKETED_ONCE[word]} ({match.group('word')}) once per page",
+                )
+            )
+    return problems
+
+
+def _machine_words(number: int, line: str) -> List[Problem]:
+    """A field name or a results label in prose: say what it means, or use the display name."""
+    problems = [
+        Problem(number, f"field name '{match.group(0)}' has an underscore; say what it means in plain words")
+        for match in UNDERSCORE_WORD.finditer(line)
+    ]
+    problems += [
+        Problem(number, f"machine label '{match.group(0)}'; use the display name Mac A or Mac B")
+        for match in MACHINE_LABEL.finditer(line)
+    ]
+    return problems
+
+
+def _bullet_walls(prose: Sequence[Tuple[int, str]]) -> List[Problem]:
+    """A list of more than `MAX_BULLETS` bullets in a row, reported once at its first line."""
+    problems: List[Problem] = []
+    start: Optional[int] = None
+    count = 0
+    for number, line in prose:
+        if BULLET.match(line):
+            if count == 0:
+                start = number
+            count += 1
+            if count == MAX_BULLETS + 1 and start is not None:
+                problems.append(
+                    Problem(
+                        start,
+                        f"a list of more than {MAX_BULLETS} bullets; split it under small headings",
+                    )
+                )
+            continue
+        if line.strip() and line[:1] in (" ", "\t"):
+            continue  # the wrapped second line of the bullet above it
+        start, count = None, 0
+    return problems
+
+
 def check(markdown_text: str) -> List[Problem]:
-    """Every problem in `markdown_text`: a table too wide, or a banned word outside code."""
+    """Every problem in `markdown_text`: a table too wide, a hard word, a list too long."""
     problems: List[Problem] = []
     table_start: Optional[int] = None
     widest = 0
     in_table = False
+    seen_names: Dict[str, int] = {}
 
     def close_table() -> None:
         nonlocal table_start, widest
@@ -204,7 +303,11 @@ def check(markdown_text: str) -> List[Problem]:
             problems.append(
                 Problem(number, f"hard word '{word}'; write {_BANNED[word.lower()]} instead")
             )
+        problems += _bracketed_name(number, line, seen_names)
+        problems += _machine_words(number, line)
     close_table()
+    problems += _bullet_walls(prose)
+    problems.sort(key=lambda problem: problem.line)
     return problems
 
 

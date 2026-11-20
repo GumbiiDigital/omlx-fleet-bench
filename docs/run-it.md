@@ -2,27 +2,59 @@
 
 Question: how do I try this on my own Mac and Spark, and what will it do to my server?
 
-The commands below run the same tests that made the rows in this repository. Python 3.9 or newer,
-standard library only, so there is nothing to install.
+The commands below run the same tests that made the numbers in this repository. Python 3.9 or newer,
+and no extra packages to install.
+
+**Every settings change makes your server unload the model and load it again.** Do not run this on a
+server that other people use.
+
+Words on this page:
+
+- **helper**: the DGX Spark that reads long prompts for the Mac.
+- **settings file**: the file your oMLX server reads when it starts.
+- **server log**: the file the server writes while it runs; the runner reads it to prove a run was cold.
+- **row file**: the file a run writes, one line per request.
+- **dry run**: a command that prints the plan and touches nothing.
 
 ## What you need
 
-- oMLX running on your Mac, answering at a base URL such as `http://127.0.0.1:8004`.
+- oMLX running on your Mac, answering at an address such as `http://127.0.0.1:8004`.
 - The settings file the server reads, normally `$HOME/.omlx/settings.json`, and its server log.
-- Your Spark paired as the helper, and its node id, which goes in `--helper-node`.
-- A run file from `matrices/` to say which prompt sizes and setups to run, and a label of your own
-  for the machine, passed as `--machine`.
+- Your Spark paired as the helper. You also need the helper's own name, the node id, which goes in
+  `--helper-node`; this repository does not cover finding it, so see the oMLX helper's own guide.
+- A run file from `matrices/` to say which prompt sizes and setups to run, and a name of your own for
+  your machine, passed as `--machine`.
+
+## Which run file fits which Mac
+
+- The files whose names start with `m3-ultra-b` were run on Mac B, the Flash-Next machine.
+- The other files were run on Mac A, the Qwen 27B machine.
+
+Pick the one that matches your model, or start with `matrices/smoke.json`, a two-run check that the
+runner can talk to your server.
 
 ## What a run does to your server
 
 - **Settings are put back.** The runner saves the model settings it touches, changes only those, and
-  restores them at the end, even after an error. After each study here the settings file was
-  byte-identical to a copy taken before it.
-- **Nothing is uploaded.** Every speed run ends with `upload_skipped`, and the runner refuses to
-  start a run with that off. The quality path uses plain chat requests, which have no upload at all.
-- **Your key is never printed.** It is read from the settings file and used for a session cookie.
+  restores them at the end, even after an error. After each test here the settings file was
+  exactly the same as a copy taken before it.
+- **Seven settings, and only while the run lasts.** Which Spark the Mac sends long prompts to. How
+  many model layers the Spark holds. Whether the Apple Neural Engine helps read the prompt. And four
+  settings for the 4-bit prompt memory: on or off, which scheme, how many bits, and whether the last
+  layers are left as they are.
+- **Nothing is uploaded.** Every speed run ends by confirming that it uploaded nothing, and the
+  runner refuses to start a run with that turned off. The quality test uses plain chat requests, which
+  have no upload at all.
+- **Your key is never printed.** It is read from the settings file and used to log in.
 
 ## Steps
+
+0. Get the code:
+
+   ```bash
+   git clone https://github.com/GumbiiDigital/omlx-fleet-bench
+   cd omlx-fleet-bench
+   ```
 
 1. Look at what a run would do, and touch nothing:
 
@@ -31,14 +63,26 @@ standard library only, so there is nothing to install.
      --matrix matrices/m3-ultra-spark.json \
      --base-url http://127.0.0.1:8004 \
      --settings "$HOME/.omlx/settings.json" \
+     --server-log "$HOME/.omlx/logs/server.log" \
      --helper-node YOUR_HELPER_NODE_ID \
      --machine your-label \
      --out results/your-label/speed-DATE.jsonl \
      --dry-run
    ```
 
-2. Run the speed test: the wait for the first word, at 8K, 32K, 64K and 128K tokens, for each setup
-   in the run file. Take out `--dry-run` and the command runs it.
+2. Run the speed test: the wait for the first word at 8K, 32K, 64K and 128K tokens, for each setup in
+   the run file. This is the same command as step 1, without `--dry-run`:
+
+   ```bash
+   python3 bench/run.py \
+     --matrix matrices/m3-ultra-spark.json \
+     --base-url http://127.0.0.1:8004 \
+     --settings "$HOME/.omlx/settings.json" \
+     --server-log "$HOME/.omlx/logs/server.log" \
+     --helper-node YOUR_HELPER_NODE_ID \
+     --machine your-label \
+     --out results/your-label/speed-DATE.jsonl
+   ```
 
 3. Build a summary of your own speed rows:
 
@@ -75,7 +119,7 @@ standard library only, so there is nothing to install.
 
    `bench/report.py` on a many-users file writes a speed summary with an empty table, because it
    groups speed rows only. The group tables and charts come from `python3 bench/publish.py`, which
-   reads the file named under `many_users` for your machine in `results/published.json`.
+   reads the file listed for your machine in the published results list.
 
 6. Check the numbers in this repository before you trust them:
 
@@ -96,13 +140,13 @@ standard library only, so there is nothing to install.
 - `--retry-capped FILE --max-tokens-scale 8` asks the cut-off answers in `FILE` again with a larger
   cap, and `quality_report.py --replace` merges them in.
 - Leave the helper wait on. `--helper-ready-timeout` (seconds, default 120) limits the wait, and
-  `--helper-stable-s` (default 5) says how long `ready` must hold. `--no-helper-wait` is only for
-  replaying an older run.
+  `--helper-stable-s` (default 5) says how long the helper must stay ready. `--no-helper-wait` is only
+  for replaying an older run.
 
 ## Add your machine
 
 Results from other Macs, other Sparks and other models are welcome. Run a run file with your own
-`--machine` label, keep the raw rows untouched, and open a pull request.
-[CONTRIBUTING.md](../CONTRIBUTING.md) has the steps and the one value to redact.
+`--machine` name, keep the raw rows untouched, and open a pull request.
+[CONTRIBUTING.md](../CONTRIBUTING.md) has the steps and the one value to hide.
 
 Back to [the front page](../README.md). Where every file lives: [what is in this repository](files.md).

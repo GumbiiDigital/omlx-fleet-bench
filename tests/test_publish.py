@@ -204,11 +204,13 @@ class PublishTest(unittest.TestCase):
         self.assertIn("| Mac alone | 24.0 s | 24.0 s |", speed)
         self.assertIn("| + Spark helper | 8.0 s · 3.0× | 8.0 s · 3.0× |", speed)
         self.assertIn("| + Spark helper | 901 | 901 |", speed)
-        self.assertIn("| Affine4 KV cache | 15.0 GB · −25.0% | 100.0 s · +0.0% |", blocks["kv-cache box"].body)
-        # gpu: g0 wrong, then re-asked right -> 40 of 40. affine4: g1 wrong -> 39 of 40, one answer lost.
+        self.assertIn("| 4-bit prompt memory | 15.0 GB · −25.0% | 100.0 s · +0.0% |", blocks["kv-cache box"].body)
+        # gpu: g0 wrong, then re-asked right -> 40 of 40. 4-bit: g1 wrong -> 39 of 40, one answer lost.
         self.assertIn("| Mac alone | 40 · 100.0% | 1 | baseline |", blocks["quality box"].body)
         self.assertIn(
-            "| Affine4 KV cache | 39 · 97.5% | 1 | 1 lost, 0 gained (of 40) |", blocks["quality box"].body
+            "| 4-bit prompt memory | 39 · 97.5% | 1 | 1 right answers became wrong, "
+            "0 wrong answers became right (of 40) |",
+            blocks["quality box"].body,
         )
 
     def test_each_block_goes_to_the_page_the_layout_names(self):
@@ -468,11 +470,16 @@ class RequestStudyTest(unittest.TestCase):
     def test_the_rows_a_flag_marks_not_valid_are_named_in_the_block(self):
         _, blocks = publish.build(self.ws.root)
         block = blocks["helper-ready box"].body
-        self.assertIn("2 requests in speed test / Started at once are marked not valid by `helper_ready_at_start`", block)
+        self.assertIn(
+            "2 requests in speed test / Started at once are marked not valid by a check on the "
+            "helper state when they started",
+            block,
+        )
+        self.assertNotIn("helper_ready_at_start", block)
 
     def test_the_not_valid_line_says_what_the_waits_measured(self):
         _, blocks = publish.build(self.ws.root)
-        line = next(l for l in blocks["helper-ready box"].body.splitlines() if "helper_ready_at_start" in l and "marked" in l)
+        line = next(l for l in blocks["helper-ready box"].body.splitlines() if "marked not valid" in l)
         # These rows began at `starting` and still came back in about 30 s: helper speed, not Mac alone.
         self.assertIn("began at helper state starting (2 of 2)", line)
         self.assertIn("ran at helper speed (29.50 to 30.00 s)", line)

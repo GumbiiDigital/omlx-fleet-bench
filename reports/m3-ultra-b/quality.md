@@ -13,12 +13,12 @@ What each column means:
 
 | Setting | Question set | Right | Scored | Right (%) | Errors | Prompt size against target | Cut off at the cap |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| Affine4 KV cache | gsm8k | 194 | 200 | 97.0% | 0 | - | 3 |
-| Affine4 KV cache | mmlu | 433 | 500 | 86.6% | 0 | - | 54 |
-| Affine4 KV cache | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
-| Affine8 KV cache | gsm8k | 194 | 200 | 97.0% | 0 | - | 3 |
-| Affine8 KV cache | mmlu | 433 | 500 | 86.6% | 0 | - | 54 |
-| Affine8 KV cache | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
+| 4-bit prompt memory | gsm8k | 194 | 200 | 97.0% | 0 | - | 3 |
+| 4-bit prompt memory | mmlu | 433 | 500 | 86.6% | 0 | - | 54 |
+| 4-bit prompt memory | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
+| 8-bit prompt memory | gsm8k | 194 | 200 | 97.0% | 0 | - | 3 |
+| 8-bit prompt memory | mmlu | 433 | 500 | 86.6% | 0 | - | 54 |
+| 8-bit prompt memory | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
 | Mac alone | gsm8k | 194 | 200 | 97.0% | 0 | - | 3 |
 | Mac alone | mmlu | 433 | 500 | 86.6% | 0 | - | 54 |
 | Mac alone | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |

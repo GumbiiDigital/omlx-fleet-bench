@@ -2,67 +2,97 @@
 
 Question: where do I find the file I need?
 
-Grouped by what you are looking for. A path is a link where that helps; run file names are shown as
-they are.
+Grouped by what you are looking for. Every file name is a link, so you can open it.
+
+Words on this page:
+
+- **run file**: the list of setups and prompt sizes a test runs.
+- **row file**: the file a run writes, one line per request.
+- **report**: a full table made from the rows, for a reader who wants to check them.
+- **chart**: a picture of one result, in a dark and a light version.
 
 ## Pages to read
 
-- [README.md](../README.md): the front door.
-- [speed.md](speed.md), [many-users.md](many-users.md), [memory.md](memory.md),
-  [answer-quality.md](answer-quality.md), [helper-setup.md](helper-setup.md): one question per page.
-- [run-it.md](run-it.md): the commands, step by step.
-- [method.md](method.md): how the numbers were made, and their limits.
-- [CONTRIBUTING.md](../CONTRIBUTING.md): how to add your own results.
+- [The front page](../README.md): the short answer and the way in.
+- [Speed](speed.md): how long a Mac makes you wait, and what the Spark takes off.
+- [Many users](many-users.md): several prompts sent at the same moment.
+- [Memory](memory.md): what the prompt memory costs.
+- [Answer quality](answer-quality.md): whether the Spark changes the answers.
+- [Helper start-up](helper-setup.md): the slow first request, and how many layers to give the Spark.
+- [Run it](run-it.md): the commands, step by step.
+- [Method](method.md): how the numbers were made, and their limits.
 
-## Code
+## The tests you can run
 
-- [bench/run.py](../bench/run.py): the speed test, one row per run.
-- [bench/quality.py](../bench/quality.py): the answer-quality test, one row per question.
-- [bench/concurrency.py](../bench/concurrency.py): the many-users test, one row per request of a group.
-- [bench/chatrows.py](../bench/chatrows.py): the row both chat tests write, and the rule that stops a run.
-- [bench/report.py](../bench/report.py), [bench/quality_report.py](../bench/quality_report.py):
-  summaries of your own rows.
-- [bench/latency.py](../bench/latency.py): reads a row as one request: its wait, its setting, its helper state.
-- [`bench/waves.py`](../bench/waves.py): reads the requests of a many-users test as groups.
-- [bench/publish.py](../bench/publish.py): rebuilds the tables on the pages, `reports/` and `charts/` from `results/`.
-- [bench/charts.py](../bench/charts.py), [bench/svg.py](../bench/svg.py): the chart forms and the SVG writer behind them.
-- [bench/stats.py](../bench/stats.py): the small statistics the reports and charts share.
-- [bench/labels.py](../bench/labels.py): setup names, their order and their chart colour, in one place.
-- [bench/client.py](../bench/client.py), [bench/chat.py](../bench/chat.py): the oMLX admin and chat clients.
-- [bench/validity.py](../bench/validity.py): decides whether a speed row counts.
-- [bench/helper.py](../bench/helper.py): helper field names, the read, and the wait rule.
-- [bench/runflow.py](../bench/runflow.py): the order of calls around a measured request, shared by both tests.
-- [bench/collect.py](../bench/collect.py): reads the benchmark sections of the oMLX server log.
-- [bench/qa.py](../bench/qa.py): the passkey, GSM8K and MMLU questions and their scoring, with no network.
-- [`bench/matrix.py`](../bench/matrix.py): loads a run file and expands it into the planned requests.
-- [bench/readable.py](../bench/readable.py): checks a page for wide tables and hard words.
-- [bench/__init__.py](../bench/__init__.py): marks `bench/` as a Python package.
+- [The speed test runner](../bench/run.py): one row per run.
+- [The answer-quality runner](../bench/quality.py): one row per question.
+- [The many-users runner](../bench/concurrency.py): one row per request of a group.
+- [The run-file loader](../bench/matrix.py): reads a run file and expands it into the planned requests.
+- [The runner around a measured request](../bench/runflow.py): the order of calls, shared by the chat tests.
+
+## What reads the rows
+
+- [The speed report](../bench/report.py): a table and charts from your own speed rows.
+- [The quality report](../bench/quality_report.py): accuracy per setting, from your own quality rows.
+- [The request reader](../bench/latency.py): reads a row as one request, with its wait and its helper state.
+- [The group reader](../bench/waves.py): reads the requests of a many-users test as groups.
+- [The page builder](../bench/publish.py): rebuilds the tables on the pages, the reports and the charts.
+- [The page checker](../bench/readable.py): checks a page for wide tables, hard words and long lists.
+
+## What draws and names things
+
+- [The chart forms](../bench/charts.py): bar panels, dot panels with a range, and line panels.
+- [The SVG writer](../bench/svg.py): the small writer behind every chart.
+- [The statistics](../bench/stats.py): the few figures the reports and charts share.
+- [The setup names](../bench/labels.py): each setup's name, order and colour, in one place.
+
+## How a run talks to the server
+
+- [The admin and chat clients](../bench/client.py): how a run logs in and sends a request.
+- [The chat client](../bench/chat.py): the chat call the quality and many-users tests use.
+- [The helper fields](../bench/helper.py): what the runner reads from the helper, and the wait rule.
+- [The server log reader](../bench/collect.py): reads the benchmark sections of the oMLX server log.
+- [The quality questions](../bench/qa.py): the passkey, GSM8K and MMLU questions and their scoring.
+
+## How a row is judged
+
+- [The validity checker](../bench/validity.py): decides whether a speed row counts.
+- [The chat row](../bench/chatrows.py): the row both chat tests write, and the rule that stops a run.
+- [The row field reference](../results/README.md): the name and meaning of every field in a row.
 
 ## Data
 
-- [data/](../data): the fixed GSM8K and MMLU question sets, and how they were built.
-- [scripts/fetch_quality_data.py](../scripts/fetch_quality_data.py): builds those two files.
-- [results/](../results): the raw rows, one file per run, and the field reference.
-- [reports/](../reports): the full tables behind each page.
-- [charts/](../charts): the charts, light and dark.
+- [The question sets](../data): the fixed GSM8K and MMLU questions, and how they were built.
+- [The fetcher](../scripts/fetch_quality_data.py): builds those two question files.
+- [The raw rows](../results): one file per run, and the field reference.
+- [The full tables](../reports): the tables behind each page.
+- [The charts](../charts): every chart, light and dark.
 
-## Settings for runs
+## Run files for the Qwen 27B machine
 
-The run files in [matrices/](../matrices) say what to run: which setups, prompt sizes and questions.
+- `m3-ultra-spark.json`: the speed test, four setups at four prompt sizes.
+- `kv-cache.json`: the prompt memory test.
+- `quality.json`: the answer-quality test, which both Macs ran.
+- `m3-ultra-a-helper-ready.json` and `m3-ultra-a-helper-ready-chat.json`: the helper start-up test.
+- `m3-ultra-a-helper-layers-chat-32k.json` and `m3-ultra-a-helper-layers-chat-128k.json`: the layer test.
 
-- `m3-ultra-spark.json` and `kv-cache.json`: the speed and KV cache tests on Mac A.
-- `quality.json`: the answer-quality test on both Macs.
-- `m3-ultra-b-speed.json`, `m3-ultra-b-kv-cache.json`, `m3-ultra-b-quality.json`: the same three tests on Mac B.
-- `m3-ultra-b-speed-sweep.json`, `m3-ultra-b-256k.json`: the prompt-size test on Mac B, and the 256K attempt.
-- `m3-ultra-a-helper-ready.json`, `m3-ultra-a-helper-ready-chat.json`: the helper start-up test.
-- `m3-ultra-a-helper-layers-chat-32k.json`, `m3-ultra-a-helper-layers-chat-128k.json`: the layer test.
-- `m3-ultra-b-many-users.json`: the many-users test on Mac B.
+## Run files for the Flash-Next machine
+
+- `m3-ultra-b-speed.json`: the speed test.
+- `m3-ultra-b-kv-cache.json`: the prompt memory test.
+- `m3-ultra-b-quality.json`: the answer-quality test.
+- `m3-ultra-b-speed-sweep.json`: the prompt-size test, from 1K to 128K.
+- `m3-ultra-b-many-users.json`: the many-users test.
+- `m3-ultra-b-256k.json`: the 256K attempt, which the server refused.
+
+## Shared run files
+
 - `smoke.json`: a two-run check that the runner can talk to your server.
-- `flash-next-moe.json`: an earlier run file for a mixture-of-experts model; its results are not published here.
+- `flash-next-moe.json`: an earlier file for a mixture-of-experts model; its results are not here.
 
 ## Tests
 
-- [tests/](../tests): unit tests for the runner, with their fixtures.
-- [.github/workflows/tests.yml](../.github/workflows/tests.yml): runs the tests and the publish check on a push.
+- [The unit tests](../tests): tests for the runner, with their fixtures.
+- [The test workflow](../.github/workflows/tests.yml): runs the tests and the page check on a push.
 
 Back to [the front page](../README.md).

@@ -13,15 +13,15 @@ What each column means:
 
 | Setting | Question set | Right | Scored | Right (%) | Errors | Prompt size against target | Cut off at the cap |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| Affine4 KV cache | gsm8k | 196 | 200 | 98.0% | 0 | - | 0 |
-| Affine4 KV cache | mmlu | 459 | 500 | 91.8% | 0 | - | 17 |
-| Affine4 KV cache | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
-| Affine8 KV cache | gsm8k | 195 | 200 | 97.5% | 0 | - | 0 |
-| Affine8 KV cache | mmlu | 458 | 500 | 91.6% | 0 | - | 12 |
-| Affine8 KV cache | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
-| + ANE (Apple chip) | gsm8k | 195 | 200 | 97.5% | 0 | - | 0 |
-| + ANE (Apple chip) | mmlu | 456 | 500 | 91.2% | 0 | - | 17 |
-| + ANE (Apple chip) | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
+| 4-bit prompt memory | gsm8k | 196 | 200 | 98.0% | 0 | - | 0 |
+| 4-bit prompt memory | mmlu | 459 | 500 | 91.8% | 0 | - | 17 |
+| 4-bit prompt memory | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
+| 8-bit prompt memory | gsm8k | 195 | 200 | 97.5% | 0 | - | 0 |
+| 8-bit prompt memory | mmlu | 458 | 500 | 91.6% | 0 | - | 12 |
+| 8-bit prompt memory | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
+| + Apple Neural Engine | gsm8k | 195 | 200 | 97.5% | 0 | - | 0 |
+| + Apple Neural Engine | mmlu | 456 | 500 | 91.2% | 0 | - | 17 |
+| + Apple Neural Engine | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |
 | Mac alone | gsm8k | 195 | 200 | 97.5% | 0 | - | 0 |
 | Mac alone | mmlu | 454 | 500 | 90.8% | 0 | - | 16 |
 | Mac alone | passkey | 6 | 6 | 100.0% | 0 | 100-100% | 0 |

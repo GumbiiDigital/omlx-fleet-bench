@@ -154,6 +154,29 @@ def _charts(name: str, build) -> Outputs:
     return {f"charts/{name}-{theme.name}.svg": build(theme) for theme in THEMES.values()}
 
 
+def _charts_prefix(page: str) -> str:
+    """The walk from a page to the charts folder: none at the root, one step up from docs/."""
+    parent = Path(page).parent
+    return "" if str(parent) == "." else "../" * len(parent.parts)
+
+
+def _picture(chart: str, alt: str, page: str) -> List[str]:
+    """The picture of a chart, dark and light, as a page at `page` path sees it.
+
+    Every generated block that has a chart carries it, so a reader meets the picture beside the
+    numbers it draws, and every chart file is shown by some page. The alt text says what the
+    picture holds, in the same plain words as the rest of the page.
+    """
+    prefix = _charts_prefix(page)
+    return [
+        "<picture>",
+        f'  <source media="(prefers-color-scheme: dark)" srcset="{prefix}charts/{chart}-dark.svg">',
+        f'  <img alt="{alt}" src="{prefix}charts/{chart}-light.svg">',
+        "</picture>",
+        "",
+    ]
+
+
 def _cells(rows: List[Dict[str, Any]], machine: str) -> List[report.CellStats]:
     cells = [c for c in report.group_rows(rows).values() if c.machine == machine]
     if not cells:
@@ -186,7 +209,7 @@ def build_speed(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
     tps_rows = [[variant_label(v)] + [f"{by[(v, s)].mean_tps:,.0f}" for s in sizes] for v in variants]
     noisy = [c for c in report.sort_cells(cells) if c.noisy]
     quiet = max(spread(c.valid_tps) for c in cells if not c.noisy) * 100
-    spread_line = f"Run-to-run spread of reading speed is at most {quiet:.1f}% everywhere"
+    spread_line = f"Repeat runs differed by at most {quiet:.1f}% in reading speed"
     if noisy:
         named = ", ".join(
             f"{variant_label(c.variant)} at {size_label(c.size)} ({spread(c.valid_tps) * 100:.1f}%)" for c in noisy
@@ -206,6 +229,12 @@ def build_speed(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
         notes.append(f"Run again back to back, {warm[0].n_valid} runs each: {again}.")
 
     lines = [
+        *_picture(
+            f"{label}-ttft",
+            f"Wait for the first word at 8K, 32K, 64K and 128K prompt tokens on {_display(machine)}, "
+            "on the Mac alone and with each add-on",
+            PAGES["speed"],
+        ),
         f"### {_display(machine)}",
         "",
         f"The wait for the first word, in seconds. The second figure is how many times shorter "
@@ -222,13 +251,16 @@ def build_speed(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
 
     caption = Caption(
         title="Wait for the first word (seconds)",
-        subtitle=[f"{_display(machine)} · {machine['model']}", study["conditions"]],
+        subtitle=[f"{_display(machine)} · {study['conditions']}"],
         footnotes=[
             f"Each panel has its own scale. “× faster” compares with {variant_label(baseline)} at the same prompt size."
         ],
     )
     panels = report.ttft_panels(cells, baseline)
-    outputs = _charts(f"{label}-ttft", lambda theme: bar_panels(caption, panels, theme))
+    outputs = _charts(
+        f"{label}-ttft",
+        lambda theme: bar_panels(caption, panels, theme, axis_label="Wait for the first word (seconds)"),
+    )
     outputs[f"reports/{label}/speed.md"] = report.summary_markdown(cells, f"{_display(machine)}: every speed row")
     return outputs, "\n".join(lines)
 
@@ -261,9 +293,15 @@ def build_kv_cache(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
     worst = max(spread(c.valid_tps) for c in cells) * 100
     notes = [
         f"Peak memory is the most memory the whole run used, not the size of the KV cache alone.",
-        f"{_runs_note(cells)} Run-to-run spread of reading speed is at most {worst:.2f}% everywhere.",
+        f"{_runs_note(cells)} Repeat runs differed by at most {worst:.2f}% in reading speed.",
     ]
     lines = [
+        *_picture(
+            f"{label}-kv-memory",
+            f"Peak memory of the whole run at 32K and 128K prompt tokens on {_display(machine)}, "
+            "for each prompt memory setting",
+            PAGES["kv_cache"],
+        ),
         f"### {_display(machine)}",
         "",
         "The KV cache is the memory that holds the prompt. The second figure in a row is the "
@@ -275,12 +313,15 @@ def build_kv_cache(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
     ]
 
     caption = Caption(
-        title="Peak memory by KV cache scheme (GB)",
-        subtitle=[f"{_display(machine)} · {machine['model']}", study["conditions"]],
+        title="Peak memory by prompt memory setting (GB)",
+        subtitle=[f"{_display(machine)} · {study['conditions']}"],
         footnotes=["Peak memory of the whole run, not the size of the KV cache alone. 1 GB = 2³⁰ bytes."],
     )
     panels = report.memory_panels(cells, baseline)
-    outputs = _charts(f"{label}-kv-memory", lambda theme: bar_panels(caption, panels, theme))
+    outputs = _charts(
+        f"{label}-kv-memory",
+        lambda theme: bar_panels(caption, panels, theme, axis_label="Peak memory of the whole run (GB)"),
+    )
     outputs[f"reports/{label}/kv-cache.md"] = report.summary_markdown(
         cells, f"{_display(machine)}: every KV cache row"
     )
@@ -317,7 +358,7 @@ def build_quality(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
     charted = [t for t in tasks if scores[(baseline, t)][1] >= MIN_SAMPLES_FOR_INTERVAL]
 
     header = ["Setting"] + [f"{TASK_LABELS.get(t, t)} (of {scores[(baseline, t)][1]})" for t in tasks]
-    header.append(f"Answers changed against {variant_label(baseline)}")
+    header.append("Answers that changed")
     table = []
     capped_by_setting = []
     for variant in variants:
@@ -330,7 +371,8 @@ def build_quality(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
         else:
             moved = [changes[(variant, t)] for t in charted]
             row.append(
-                f"{sum(m.lost for m in moved)} lost, {sum(m.gained for m in moved)} gained "
+                f"{sum(m.lost for m in moved)} right answers became wrong, "
+                f"{sum(m.gained for m in moved)} wrong answers became right "
                 f"(of {sum(m.compared for m in moved)})"
             )
         cut_off = sum(quality_report.capped(groups[(variant, t)]) for t in tasks)
@@ -344,6 +386,12 @@ def build_quality(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
         "gets the same answer twice.",
     ]
     lines = [
+        *_picture(
+            f"{label}-quality",
+            f"Share of answers right on the question sets on {_display(machine)}, for each setting, "
+            "with a 95% range",
+            PAGES["quality"],
+        ),
         f"### {_display(machine)}",
         "",
         "Answers right, per question set and setting. The second figure in a row is the share "
@@ -377,7 +425,10 @@ def build_quality(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
             IntervalPanel(title=f"{TASK_LABELS.get(task, task)} · {scores[(baseline, task)][1]} questions", rows=panel_rows)
         )
     axis_min, ticks = _axis(lows)
-    footnotes = ["Dot: share of correct answers. Line: 95% Wilson interval for that share. The axis does not start at zero."]
+    footnotes = [
+        "Dot: share of correct answers. Line: the 95% range for that share. The scale does not "
+        "start at zero."
+    ]
     for task in tasks:
         if task in charted:
             continue
@@ -386,13 +437,20 @@ def build_quality(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]:
             footnotes.append(f"{TASK_LABELS.get(task, task)}: {parts[0][0]} of {parts[0][1]} correct under every setting.")
     caption = Caption(
         title="Answers right by setting (%)",
-        subtitle=[f"{_display(machine)} · {machine['model']}", study["conditions"]],
+        subtitle=[f"{_display(machine)} · {study['conditions']}"],
         footnotes=footnotes,
     )
     outputs = _charts(
         f"{label}-quality",
         lambda theme: interval_panels(
-            caption, panels, theme, axis_min=axis_min, axis_max=100.0, ticks=ticks, tick_suffix="%"
+            caption,
+            panels,
+            theme,
+            axis_min=axis_min,
+            axis_max=100.0,
+            ticks=ticks,
+            tick_suffix="%",
+            axis_label="Share of answers right (%)",
         ),
     )
     outputs[f"reports/{label}/quality.md"] = quality_report.write_summary(rows)
@@ -422,6 +480,12 @@ def build_speed_sweep(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str
     header = ["Prompt size", variant_label(baseline), variant_label(helper), "Faster by"]
     notes = [_runs_note(cells) + " Every run read its prompt with a cold cache (0 cached tokens)."]
     lines = [
+        *_picture(
+            f"{label}-ttft-sweep",
+            f"Wait for the first word from 1K to 128K prompt tokens on {_display(machine)}, "
+            "on the Mac alone and with the Spark helper",
+            PAGES["speed_sweep"],
+        ),
         f"### {_display(machine)}",
         "",
         "The wait for the first word at each prompt size, and how many times shorter it is with "
@@ -434,8 +498,11 @@ def build_speed_sweep(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str
 
     caption = Caption(
         title="Wait for the first word by prompt size (seconds)",
-        subtitle=[f"{_display(machine)} · {machine['model']}", study["conditions"]],
-        footnotes=["Both axes are log scale. One line per setup; hover a point for its value."],
+        subtitle=[
+            f"{_display(machine)} · {study['conditions']}",
+            "Both axes are a log scale: each step up of the same size is 10 times more.",
+        ],
+        footnotes=["One line per setup; every point carries its value."],
     )
     panel = report.ttft_lines(cells)
     outputs = _charts(f"{label}-ttft-sweep", lambda theme: line_panel(caption, panel, theme))
@@ -504,8 +571,8 @@ def _not_valid_line(path: str, arm: str, flagged: "latency.Waits", alone: Dict[i
     else:
         ran = f"{on_the_helper} of {flagged.requests} ran at helper speed"
     return (
-        f"{flagged.requests} requests in {path} / {arm} are marked not valid by "
-        f"`helper_ready_at_start`: they began at helper state {flagged.state_text} and {ran}."
+        f"{flagged.requests} requests in {path} / {arm} are marked not valid by a check on the "
+        f"helper state when they started: they began at helper state {flagged.state_text} and {ran}."
     )
 
 
@@ -640,6 +707,12 @@ def build_helper_layers(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, s
     )
     notes = [count_line, _reading_line(requests)]
     lines = [
+        *_picture(
+            f"{label}-helper-layers",
+            f"Wait for the first word at 32K and 128K prompt tokens on {_display(machine)}, "
+            "on the Mac alone and at each helper layer count",
+            PAGES["helper_layers"],
+        ),
         f"### {_display(machine)}",
         "",
         "The wait for the first word per helper layer count, and how many times faster than the "
@@ -652,14 +725,17 @@ def build_helper_layers(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, s
 
     caption = Caption(
         title="Wait for the first word by helper layer count (seconds)",
-        subtitle=[f"{_display(machine)} · {machine['model']}", study["conditions"]],
+        subtitle=[f"{_display(machine)} · {study['conditions']}"],
         footnotes=[
             "Each panel has its own scale. “× faster” compares with the Mac alone at the same prompt size.",
             "A pinned count is the number of layers the helper was asked for; the table gives the number it held.",
         ],
     )
     panels = report.setting_panels(groups, baseline)
-    outputs = _charts(f"{label}-helper-layers", lambda theme: bar_panels(caption, panels, theme))
+    outputs = _charts(
+        f"{label}-helper-layers",
+        lambda theme: bar_panels(caption, panels, theme, axis_label="Wait for the first word (seconds)"),
+    )
     outputs[f"reports/{label}/helper-layers.md"] = report.request_markdown(
         requests, f"{_display(machine)}: helper layer count, every request"
     )
@@ -778,6 +854,12 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
     notes.append(waves.reading_line(members))
 
     lines = [
+        *_picture(
+            f"{label}-many-users",
+            f"Time for a whole group of requests to finish at 4K and 32K prompt tokens on "
+            f"{_display(machine)}, on the Mac alone and with the Spark helper",
+            PAGES["many_users"],
+        ),
         f"### {_display(machine)}",
         "",
         "Time for a whole group of requests to finish, at each prompt size and user count. A group "
@@ -797,14 +879,23 @@ def build_many_users(root: Path, machine: Dict[str, Any]) -> Tuple[Outputs, str]
     if plottable:
         caption = Caption(
             title="Time for a whole group of requests to finish (seconds)",
-            subtitle=[f"{_display(machine)} · {machine['model']}", study["conditions"]],
+            subtitle=[
+                f"{_display(machine)} · {study['conditions']}",
+                "Both axes are a log scale, shared by both panels: each step up of the same size is "
+                "10 times more.",
+            ],
             footnotes=[
-                "Both axes are log scale and shared by both panels. One line per setup; hover a point for its value.",
+                "Every point carries its value.",
                 "A group is its user count of requests sent at the same moment. Lower is better.",
             ],
         )
         panels = report.wave_lines(plottable)
-        outputs.update(_charts(f"{label}-many-users", lambda theme: line_panels(caption, panels, theme)))
+        outputs.update(
+            _charts(
+                f"{label}-many-users",
+                lambda theme: line_panels(caption, panels, theme),
+            )
+        )
     return outputs, "\n".join(lines)
 
 
@@ -892,7 +983,7 @@ def build_headline(root: Path, manifest: Dict[str, Any]) -> Optional[Tuple[Outpu
                     arm_label(ARM_ALONE),
                     colours[ARM_ALONE],
                     [
-                        LinePoint(size, value, size_label(size), duration(value))
+                        LinePoint(size, value, size_label(size), f"{value:.1f} s")
                         for size, value in zip(entry.sizes, entry.alone)
                     ],
                 ),
@@ -900,7 +991,7 @@ def build_headline(root: Path, manifest: Dict[str, Any]) -> Optional[Tuple[Outpu
                     arm_label(ARM_HELPER),
                     colours[ARM_HELPER],
                     [
-                        LinePoint(size, value, size_label(size), duration(value))
+                        LinePoint(size, value, size_label(size), f"{value:.1f} s")
                         for size, value in zip(entry.sizes, entry.helped)
                     ],
                 ),
@@ -912,9 +1003,14 @@ def build_headline(root: Path, manifest: Dict[str, Any]) -> Optional[Tuple[Outpu
     ]
     caption = Caption(
         title="Wait for the first word, Mac alone and with the Spark helper (seconds)",
-        subtitle=[" · ".join(entry.display for entry in lines), "Mean of the valid runs, cold cache."],
+        subtitle=[
+            " · ".join(entry.display for entry in lines),
+            "Mean of the valid runs, cold cache.",
+            "Both axes are a log scale, shared by both panels: each step up of the same size is "
+            "10 times more.",
+        ],
         footnotes=[
-            "Both axes are log scale and shared by both panels. One line per setup; hover a point for its value.",
+            "Every point carries its value.",
             "The helper is the DGX Spark that reads long prompts for the Mac. Lower is better.",
         ],
     )

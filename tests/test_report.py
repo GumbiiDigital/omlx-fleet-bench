@@ -141,8 +141,8 @@ class TestPanels(unittest.TestCase):
     def test_memory_panel_notes_change_against_baseline(self) -> None:
         (panel,) = memory_panels(self._cells(), "gpu")
         by_label = {row.label: row for row in panel.rows}
-        self.assertEqual(by_label["Affine4 KV cache"].value_text, "15.0 GB")
-        self.assertEqual(by_label["Affine4 KV cache"].note, "−25.0%")
+        self.assertEqual(by_label["4-bit prompt memory"].value_text, "15.0 GB")
+        self.assertEqual(by_label["4-bit prompt memory"].note, "−25.0%")
 
     def test_rows_without_a_prompt_size_are_not_speed_rows(self) -> None:
         rows = [_row("m1", "gpu", 8192, i, 300.0, 50000.0, True) for i in range(3)]
@@ -151,7 +151,7 @@ class TestPanels(unittest.TestCase):
 
     def test_summary_lists_peak_memory_and_flags(self) -> None:
         text = summary_markdown(self._cells())
-        self.assertIn("| m1 | Qwen3.8-27B-oQ4e-mtp | Affine4 KV cache | 32768 | 3/3 |", text)
+        self.assertIn("| m1 | Qwen3.8-27B-oQ4e-mtp | 4-bit prompt memory | 32768 | 3/3 |", text)
         self.assertIn("| 15.0 | - |", text)
 
     def test_report_writes_light_and_dark_charts(self) -> None:

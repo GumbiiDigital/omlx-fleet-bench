@@ -6,7 +6,21 @@ Short answer: the whole group finishes sooner with the Spark. On Mac B at 32K an
 takes 5.4 min on the Mac alone and 2.5 min with the Spark, 2.17 times faster. One user at 4K gains
 1.10 times, so a single short prompt gains least.
 
+Words on this page:
+
+- **helper**: the DGX Spark that reads long prompts for the Mac.
+- **group**: the requests that start at the same moment; the group's time is its last reply.
+- **user**: one request of a group. Eight users means eight requests sent together.
+- **prompt size**: how long each prompt is, 4K or 32K tokens. 1K tokens is about 750 words.
+- **first word**: the first token the model sends back. Every time here is the wait before it.
+- **cold cache**: the server holds nothing of the prompt, so it reads all of it.
+
 <!-- BEGIN GENERATED: many-users m3-ultra-b -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../charts/m3-ultra-b-many-users-dark.svg">
+  <img alt="Time for a whole group of requests to finish at 4K and 32K prompt tokens on Mac B (Flash-Next), on the Mac alone and with the Spark helper" src="../charts/m3-ultra-b-many-users-light.svg">
+</picture>
+
 ### Mac B (Flash-Next)
 
 Time for a whole group of requests to finish, at each prompt size and user count. A group is its user count of requests sent at the same moment. Lower is better.
