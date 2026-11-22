@@ -106,8 +106,8 @@ slowing during the run, land on every setup alike.
 - Mac B already reads a prompt fast on its own, so the same Spark buys less there.
 - The Apple Neural Engine helps a little on its own, and its gain adds to the Spark's.
 - At 128K tokens the helper read the whole prompt with no drop and no restart. On the stock helper
-  that run fails; the fix is in [pull request 5271](https://github.com/jundot/omlx/pull/5271), not
-  released yet.
+  that run fails; the fix is in helper 0.1.6 and later (it came with oMLX 0.8.0), from
+  [pull request 5271](https://github.com/jundot/omlx/pull/5271). Our runs used the fix applied by hand.
 
 ## Two helper results that are wide
 
