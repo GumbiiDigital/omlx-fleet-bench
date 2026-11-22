@@ -83,7 +83,7 @@ numbers are in [answer quality](docs/answer-quality.md).
   `Jundot/Qwen3.8-27B-oQ4e-mtp` (the model's file name; 4-bit, 16 GB on disk); and the Flash-Next
   model, a second open language model, stored as `Qwen3.8-Flash-Next-oQ4e-mtp`.
 - One fix the helper needs, or 128K prompts fail on it: helper 0.1.6 and later have it (it came with
-  oMLX 0.8.0). A Spark on helper 0.1.4 or 0.1.5 needs it by hand, or a helper update. Our tests used
+  oMLX 0.8.0). A helper older than 0.1.6 may not have it: update it, or apply the fix by hand. Our tests used
   the fix from [pull request 5271](https://github.com/jundot/omlx/pull/5271), applied by hand.
 
 ## Try it on your Mac
