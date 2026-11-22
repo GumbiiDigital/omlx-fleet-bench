@@ -140,7 +140,7 @@ The run files in steps 3 and 5 hold a 128K prompt size. In a speed file it is `1
 `prompt_sizes` list: `matrices/m3-ultra-spark.json` and `matrices/m3-ultra-b-speed.json` (step 3). In a
 quality file it is `131072` in the `sizes` list of the `passkey` task, under `tasks`:
 `matrices/quality.json` and `matrices/m3-ultra-b-quality.json` (step 5). On a helper older than 0.1.6
-the 128K part fails on the helper, after hours of running. To skip it, copy the run file and remove
+the 128K part can fail on the helper, after hours of running. To skip it, copy the run file and remove
 `131072` from that list.
 
 3. Run the speed test: the wait for the first word at 8K, 32K, 64K and 128K tokens, for each setup in
