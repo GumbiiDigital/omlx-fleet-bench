@@ -1,80 +1,80 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="840" height="412" viewBox="0 0 840 412" role="img" aria-label="Time to first token by prompt size Qwen3.8-27B-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-<title>Time to first token by prompt size Qwen3.8-27B-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</title>
-<rect x="0.5" y="0.5" width="839" height="411" fill="#1a1a19" rx="8" stroke="#2c2c2a" stroke-width="1"/>
-<text x="24" y="40" font-size="16" fill="#f0efec" font-weight="600">Time to first token by prompt size</text>
-<text x="24" y="57" font-size="12" fill="#c3c2b7">Qwen3.8-27B-oQ4e-mtp · Apple M3 Ultra, 256 GB · helper: NVIDIA GB10 (DGX Spark), 10 GbE</text>
-<text x="24" y="74" font-size="12" fill="#c3c2b7">Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</text>
-<text x="24" y="105" font-size="13" fill="#f0efec" font-weight="600">8K prompt</text>
-<text x="24" y="129.5" font-size="12" fill="#c3c2b7">GPU only</text>
-<path d="M132.08,118 H265.6 Q269.6,118 269.6,122 V128 Q269.6,132 265.6,132 H132.08 Z" fill="#3987e5"><title>8K prompt · GPU only: 24.5 s baseline</title></path>
-<text x="277.6" y="129.5" font-size="12" fill="#f0efec" font-weight="600">24.5 s</text>
-<text x="330.24" y="129.5" font-size="11" fill="#898781">baseline</text>
-<text x="24" y="155.5" font-size="12" fill="#c3c2b7">+ ANE prefill</text>
-<path d="M132.08,144 H233.91 Q237.91,144 237.91,148 V154 Q237.91,158 233.91,158 H132.08 Z" fill="#d95926"><title>8K prompt · + ANE prefill: 18.8 s 1.3× faster</title></path>
-<text x="245.91" y="155.5" font-size="12" fill="#f0efec" font-weight="600">18.8 s</text>
-<text x="298.55" y="155.5" font-size="11" fill="#898781">1.3× faster</text>
-<text x="24" y="181.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
-<path d="M132.08,170 H176.34 Q180.34,170 180.34,174 V180 Q180.34,184 176.34,184 H132.08 Z" fill="#199e70"><title>8K prompt · + Spark helper: 8.59 s 2.8× faster</title></path>
-<text x="188.34" y="181.5" font-size="12" fill="#f0efec" font-weight="600">8.59 s</text>
-<text x="240.98" y="181.5" font-size="11" fill="#898781">2.8× faster</text>
-<text x="24" y="207.5" font-size="12" fill="#c3c2b7">+ ANE + Spark</text>
-<path d="M132.08,196 H171.86 Q175.86,196 175.86,200 V206 Q175.86,210 171.86,210 H132.08 Z" fill="#c98500"><title>8K prompt · + ANE + Spark: 7.79 s 3.1× faster</title></path>
-<text x="183.86" y="207.5" font-size="12" fill="#f0efec" font-weight="600">7.79 s</text>
-<text x="236.5" y="207.5" font-size="11" fill="#898781">3.1× faster</text>
-<line x1="132.08" y1="114" x2="132.08" y2="214" stroke="#383835" stroke-width="1"/>
-<text x="436" y="105" font-size="13" fill="#f0efec" font-weight="600">32K prompt</text>
-<text x="436" y="129.5" font-size="12" fill="#c3c2b7">GPU only</text>
-<path d="M544.08,118 H677.6 Q681.6,118 681.6,122 V128 Q681.6,132 677.6,132 H544.08 Z" fill="#3987e5"><title>32K prompt · GPU only: 110 s baseline</title></path>
-<text x="689.6" y="129.5" font-size="12" fill="#f0efec" font-weight="600">110 s</text>
-<text x="734.8" y="129.5" font-size="11" fill="#898781">baseline</text>
-<text x="436" y="155.5" font-size="12" fill="#c3c2b7">+ ANE prefill</text>
-<path d="M544.08,144 H649.2 Q653.2,144 653.2,148 V154 Q653.2,158 649.2,158 H544.08 Z" fill="#d95926"><title>32K prompt · + ANE prefill: 87.2 s 1.3× faster</title></path>
-<text x="661.2" y="155.5" font-size="12" fill="#f0efec" font-weight="600">87.2 s</text>
-<text x="713.84" y="155.5" font-size="11" fill="#898781">1.3× faster</text>
-<text x="436" y="181.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
-<path d="M544.08,170 H584.05 Q588.05,170 588.05,174 V180 Q588.05,184 584.05,184 H544.08 Z" fill="#199e70"><title>32K prompt · + Spark helper: 35.1 s 3.1× faster</title></path>
-<text x="596.05" y="181.5" font-size="12" fill="#f0efec" font-weight="600">35.1 s</text>
-<text x="648.69" y="181.5" font-size="11" fill="#898781">3.1× faster</text>
-<text x="436" y="207.5" font-size="12" fill="#c3c2b7">+ ANE + Spark</text>
-<path d="M544.08,196 H577.17 Q581.17,196 581.17,200 V206 Q581.17,210 577.17,210 H544.08 Z" fill="#c98500"><title>32K prompt · + ANE + Spark: 29.6 s 3.7× faster</title></path>
-<text x="589.17" y="207.5" font-size="12" fill="#f0efec" font-weight="600">29.6 s</text>
-<text x="641.81" y="207.5" font-size="11" fill="#898781">3.7× faster</text>
-<line x1="544.08" y1="114" x2="544.08" y2="214" stroke="#383835" stroke-width="1"/>
-<text x="24" y="257" font-size="13" fill="#f0efec" font-weight="600">64K prompt</text>
-<text x="24" y="281.5" font-size="12" fill="#c3c2b7">GPU only</text>
-<path d="M132.08,270 H265.6 Q269.6,270 269.6,274 V280 Q269.6,284 265.6,284 H132.08 Z" fill="#3987e5"><title>64K prompt · GPU only: 253 s baseline</title></path>
-<text x="277.6" y="281.5" font-size="12" fill="#f0efec" font-weight="600">253 s</text>
-<text x="322.8" y="281.5" font-size="11" fill="#898781">baseline</text>
-<text x="24" y="307.5" font-size="12" fill="#c3c2b7">+ ANE prefill</text>
-<path d="M132.08,296 H241 Q245,296 245,300 V306 Q245,310 241,310 H132.08 Z" fill="#d95926"><title>64K prompt · + ANE prefill: 208 s 1.2× faster</title></path>
-<text x="253" y="307.5" font-size="12" fill="#f0efec" font-weight="600">208 s</text>
-<text x="298.2" y="307.5" font-size="11" fill="#898781">1.2× faster</text>
-<text x="24" y="333.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
-<path d="M132.08,322 H169.93 Q173.93,322 173.93,326 V332 Q173.93,336 169.93,336 H132.08 Z" fill="#199e70"><title>64K prompt · + Spark helper: 76.9 s 3.3× faster</title></path>
-<text x="181.93" y="333.5" font-size="12" fill="#f0efec" font-weight="600">76.9 s</text>
-<text x="234.57" y="333.5" font-size="11" fill="#898781">3.3× faster</text>
-<text x="24" y="359.5" font-size="12" fill="#c3c2b7">+ ANE + Spark</text>
-<path d="M132.08,348 H164.2 Q168.2,348 168.2,352 V358 Q168.2,362 164.2,362 H132.08 Z" fill="#c98500"><title>64K prompt · + ANE + Spark: 66.4 s 3.8× faster</title></path>
-<text x="176.2" y="359.5" font-size="12" fill="#f0efec" font-weight="600">66.4 s</text>
-<text x="228.84" y="359.5" font-size="11" fill="#898781">3.8× faster</text>
-<line x1="132.08" y1="266" x2="132.08" y2="366" stroke="#383835" stroke-width="1"/>
-<text x="436" y="257" font-size="13" fill="#f0efec" font-weight="600">128K prompt</text>
-<text x="436" y="281.5" font-size="12" fill="#c3c2b7">GPU only</text>
-<path d="M544.08,270 H677.6 Q681.6,270 681.6,274 V280 Q681.6,284 677.6,284 H544.08 Z" fill="#3987e5"><title>128K prompt · GPU only: 638 s baseline</title></path>
-<text x="689.6" y="281.5" font-size="12" fill="#f0efec" font-weight="600">638 s</text>
-<text x="734.8" y="281.5" font-size="11" fill="#898781">baseline</text>
-<text x="436" y="307.5" font-size="12" fill="#c3c2b7">+ ANE prefill</text>
-<path d="M544.08,296 H658.25 Q662.25,296 662.25,300 V306 Q662.25,310 658.25,310 H544.08 Z" fill="#d95926"><title>128K prompt · + ANE prefill: 548 s 1.2× faster</title></path>
-<text x="670.25" y="307.5" font-size="12" fill="#f0efec" font-weight="600">548 s</text>
-<text x="715.45" y="307.5" font-size="11" fill="#898781">1.2× faster</text>
-<text x="436" y="333.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
-<path d="M544.08,322 H580.98 Q584.98,322 584.98,326 V332 Q584.98,336 580.98,336 H544.08 Z" fill="#199e70"><title>128K prompt · + Spark helper: 190 s 3.4× faster</title></path>
-<text x="592.98" y="333.5" font-size="12" fill="#f0efec" font-weight="600">190 s</text>
-<text x="638.18" y="333.5" font-size="11" fill="#898781">3.4× faster</text>
-<text x="436" y="359.5" font-size="12" fill="#c3c2b7">+ ANE + Spark</text>
-<path d="M544.08,348 H575.87 Q579.87,348 579.87,352 V358 Q579.87,362 575.87,362 H544.08 Z" fill="#c98500"><title>128K prompt · + ANE + Spark: 166 s 3.8× faster</title></path>
-<text x="587.87" y="359.5" font-size="12" fill="#f0efec" font-weight="600">166 s</text>
-<text x="633.07" y="359.5" font-size="11" fill="#898781">3.8× faster</text>
-<line x1="544.08" y1="266" x2="544.08" y2="366" stroke="#383835" stroke-width="1"/>
-<text x="24" y="396" font-size="11" fill="#898781">Each panel has its own scale. “× faster” compares with GPU only at the same prompt size.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="719" viewBox="0 0 840 719" role="img" aria-label="Wait for the first word (seconds) Mac A (Qwen 27B) · Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" data-x-scale="linear" data-y-scale="linear">
+<title>Wait for the first word (seconds) Mac A (Qwen 27B) · Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</title>
+<rect x="0.5" y="0.5" width="839" height="718" fill="#1a1a19" rx="8" stroke="#2c2c2a" stroke-width="1"/>
+<text x="24" y="40" font-size="16" fill="#f0efec" font-weight="600">Wait for the first word (seconds)</text>
+<text x="24" y="57" font-size="12" fill="#c3c2b7">Mac A (Qwen 27B) · Cold cache, 128 output tokens, mean of 3 runs per bar. Lower is better.</text>
+<text x="24" y="88" font-size="13" fill="#f0efec" font-weight="600">8K prompt</text>
+<text x="24" y="112.5" font-size="12" fill="#c3c2b7">Mac alone</text>
+<path d="M279.92,101 H677.6 Q681.6,101 681.6,105 V111 Q681.6,115 677.6,115 H279.92 Z" fill="#3987e5"><title>8K prompt · Mac alone: 24.5 s baseline</title></path>
+<text x="689.6" y="112.5" font-size="12" fill="#f0efec" font-weight="600">24.5 s</text>
+<text x="742.24" y="112.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="138.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine</text>
+<path d="M279.92,127 H585.04 Q589.04,127 589.04,131 V137 Q589.04,141 585.04,141 H279.92 Z" fill="#d95926"><title>8K prompt · + Apple Neural Engine: 18.8 s 1.3× faster</title></path>
+<text x="597.04" y="138.5" font-size="12" fill="#f0efec" font-weight="600">18.8 s</text>
+<text x="649.68" y="138.5" font-size="11" fill="#898781">1.3× faster</text>
+<text x="24" y="164.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
+<path d="M279.92,153 H416.88 Q420.88,153 420.88,157 V163 Q420.88,167 416.88,167 H279.92 Z" fill="#199e70"><title>8K prompt · + Spark helper: 8.59 s 2.8× faster</title></path>
+<text x="428.88" y="164.5" font-size="12" fill="#f0efec" font-weight="600">8.59 s</text>
+<text x="481.52" y="164.5" font-size="11" fill="#898781">2.8× faster</text>
+<text x="24" y="190.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine + Spark helper</text>
+<path d="M279.92,179 H403.8 Q407.8,179 407.8,183 V189 Q407.8,193 403.8,193 H279.92 Z" fill="#c98500"><title>8K prompt · + Apple Neural Engine + Spark helper: 7.79 s 3.1× faster</title></path>
+<text x="415.8" y="190.5" font-size="12" fill="#f0efec" font-weight="600">7.79 s</text>
+<text x="468.44" y="190.5" font-size="11" fill="#898781">3.1× faster</text>
+<line x1="279.92" y1="97" x2="279.92" y2="197" stroke="#383835" stroke-width="1"/>
+<text x="24" y="240" font-size="13" fill="#f0efec" font-weight="600">32K prompt</text>
+<text x="24" y="264.5" font-size="12" fill="#c3c2b7">Mac alone</text>
+<path d="M279.92,253 H677.6 Q681.6,253 681.6,257 V263 Q681.6,267 677.6,267 H279.92 Z" fill="#3987e5"><title>32K prompt · Mac alone: 110 s baseline</title></path>
+<text x="689.6" y="264.5" font-size="12" fill="#f0efec" font-weight="600">110 s</text>
+<text x="734.8" y="264.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="290.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine</text>
+<path d="M279.92,279 H594.65 Q598.65,279 598.65,283 V289 Q598.65,293 594.65,293 H279.92 Z" fill="#d95926"><title>32K prompt · + Apple Neural Engine: 87.2 s 1.3× faster</title></path>
+<text x="606.65" y="290.5" font-size="12" fill="#f0efec" font-weight="600">87.2 s</text>
+<text x="659.29" y="290.5" font-size="11" fill="#898781">1.3× faster</text>
+<text x="24" y="316.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
+<path d="M279.92,305 H404.35 Q408.35,305 408.35,309 V315 Q408.35,319 404.35,319 H279.92 Z" fill="#199e70"><title>32K prompt · + Spark helper: 35.1 s 3.1× faster</title></path>
+<text x="416.35" y="316.5" font-size="12" fill="#f0efec" font-weight="600">35.1 s</text>
+<text x="468.99" y="316.5" font-size="11" fill="#898781">3.1× faster</text>
+<text x="24" y="342.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine + Spark helper</text>
+<path d="M279.92,331 H384.25 Q388.25,331 388.25,335 V341 Q388.25,345 384.25,345 H279.92 Z" fill="#c98500"><title>32K prompt · + Apple Neural Engine + Spark helper: 29.6 s 3.7× faster</title></path>
+<text x="396.25" y="342.5" font-size="12" fill="#f0efec" font-weight="600">29.6 s</text>
+<text x="448.89" y="342.5" font-size="11" fill="#898781">3.7× faster</text>
+<line x1="279.92" y1="249" x2="279.92" y2="349" stroke="#383835" stroke-width="1"/>
+<text x="24" y="392" font-size="13" fill="#f0efec" font-weight="600">64K prompt</text>
+<text x="24" y="416.5" font-size="12" fill="#c3c2b7">Mac alone</text>
+<path d="M279.92,405 H677.6 Q681.6,405 681.6,409 V415 Q681.6,419 677.6,419 H279.92 Z" fill="#3987e5"><title>64K prompt · Mac alone: 253 s baseline</title></path>
+<text x="689.6" y="416.5" font-size="12" fill="#f0efec" font-weight="600">253 s</text>
+<text x="734.8" y="416.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="442.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine</text>
+<path d="M279.92,431 H605.73 Q609.73,431 609.73,435 V441 Q609.73,445 605.73,445 H279.92 Z" fill="#d95926"><title>64K prompt · + Apple Neural Engine: 208 s 1.2× faster</title></path>
+<text x="617.73" y="442.5" font-size="12" fill="#f0efec" font-weight="600">208 s</text>
+<text x="662.93" y="442.5" font-size="11" fill="#898781">1.2× faster</text>
+<text x="24" y="468.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
+<path d="M279.92,457 H398.17 Q402.17,457 402.17,461 V467 Q402.17,471 398.17,471 H279.92 Z" fill="#199e70"><title>64K prompt · + Spark helper: 76.9 s 3.3× faster</title></path>
+<text x="410.17" y="468.5" font-size="12" fill="#f0efec" font-weight="600">76.9 s</text>
+<text x="462.81" y="468.5" font-size="11" fill="#898781">3.3× faster</text>
+<text x="24" y="494.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine + Spark helper</text>
+<path d="M279.92,483 H381.41 Q385.41,483 385.41,487 V493 Q385.41,497 381.41,497 H279.92 Z" fill="#c98500"><title>64K prompt · + Apple Neural Engine + Spark helper: 66.4 s 3.8× faster</title></path>
+<text x="393.41" y="494.5" font-size="12" fill="#f0efec" font-weight="600">66.4 s</text>
+<text x="446.05" y="494.5" font-size="11" fill="#898781">3.8× faster</text>
+<line x1="279.92" y1="401" x2="279.92" y2="501" stroke="#383835" stroke-width="1"/>
+<text x="24" y="544" font-size="13" fill="#f0efec" font-weight="600">128K prompt</text>
+<text x="24" y="568.5" font-size="12" fill="#c3c2b7">Mac alone</text>
+<path d="M279.92,557 H677.6 Q681.6,557 681.6,561 V567 Q681.6,571 677.6,571 H279.92 Z" fill="#3987e5"><title>128K prompt · Mac alone: 638 s baseline</title></path>
+<text x="689.6" y="568.5" font-size="12" fill="#f0efec" font-weight="600">638 s</text>
+<text x="734.8" y="568.5" font-size="11" fill="#898781">baseline</text>
+<text x="24" y="594.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine</text>
+<path d="M279.92,583 H621.09 Q625.09,583 625.09,587 V593 Q625.09,597 621.09,597 H279.92 Z" fill="#d95926"><title>128K prompt · + Apple Neural Engine: 548 s 1.2× faster</title></path>
+<text x="633.09" y="594.5" font-size="12" fill="#f0efec" font-weight="600">548 s</text>
+<text x="678.29" y="594.5" font-size="11" fill="#898781">1.2× faster</text>
+<text x="24" y="620.5" font-size="12" fill="#c3c2b7">+ Spark helper</text>
+<path d="M279.92,609 H395.38 Q399.38,609 399.38,613 V619 Q399.38,623 395.38,623 H279.92 Z" fill="#199e70"><title>128K prompt · + Spark helper: 190 s 3.4× faster</title></path>
+<text x="407.38" y="620.5" font-size="12" fill="#f0efec" font-weight="600">190 s</text>
+<text x="452.58" y="620.5" font-size="11" fill="#898781">3.4× faster</text>
+<text x="24" y="646.5" font-size="12" fill="#c3c2b7">+ Apple Neural Engine + Spark helper</text>
+<path d="M279.92,635 H380.47 Q384.47,635 384.47,639 V645 Q384.47,649 380.47,649 H279.92 Z" fill="#c98500"><title>128K prompt · + Apple Neural Engine + Spark helper: 166 s 3.8× faster</title></path>
+<text x="392.47" y="646.5" font-size="12" fill="#f0efec" font-weight="600">166 s</text>
+<text x="437.67" y="646.5" font-size="11" fill="#898781">3.8× faster</text>
+<line x1="279.92" y1="553" x2="279.92" y2="653" stroke="#383835" stroke-width="1"/>
+<text x="420" y="677" font-size="11" fill="#898781" text-anchor="middle">Wait for the first word (seconds)</text>
+<text x="24" y="703" font-size="11" fill="#898781">Each panel has its own scale. “× faster” compares with Mac alone at the same prompt size.</text>
 </svg>

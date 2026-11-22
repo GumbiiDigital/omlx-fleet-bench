@@ -198,15 +198,34 @@ def fmt_seconds(seconds: float) -> str:
     return f"{seconds:.0f} s"
 
 
+SUMMARY_COLUMNS = [
+    ("Machine", "the machine name written in the results file"),
+    ("Model", "the model the server was running"),
+    ("Setup", "the server setting this row was run under"),
+    ("Prompt size (tokens)", "how long the prompt was, in tokens (8K = 8,192)"),
+    ("Valid runs", "runs that passed every check, out of the runs planned"),
+    ("Reading the prompt (tokens/s)", "mean, smallest and largest of the valid runs"),
+    ("Wait for the first word (ms)", "mean, smallest and largest of the valid runs, in milliseconds"),
+    ("Spread (%)", "(largest - smallest) / mean of the reading speed, in percent"),
+    ("Peak memory (GB)", "peak memory of the whole run, in bytes / 2^30"),
+    ("Flags", "`noisy` when the spread is over 3%; `incomplete` when a planned run is missing"),
+]
+
+
+def _column_key(columns: Sequence[Tuple[str, str]]) -> List[str]:
+    """A short list that says what each column of the table below it means."""
+    lines = ["What each column means:", ""]
+    lines += [f"- **{name}**: {meaning}." for name, meaning in columns]
+    lines.append("")
+    return lines
+
+
 def summary_markdown(cells: Iterable[CellStats], title: str = "Speed summary") -> str:
-    lines = [
-        f"# {title}",
-        "",
-        "Valid runs only. Prefill speed and time to first token are mean/min/max; spread is",
-        "(max - min) / mean of prefill speed. Peak memory is MLX active memory for the run.",
-        "",
-        "| Machine | Model | Variant | Prompt tokens | Valid runs | Prefill tok/s | "
-        "Time to first token ms | Spread % | Peak memory GB | Flags |",
+    lines = [f"# {title}", ""]
+    lines += _column_key(SUMMARY_COLUMNS)
+    lines += [
+        "| Machine | Model | Setup | Prompt size (tokens) | Valid runs | Reading the prompt (tokens/s) | "
+        "Wait for the first word (ms) | Spread (%) | Peak memory (GB) | Flags |",
         "| --- | --- | --- | ---: | ---: | --- | --- | ---: | ---: | --- |",
     ]
     for cell in sort_cells(cells):
@@ -215,7 +234,7 @@ def summary_markdown(cells: Iterable[CellStats], title: str = "Speed summary") -
         peak = f"{cell.mean_peak_gb:.1f}" if cell.mean_peak_gb is not None else "-"
         flags = [name for name, on in (("noisy", cell.noisy), ("incomplete", cell.incomplete)) if on]
         lines.append(
-            f"| {cell.machine} | {cell.model} | {cell.variant} | {cell.size} | "
+            f"| {cell.machine} | {cell.model} | {variant_label(cell.variant)} | {cell.size} | "
             f"{cell.n_valid}/{cell.runs_expected} | {tps} | {ttft} | "
             f"{spread(cell.valid_tps) * 100:.1f} | {peak} | {', '.join(flags) or '-'} |"
         )
@@ -313,7 +332,7 @@ def ttft_lines(cells: Sequence[CellStats]) -> LinePanel:
         raise ValueError("no cell has a time to first token")
     waits = [point.y for line in lines for point in line.points]
     return LinePanel(
-        title="Time to first token by prompt size",
+        title="Wait for the first word by prompt size",
         x_min=sizes[0],
         x_max=sizes[-1],
         y_min=min(waits),
@@ -321,7 +340,25 @@ def ttft_lines(cells: Sequence[CellStats]) -> LinePanel:
         x_ticks=[(size, size_label(size)) for size in sizes],
         y_ticks=[(tick, f"{tick:g} s") for tick in log_ticks(min(waits), max(waits))],
         series=lines,
+        x_label="Prompt size (tokens)",
+        y_label="Wait for the first word (s)",
     )
+
+
+REQUEST_COLUMNS = [
+    ("Path", "how the request was sent: `chat` is the chat API, `speed test` the server's own test call"),
+    ("Round", "the name of the round this request belongs to, as the study file names it"),
+    ("Prompt size", "how long the prompt was (32K = 32,768 tokens)"),
+    ("Setting", "which helper layer setting the request ran under"),
+    ("Helper", "whether the DGX Spark helper was on for this request"),
+    ("State at start", "the helper state the request found when it was sent"),
+    ("Waited for the helper (s)", "seconds the run waited for the helper to be ready first"),
+    ("Wait for the first word (s)", "the server's own figure for this request"),
+    ("Layers on the helper", "how many model layers the helper held for this request"),
+    ("Cached tokens", "prompt tokens the server already had in memory (0 means it read the whole prompt)"),
+    ("Answer correct", "whether the answer passed its check; `-` when the row records no answer"),
+    ("Failed checks", "the checks this row failed, or `-` when it passed every one"),
+]
 
 
 def request_markdown(requests: Sequence["latency.Request"], title: str = "Requests") -> str:
@@ -333,14 +370,16 @@ def request_markdown(requests: Sequence["latency.Request"], title: str = "Reques
     lines = [
         f"# {title}",
         "",
-        "One line per request, in the order the rows were written. Time to first token is the",
-        "server's own figure. A request whose row failed a check stays in the list and names it.",
+        "One line per request, in the order the rows were written. A request whose row failed a",
+        "check stays in the list and names it.",
+        "",
     ]
+    lines += _column_key(REQUEST_COLUMNS)
     lines += _checks_note(requests)
     lines += [
         "",
-        "| Path | Arm | Prompt | Setting | Helper | State at start | Waited s "
-        "| Time to first token s | Layers | Cached tokens | Answer correct | Failed checks |",
+        "| Path | Round | Prompt size | Setting | Helper | State at start | Waited for the helper (s) "
+        "| Wait for the first word (s) | Layers on the helper | Cached tokens | Answer correct | Failed checks |",
         "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     for request in requests:
@@ -415,23 +454,37 @@ def _safe_name(text: str) -> str:
     return "".join(ch if ch.isalnum() or ch in "-._" else "-" for ch in text)
 
 
-def wave_markdown(cells: Sequence["waves.WaveCell"], title: str = "Many users: every wave") -> str:
-    """Every wave of a many-users study on one line: the figures the cell means are made from.
+WAVE_COLUMNS = [
+    ("Setup", "what the group of requests ran on: the Mac alone, or the Mac with its helper"),
+    ("Prompt size", "how long every prompt of the group was (4K = 4,096 tokens)"),
+    ("Users", "how many requests the group holds, all sent at the same moment"),
+    ("Round", "which repeat of the same group this is"),
+    ("Requests", "requests in the group"),
+    ("Valid", "requests that passed every check"),
+    ("Wait for the first word (s)", "mean over the valid requests, with the smallest and largest"),
+    ("Whole-group time (s)", "from the moment the group was sent to its last reply"),
+    ("Prompt tokens/s", "every user's prompt tokens together, over the whole-group time"),
+]
 
-    A many-users study keeps its rows apart by wave on purpose: the wave, not the request, is what
-    a second user changes. So the report lists each wave with its own wall time, and the request
-    count of the wave, before any mean is taken.
+
+def wave_markdown(cells: Sequence["waves.WaveCell"], title: str = "Many users: every group") -> str:
+    """Every group of a many-users study on one line: the figures the cell means are made from.
+
+    A many-users study keeps its rows apart by group on purpose: the group, not the request, is what
+    a second user changes. So the report lists each group with its own wall time, and the request
+    count of the group, before any mean is taken.
     """
     lines = [
         f"# {title}",
         "",
-        "One line per wave, in cell order. A wave is its user count of requests released together.",
-        "`Wave wall` is the time from the moment the wave opened to its last reply, and `Prompt",
-        "tok/s` is every user's prompt tokens together over that time. A request a flag marks not",
-        "valid stays in its wave's count and out of its means.",
+        "One line per group, in cell order. A group is its user count of requests sent at the same",
+        "moment. A request a flag marks not valid stays in its group's count and out of its means.",
         "",
-        "| Arm | Prompt | Users | Wave | Requests | Valid | Time to first token s | Wave wall s "
-        "| Prompt tok/s |",
+    ]
+    lines += _column_key(WAVE_COLUMNS)
+    lines += [
+        "| Setup | Prompt size | Users | Round | Requests | Valid | Wait for the first word (s) "
+        "| Whole-group time (s) | Prompt tokens/s |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for cell in waves.sort_cells(cells):
@@ -495,6 +548,8 @@ def wave_lines(cells: Sequence["waves.WaveCell"]) -> List[LinePanel]:
                 x_ticks=[(count, str(count)) for count in counts],
                 y_ticks=[(tick, f"{tick:g} s") for tick in log_ticks(low, high)],
                 series=lines,
+                x_label="Users in the group",
+                y_label="Time for the whole group (s)",
             )
         )
     return panels
@@ -515,7 +570,7 @@ def write_charts(cells: Sequence[CellStats], charts_dir: Path) -> List[Path]:
         if not panels:
             continue
         caption = Caption(
-            title="Time to first token",
+            title="Wait for the first word (seconds)",
             subtitle=[f"{machine} · {model} · mean of valid runs · lower is better"],
         )
         for theme in THEMES.values():

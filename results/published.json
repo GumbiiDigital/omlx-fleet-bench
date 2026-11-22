@@ -2,6 +2,7 @@
   "machines": [
     {
       "label": "m3-ultra-a",
+      "display_name": "Mac A (Qwen 27B)",
       "hardware": "Apple M3 Ultra, 256 GB",
       "helper": "NVIDIA GB10 (DGX Spark), 10 GbE",
       "model": "Qwen3.8-27B-oQ4e-mtp",
@@ -16,7 +17,7 @@
         "kind": "speed",
         "files": ["results/m3-ultra-a/kv-cache-2026-11-15.jsonl"],
         "baseline": "native",
-        "conditions": "GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better."
+        "conditions": "Mac alone, cold cache, mean of 3 runs per bar. Lower is better."
       },
       "quality": {
         "kind": "quality",
@@ -55,7 +56,7 @@
             "file": "results/m3-ultra-a/helper-ready-speed-wait-2026-11-17.jsonl"
           }
         ],
-        "conditions": "Cold cache. Six rounds per arm, each one request with the helper off and then one request at 32K with the helper on. Lower is better."
+        "conditions": "Cold cache. Six rounds for each path and each way of starting; a round is one request with the helper off, then one request at 32K with the helper on. Lower is better."
       },
       "helper_layers": {
         "kind": "request",
@@ -71,6 +72,7 @@
     },
     {
       "label": "m3-ultra-b",
+      "display_name": "Mac B (Flash-Next)",
       "hardware": "Apple M3 Ultra, 256 GB",
       "helper": "NVIDIA GB10 (DGX Spark), 10 GbE",
       "model": "Qwen3.8-Flash-Next-oQ4e-mtp",
@@ -87,13 +89,13 @@
           "results/m3-ultra-b/speed-sweep-rerun-2026-11-15.jsonl"
         ],
         "baseline": "gpu",
-        "conditions": "Cold cache, 128 output tokens, mean of 2 runs per cell. Lower is better."
+        "conditions": "Cold cache, 128 output tokens, mean of 2 runs per prompt size. Lower is better."
       },
       "kv_cache": {
         "kind": "speed",
         "files": ["results/m3-ultra-b/kv-cache-2026-11-16.jsonl"],
         "baseline": "native",
-        "conditions": "GPU only, ANE and helper off, cold cache, mean of 3 runs per bar. Lower is better."
+        "conditions": "Mac alone, cold cache, mean of 3 runs per bar. Lower is better."
       },
       "quality": {
         "kind": "quality",
@@ -105,7 +107,7 @@
       "many_users": {
         "kind": "request",
         "files": ["results/m3-ultra-b/many-users-2026-11-18.jsonl"],
-        "conditions": "Cold cache, 128 output tokens, 3 waves per cell of 1, 2, 4 and 8 requests released together. Lower is better."
+        "conditions": "Cold cache, 128 output tokens, 3 groups per size and user count."
       }
     }
   ]

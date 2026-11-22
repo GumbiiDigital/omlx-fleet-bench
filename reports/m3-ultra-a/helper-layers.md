@@ -1,11 +1,27 @@
-# Helper layer count: every request
+# Mac A (Qwen 27B): helper layer count, every request
 
-One line per request, in the order the rows were written. Time to first token is the
-server's own figure. A request whose row failed a check stays in the list and names it.
+One line per request, in the order the rows were written. A request whose row failed a
+check stays in the list and names it.
+
+What each column means:
+
+- **Path**: how the request was sent: `chat` is the chat API, `speed test` the server's own test call.
+- **Round**: the name of the round this request belongs to, as the study file names it.
+- **Prompt size**: how long the prompt was (32K = 32,768 tokens).
+- **Setting**: which helper layer setting the request ran under.
+- **Helper**: whether the DGX Spark helper was on for this request.
+- **State at start**: the helper state the request found when it was sent.
+- **Waited for the helper (s)**: seconds the run waited for the helper to be ready first.
+- **Wait for the first word (s)**: the server's own figure for this request.
+- **Layers on the helper**: how many model layers the helper held for this request.
+- **Cached tokens**: prompt tokens the server already had in memory (0 means it read the whole prompt).
+- **Answer correct**: whether the answer passed its check; `-` when the row records no answer.
+- **Failed checks**: the checks this row failed, or `-` when it passed every one.
+
 These rows carry no validity block: their cold-cache and answer checks are read from their
 own fields, and a row with nothing to report says `no validity marks`.
 
-| Path | Arm | Prompt | Setting | Helper | State at start | Waited s | Time to first token s | Layers | Cached tokens | Answer correct | Failed checks |
+| Path | Round | Prompt size | Setting | Helper | State at start | Waited for the helper (s) | Wait for the first word (s) | Layers on the helper | Cached tokens | Answer correct | Failed checks |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
 | chat | wait | 32K | Mac alone | off | none | 0.0 | 109.71 | none | 0 | yes | no validity marks |
 | chat | wait | 32K | Automatic | on | ready | 18.1 | 29.42 | 49 | 0 | yes | no validity marks |

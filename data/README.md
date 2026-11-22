@@ -1,7 +1,7 @@
 # Quality data
 
 Two fixed files, used by `matrices/quality.json`. Both are subsets of public datasets, kept small so
-the repository stays light and a run is repeatable.
+that the repository stays light and a run can be repeated.
 
 ## `gsm8k-200.jsonl`
 
@@ -15,7 +15,8 @@ the repository stays light and a run is repeatable.
 
 - 500 questions: the first 25 test rows of 20 MMLU subjects (listed in
   `scripts/fetch_quality_data.py`).
-- Fields: `id`, `subject`, `question`, `choices` (4 strings), `answer` (index 0-3 into `choices`).
+- Fields: `id`, `subject`, `question`, `choices` (4 strings), `answer` (a number from 0 to 3 that
+  picks one of `choices`).
 - Source: [cais/mmlu](https://huggingface.co/datasets/cais/mmlu), license MIT, read through the
   Hugging Face datasets-server JSON API.
 
@@ -32,7 +33,9 @@ The script is deterministic: the same inputs give the same files.
 ## Limits
 
 - These are subsets. GSM8K accuracy on 200 questions has a sampling error of roughly ±3 points at
-  90% confidence; MMLU on 500 has roughly ±4 points. Compare settings within a run, not against
+  90% confidence; MMLU on 500 has roughly ±4 points. Compare settings inside one run, not against
   published full-test scores.
-- MMLU publicly reports a different subject mix in the full test split, so the 20-subject subset is
-  easier than the full 14,042-question test set.
+- The full MMLU test split has a different mix of subjects, so this 20-subject subset is easier than
+  the full 14,042-question test.
+
+Back to [the front page](../README.md).

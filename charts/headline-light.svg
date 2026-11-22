@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="478" viewBox="0 0 840 478" role="img" aria-label="Wait for the first word, Mac alone and with the Spark helper (seconds) Mac A (Qwen 27B) · Mac B (Flash-Next) Mean of the valid runs, cold cache. Both axes multiply: 10 s to 100 s takes the same space as 100 s to 1,000 s, and 8K tokens to 80K the same as 80K to 800K." font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" data-x-scale="log" data-y-scale="log">
+<title>Wait for the first word, Mac alone and with the Spark helper (seconds) Mac A (Qwen 27B) · Mac B (Flash-Next) Mean of the valid runs, cold cache. Both axes multiply: 10 s to 100 s takes the same space as 100 s to 1,000 s, and 8K tokens to 80K the same as 80K to 800K.</title>
+<rect x="0.5" y="0.5" width="839" height="477" fill="#fcfcfb" rx="8" stroke="#e1e0d9" stroke-width="1"/>
+<text x="24" y="40" font-size="16" fill="#0b0b0b" font-weight="600">Wait for the first word, Mac alone and with the Spark helper (seconds)</text>
+<text x="24" y="57" font-size="12" fill="#52514e">Mac A (Qwen 27B) · Mac B (Flash-Next)</text>
+<text x="24" y="74" font-size="12" fill="#52514e">Mean of the valid runs, cold cache.</text>
+<text x="24" y="91" font-size="12" fill="#52514e">Both axes multiply: 10 s to 100 s takes the same space as 100 s to 1,000 s, and 8K tokens to 80K the same</text>
+<text x="24" y="108" font-size="12" fill="#52514e">as 80K to 800K.</text>
+<line x1="24" y1="130" x2="38" y2="130" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<text x="44" y="134" font-size="11" fill="#52514e">Mac alone</text>
+<line x1="123.44" y1="130" x2="137.44" y2="130" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<text x="143.44" y="134" font-size="11" fill="#52514e">Mac + Spark</text>
+<text x="24" y="161" font-size="13" fill="#0b0b0b" font-weight="600">Mac A (Qwen 27B)</text>
+<line x1="84.8" y1="361.39" x2="404" y2="361.39" stroke="#e1e0d9" stroke-width="1"/>
+<text x="76.8" y="365.39" font-size="11" fill="#898781" text-anchor="end">10 s</text>
+<line x1="84.8" y1="330.14" x2="404" y2="330.14" stroke="#e1e0d9" stroke-width="1"/>
+<text x="76.8" y="334.14" font-size="11" fill="#898781" text-anchor="end">20 s</text>
+<line x1="84.8" y1="288.82" x2="404" y2="288.82" stroke="#e1e0d9" stroke-width="1"/>
+<text x="76.8" y="292.82" font-size="11" fill="#898781" text-anchor="end">50 s</text>
+<line x1="84.8" y1="257.57" x2="404" y2="257.57" stroke="#e1e0d9" stroke-width="1"/>
+<text x="76.8" y="261.57" font-size="11" fill="#898781" text-anchor="end">100 s</text>
+<line x1="84.8" y1="226.31" x2="404" y2="226.31" stroke="#e1e0d9" stroke-width="1"/>
+<text x="76.8" y="230.31" font-size="11" fill="#898781" text-anchor="end">200 s</text>
+<line x1="84.8" y1="185" x2="404" y2="185" stroke="#e1e0d9" stroke-width="1"/>
+<text x="76.8" y="189" font-size="11" fill="#898781" text-anchor="end">500 s</text>
+<line x1="84.8" y1="174" x2="84.8" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="84.8" y="398" font-size="11" fill="#898781" text-anchor="middle">8K</text>
+<line x1="244.4" y1="174" x2="244.4" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="244.4" y="398" font-size="11" fill="#898781" text-anchor="middle">32K</text>
+<line x1="324.2" y1="174" x2="324.2" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="324.2" y="398" font-size="11" fill="#898781" text-anchor="middle">64K</text>
+<line x1="404" y1="174" x2="404" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="404" y="398" font-size="11" fill="#898781" text-anchor="middle">128K</text>
+<line x1="84.8" y1="174" x2="84.8" y2="384" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="84.8" y1="384" x2="404" y2="384" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="84.8" y1="321.04" x2="244.4" y2="253.33" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="244.4" y1="253.33" x2="324.2" y2="215.76" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="324.2" y1="215.76" x2="404" y2="174" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="84.8" cy="321.04" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac alone · 8K: 24.5 s</title></circle>
+<circle cx="244.4" cy="253.33" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac alone · 32K: 109.8 s</title></circle>
+<circle cx="324.2" cy="215.76" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac alone · 64K: 252.8 s</title></circle>
+<circle cx="404" cy="174" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac alone · 128K: 638.1 s</title></circle>
+<line x1="84.8" y1="368.26" x2="244.4" y2="304.75" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="244.4" y1="304.75" x2="324.2" y2="269.4" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="324.2" y1="269.4" x2="404" y2="228.68" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<circle cx="84.8" cy="368.26" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac + Spark · 8K: 8.6 s</title></circle>
+<circle cx="244.4" cy="304.75" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac + Spark · 32K: 35.1 s</title></circle>
+<circle cx="324.2" cy="269.4" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac + Spark · 64K: 76.9 s</title></circle>
+<circle cx="404" cy="228.68" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac A (Qwen 27B) · Mac + Spark · 128K: 189.8 s</title></circle>
+<text x="92.8" y="313.04" font-size="11" fill="#898781">24.5 s</text>
+<text x="252.4" y="245.33" font-size="11" fill="#898781">109.8 s</text>
+<text x="332.2" y="207.76" font-size="11" fill="#898781">252.8 s</text>
+<text x="396" y="166" font-size="11" fill="#898781" text-anchor="end">638.1 s</text>
+<text x="92.8" y="360.26" font-size="11" fill="#898781">8.6 s</text>
+<text x="252.4" y="296.75" font-size="11" fill="#898781">35.1 s</text>
+<text x="332.2" y="261.4" font-size="11" fill="#898781">76.9 s</text>
+<text x="396" y="194.68" font-size="11" fill="#898781" text-anchor="end">189.8 s</text>
+<text x="28" y="279" font-size="11" fill="#898781" text-anchor="middle" transform="rotate(-90 28 279)">Wait for the first word (s)</text>
+<text x="244.4" y="412" font-size="11" fill="#898781" text-anchor="middle">Prompt size (tokens)</text>
+<text x="436" y="161" font-size="13" fill="#0b0b0b" font-weight="600">Mac B (Flash-Next)</text>
+<line x1="496.8" y1="361.39" x2="816" y2="361.39" stroke="#e1e0d9" stroke-width="1"/>
+<text x="488.8" y="365.39" font-size="11" fill="#898781" text-anchor="end">10 s</text>
+<line x1="496.8" y1="330.14" x2="816" y2="330.14" stroke="#e1e0d9" stroke-width="1"/>
+<text x="488.8" y="334.14" font-size="11" fill="#898781" text-anchor="end">20 s</text>
+<line x1="496.8" y1="288.82" x2="816" y2="288.82" stroke="#e1e0d9" stroke-width="1"/>
+<text x="488.8" y="292.82" font-size="11" fill="#898781" text-anchor="end">50 s</text>
+<line x1="496.8" y1="257.57" x2="816" y2="257.57" stroke="#e1e0d9" stroke-width="1"/>
+<text x="488.8" y="261.57" font-size="11" fill="#898781" text-anchor="end">100 s</text>
+<line x1="496.8" y1="226.31" x2="816" y2="226.31" stroke="#e1e0d9" stroke-width="1"/>
+<text x="488.8" y="230.31" font-size="11" fill="#898781" text-anchor="end">200 s</text>
+<line x1="496.8" y1="185" x2="816" y2="185" stroke="#e1e0d9" stroke-width="1"/>
+<text x="488.8" y="189" font-size="11" fill="#898781" text-anchor="end">500 s</text>
+<line x1="496.8" y1="174" x2="496.8" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="496.8" y="398" font-size="11" fill="#898781" text-anchor="middle">8K</text>
+<line x1="656.4" y1="174" x2="656.4" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="656.4" y="398" font-size="11" fill="#898781" text-anchor="middle">32K</text>
+<line x1="736.2" y1="174" x2="736.2" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="736.2" y="398" font-size="11" fill="#898781" text-anchor="middle">64K</text>
+<line x1="816" y1="174" x2="816" y2="384" stroke="#e1e0d9" stroke-width="1"/>
+<text x="816" y="398" font-size="11" fill="#898781" text-anchor="middle">128K</text>
+<line x1="496.8" y1="174" x2="496.8" y2="384" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="496.8" y1="384" x2="816" y2="384" stroke="#c3c2b7" stroke-width="1"/>
+<line x1="496.8" y1="368.81" x2="656.4" y2="307.12" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="656.4" y1="307.12" x2="736.2" y2="274.94" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<line x1="736.2" y1="274.94" x2="816" y2="243.31" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="496.8" cy="368.81" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac alone · 8K: 8.5 s</title></circle>
+<circle cx="656.4" cy="307.12" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac alone · 32K: 33.3 s</title></circle>
+<circle cx="736.2" cy="274.94" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac alone · 64K: 68.0 s</title></circle>
+<circle cx="816" cy="243.31" r="4" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac alone · 128K: 137.2 s</title></circle>
+<line x1="496.8" y1="384" x2="656.4" y2="339.78" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="656.4" y1="339.78" x2="736.2" y2="311.87" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<line x1="736.2" y1="311.87" x2="816" y2="281.54" stroke="#1baf7a" stroke-width="2" stroke-linecap="round"/>
+<circle cx="496.8" cy="384" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac + Spark · 8K: 6.1 s</title></circle>
+<circle cx="656.4" cy="339.78" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac + Spark · 32K: 16.1 s</title></circle>
+<circle cx="736.2" cy="311.87" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac + Spark · 64K: 30.0 s</title></circle>
+<circle cx="816" cy="281.54" r="4" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"><title>Mac B (Flash-Next) · Mac + Spark · 128K: 58.8 s</title></circle>
+<text x="504.8" y="360.81" font-size="11" fill="#898781">8.5 s</text>
+<text x="664.4" y="299.12" font-size="11" fill="#898781">33.3 s</text>
+<text x="744.2" y="266.94" font-size="11" fill="#898781">68.0 s</text>
+<text x="808" y="235.31" font-size="11" fill="#898781" text-anchor="end">137.2 s</text>
+<text x="504.8" y="376" font-size="11" fill="#898781">6.1 s</text>
+<text x="664.4" y="331.78" font-size="11" fill="#898781">16.1 s</text>
+<text x="744.2" y="303.87" font-size="11" fill="#898781">30.0 s</text>
+<text x="808" y="322.54" font-size="11" fill="#898781" text-anchor="end">58.8 s</text>
+<text x="656.4" y="412" font-size="11" fill="#898781" text-anchor="middle">Prompt size (tokens)</text>
+<text x="24" y="446" font-size="11" fill="#898781">Every point carries its value.</text>
+<text x="24" y="462" font-size="11" fill="#898781">The helper is the DGX Spark that reads long prompts for the Mac. Lower is better.</text>
+</svg>

@@ -9,13 +9,20 @@ from __future__ import annotations
 from typing import Dict, Iterable, List, Optional
 
 VARIANT_LABELS: Dict[str, str] = {
-    "gpu": "GPU only",
-    "native": "Native KV",
-    "affine4": "Affine4 KV",
-    "affine8": "Affine8 KV",
-    "ane": "+ ANE prefill",
+    "gpu": "Mac alone",
+    "native": "Full-size KV cache",
+    "affine4": "4-bit prompt memory",
+    "affine8": "8-bit prompt memory",
+    "ane": "+ Apple Neural Engine",
     "spark": "+ Spark helper",
-    "ane_spark": "+ ANE + Spark",
+    "ane_spark": "+ Apple Neural Engine + Spark helper",
+}
+
+# The first time a page names one of these, it gives the engine's own name in brackets after the
+# plain words, so a reader who goes looking for it can find it; after that the plain words alone.
+VARIANT_FIRST_NAMES: Dict[str, str] = {
+    "affine4": "4-bit prompt memory (Affine4)",
+    "affine8": "8-bit prompt memory (Affine8)",
 }
 
 # Colour follows the variant, not its position in a chart. "gpu" and "native" are the
@@ -47,7 +54,7 @@ LAYER_SETTING_PREFIX = "layers-"
 ARM_ALONE = "mac-alone"
 ARM_HELPER = "helper"
 
-ARM_LABELS: Dict[str, str] = {ARM_ALONE: "Mac alone", ARM_HELPER: "With helper"}
+ARM_LABELS: Dict[str, str] = {ARM_ALONE: "Mac alone", ARM_HELPER: "Mac + Spark"}
 
 # The Mac alone keeps the baseline blue; the helper keeps the aqua it has in every other chart.
 ARM_ORDER: List[str] = [ARM_ALONE, ARM_HELPER]
@@ -61,7 +68,10 @@ SETTING_LABELS: Dict[str, str] = {SETTING_MAC_ALONE: "Mac alone", SETTING_AUTOMA
 SETTING_SERIES: List[str] = ["blue", "magenta", "violet", "orange", "aqua", "yellow", "green", "red"]
 
 
-def variant_label(name: str) -> str:
+def variant_label(name: str, *, first: bool = False) -> str:
+    """The plain name of a setup. `first` gives the engine's own name in brackets, once per page."""
+    if first and name in VARIANT_FIRST_NAMES:
+        return VARIANT_FIRST_NAMES[name]
     return VARIANT_LABELS.get(name, name)
 
 

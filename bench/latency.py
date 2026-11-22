@@ -52,6 +52,20 @@ class Request:
         return not self.failed
 
 
+# The helper states its own program reports, said the way a reader can use them.
+STATE_LABELS: Dict[str, str] = {
+    "connecting": "not ready yet, still connecting",
+    "starting": "not ready yet, still starting",
+    "ready": "ready",
+    "none": "no state read",
+}
+
+
+def state_label(name: str) -> str:
+    """'starting' -> 'not ready yet, still starting'; a state with no plain name keeps its name."""
+    return STATE_LABELS.get(name, name)
+
+
 @dataclass
 class Waits:
     """The requests of one cell, read as one line of a table."""
@@ -83,15 +97,15 @@ class Waits:
 
     @property
     def state_text(self) -> str:
-        """Each helper state the requests began in, with its share: 'connecting (6 of 6)'."""
+        """Each helper state the requests began in, with its share: 'ready (6 of 6)'."""
         counts: Dict[str, int] = {}
         for member in self.members:
             name = member.helper_state or "none"
             counts[name] = counts.get(name, 0) + 1
         if not counts:
-            return "none"
+            return state_label("none")
         ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-        return " · ".join(f"{name} ({count} of {self.requests})" for name, count in ordered)
+        return " · ".join(f"{state_label(name)} ({count} of {self.requests})" for name, count in ordered)
 
     @property
     def layers_text(self) -> str:

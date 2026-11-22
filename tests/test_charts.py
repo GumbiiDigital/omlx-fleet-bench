@@ -168,9 +168,11 @@ class LinePanelTest(unittest.TestCase):
         for expected in ("GPU only", "+ Spark helper", "1K", "128K", "2 s", "100 s", "both axes are log"):
             self.assertIn(expected, texts)
 
-    def test_values_are_tooltips_not_drawn_labels(self):
+    def test_every_point_carries_its_value_as_drawn_text(self):
+        # A chart is read as a still image, so the value has to be in the picture, not in a hover tip.
         svg = self._svg()
-        self.assertNotIn("8.7 s", _texts(svg))
+        self.assertIn("8.7 s", _texts(svg))
+        self.assertIn("1.5 s", _texts(svg))
         titles = [node.text for node in ET.fromstring(svg).iter(f"{SVG_NS}title")]
         self.assertIn("Time to first token by prompt size · GPU only · 8K: 8.7 s", titles)
 
@@ -191,6 +193,13 @@ class LinePanelTest(unittest.TestCase):
         strokes = {node.get("stroke") for node in root.iter(f"{SVG_NS}line")}
         self.assertIn(DARK.series["blue"], strokes)
         self.assertIn(DARK.series["aqua"], strokes)
+
+    def test_the_file_says_which_axes_multiply(self):
+        root = ET.fromstring(self._svg())
+        self.assertEqual(root.get("data-x-scale"), "log")
+        self.assertEqual(root.get("data-y-scale"), "log")
+        bars = ET.fromstring(charts.bar_panels(self.caption, _bar_panels(), LIGHT))
+        self.assertEqual(bars.get("data-y-scale"), "linear")
 
     def test_same_input_gives_the_same_bytes(self):
         self.assertEqual(self._svg(), self._svg())
@@ -255,12 +264,13 @@ class LinePanelsTest(unittest.TestCase):
         self.assertEqual(texts.count("With helper"), 1)
         self.assertIn("a footnote", texts)
 
-    def test_every_point_keeps_its_value_in_a_tooltip(self):
+    def test_every_point_carries_its_value_as_drawn_text(self):
         svg = self._svg()
+        self.assertIn("42.0 s", _texts(svg))
+        self.assertIn("324.7 s", _texts(svg))
         titles = [node.text for node in ET.fromstring(svg).iter(f"{SVG_NS}title")]
         self.assertIn("4K prompt · With helper · 8 users: 42.0 s", titles)
         self.assertIn("32K prompt · Mac alone · 8 users: 324.7 s", titles)
-        self.assertNotIn("42.0 s", _texts(svg))
 
     def test_the_panels_share_one_scale(self):
         root = ET.fromstring(self._svg())
@@ -318,7 +328,7 @@ class LabelsTest(unittest.TestCase):
 
     def test_arms_run_mac_alone_then_helper_and_keep_their_colours(self):
         self.assertEqual(labels.ordered_arms(["helper", "mac-alone"]), ["mac-alone", "helper"])
-        self.assertEqual([labels.arm_label(arm) for arm in ("mac-alone", "helper")], ["Mac alone", "With helper"])
+        self.assertEqual([labels.arm_label(arm) for arm in ("mac-alone", "helper")], ["Mac alone", "Mac + Spark"])
         for colour in labels.arm_series(["mac-alone", "helper"]).values():
             self.assertIn(colour, LIGHT.series)
             self.assertIn(colour, DARK.series)
