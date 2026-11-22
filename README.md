@@ -77,12 +77,14 @@ numbers are in [answer quality](docs/answer-quality.md).
   [the oMLX project](https://github.com/jundot/omlx).
 - The oMLX helper 0.1.4 on the Spark. This repo does not say where to get the helper or how to set it
   up.
+- Newest at the time of writing: oMLX 0.8.3 (2026-11-22) on the Mac and helper 0.1.8 on the Spark
+  (pull `jundot/omlx-cuda-helper` again to update). We have not tested them.
 - One language model on the Mac. Tested: the Qwen 27B model, an open language model, stored as
   `Jundot/Qwen3.8-27B-oQ4e-mtp` (the model's file name; 4-bit, 16 GB on disk); and the Flash-Next
   model, a second open language model, stored as `Qwen3.8-Flash-Next-oQ4e-mtp`.
-- One fix the helper still needs: without it, 128K prompts fail on the helper. The fix is in
-  [pull request 5271](https://github.com/jundot/omlx/pull/5271), and it is not in a release yet.
-  Applying it is not covered here.
+- One fix the helper needs, or 128K prompts fail on it: helper 0.1.6 and later have it (it came with
+  oMLX 0.8.0). A Spark on helper 0.1.4 or 0.1.5 needs it by hand, or a helper update. Our tests used
+  the fix from [pull request 5271](https://github.com/jundot/omlx/pull/5271), applied by hand.
 
 ## Try it on your Mac
 
@@ -108,7 +110,7 @@ The run puts your settings back, uploads nothing and never prints your key. Ever
 - Each Mac had its own Spark beside it. The prompt-size test used a second Spark of the same type, a
   day earlier.
 - The Flash-Next server refused a 256K prompt, so the results stop at 128K.
-- The helper needs a memory fix that is not in a release yet.
+- Our tests applied the memory fix by hand. Helper 0.1.6 and later have it (it came with oMLX 0.8.0).
 
 How we measured, and every limit: [method](docs/method.md).
 

@@ -25,6 +25,8 @@ Words on this page:
 - Your Spark paired as the helper; the command below reads its node id for you.
 - A run file from `matrices/` to say which prompt sizes and setups to run, and a name of your own for
   your machine, passed as `--machine`.
+- Newest at the time of writing: oMLX 0.8.3 (2026-11-22) on the Mac and helper 0.1.8 on the Spark
+  (pull `jundot/omlx-cuda-helper` again to update). We have not tested them.
 
 ## Where the helper's node id comes from
 
@@ -130,13 +132,16 @@ short name for your Mac.
      --dry-run
    ```
 
-**128K prompts need the fix from [pull request 5271](https://github.com/jundot/omlx/pull/5271).**
+**128K prompts need a Spark helper that has the fix: helper 0.1.6 or later.**
+Helper 0.1.6 came with oMLX 0.8.0, and the fix came from
+[pull request 5271](https://github.com/jundot/omlx/pull/5271). To update your helper, pull
+`jundot/omlx-cuda-helper` again, as the 0.8.3 release notes say.
 The run files in steps 3 and 5 hold a 128K prompt size. In a speed file it is `131072` in the top-level
 `prompt_sizes` list: `matrices/m3-ultra-spark.json` and `matrices/m3-ultra-b-speed.json` (step 3). In a
 quality file it is `131072` in the `sizes` list of the `passkey` task, under `tasks`:
-`matrices/quality.json` and `matrices/m3-ultra-b-quality.json` (step 5). Without that fix the 128K part
-fails on the helper, after hours of running. To skip it, copy the run file and remove `131072` from
-that list.
+`matrices/quality.json` and `matrices/m3-ultra-b-quality.json` (step 5). On a helper older than 0.1.6
+the 128K part fails on the helper, after hours of running. To skip it, copy the run file and remove
+`131072` from that list.
 
 3. Run the speed test: the wait for the first word at 8K, 32K, 64K and 128K tokens, for each setup in
    the run file. This is the same command as step 2, without `--dry-run`. With
